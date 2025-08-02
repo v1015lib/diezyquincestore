@@ -20,25 +20,16 @@
 
 .products-container{
 
-    &::-webkit-scrollbar {
-        width: 2px; /* Ancho para scrollbars verticales */
-        height: 10px; /* Alto para scrollbars horizontales */
-    }
-    &::-webkit-scrollbar-track {
-        background: white;
 
-    }
-    &::-webkit-scrollbar-thumb {
 
-        background: darken($primary-color, 5%)
-
-    }
     background: #F0F2F5;
+
 
 }
 
 
 .product-grid{
+
     display: grid;
     justify-content: center;
     min-height: 100vh;

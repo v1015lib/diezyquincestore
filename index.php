@@ -16,13 +16,16 @@
 <body>
     <?php include 'includes/header.php'; ?>
 
-    <div class="main-container">
+    <div class="main-container" style="position: relative;">
         <?php include 'includes/sidemenu.php'; ?>
-
-        <div class="products-container">
-            <div id="product-list" class="product-grid"></div>
-            <div id="pagination-controls" class="pagination"></div>
-        </div>
+            <div class="grid-inner">
+                <div class="products-container">
+                    <div id="product-list" class="product-grid"></div>
+                    <div id="pagination-controls" class="pagination"></div>
+                </div>    
+            
+                <?php include 'includes/footer.php'; ?>
+            </div>
     </div>
 
     <div id="cart-panel" class="cart-panel">
@@ -44,7 +47,6 @@
     <div id="cart-overlay" class="cart-overlay"></div>
 
 
-    <?php include 'includes/footer.php'; ?>
     <div id="notification-container" class="notification-container"></div>
 
 <div id="login-prompt-modal" class="modal-overlay hidden">

@@ -3,20 +3,58 @@ import { updateCartHeader } from './cart_updater.js';
 import { loadCartDetails } from './cart_view_handler.js';
 import { showLoginPrompt } from './modal_handler.js';
 
+// En: public_html/js/cart_quantity_handler.js
+
 async function updateCartAPI(productId, quantity) {
+    const itemElement = document.querySelector(`.cart-item[data-product-id="${productId}"]`);
+
+    // 1. Lógica de animación para eliminar un elemento
+    if (quantity <= 0 && itemElement) {
+        itemElement.classList.add('is-removing');
+        // Esperamos a que la animación de CSS termine (400ms) y LUEGO eliminamos el elemento del DOM.
+        itemElement.addEventListener('transitionend', () => {
+            itemElement.remove();
+            
+            // Comprobamos si el carrito ha quedado vacío
+            const cartContent = document.getElementById('cart-content');
+            if (cartContent && cartContent.children.length === 0) {
+                cartContent.innerHTML = '<p>Tu carrito está vacío.</p>';
+            }
+        });
+    }
+
     try {
         const response = await fetch('api/index.php?resource=cart', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ product_id: productId, quantity: quantity })
         });
-        if (!response.ok) throw new Error('La respuesta del servidor no fue exitosa.');
+        
         const data = await response.json();
-        if (!data.success) throw new Error(data.message || 'Error del API.');
+        if (!data.success) {
+            // Si la API falla, lanzamos un error para que el 'catch' lo maneje
+            throw new Error(data.error || 'Error desconocido del API.');
+        }
 
+        // 2. Actualizamos los totales SIN RECARGAR NADA
+        // Usamos el 'new_total' que nos devuelve nuestra API modificada
+        const cartTotalElement = document.getElementById('cart-total-price');
+        if (cartTotalElement) {
+            cartTotalElement.textContent = `$${data.new_total || '0.00'}`;
+        }
+        // Llamamos a la función que solo actualiza el numerito del header
         await updateCartHeader();
-        await loadCartDetails();
 
+        // 3. Lógica de animación "flash" para confirmar una actualización de cantidad
+        if (quantity > 0 && itemElement) {
+            itemElement.classList.add('is-updated');
+            // Quitamos la clase después de 700ms para que la animación pueda volver a ocurrir
+            setTimeout(() => {
+                itemElement.classList.remove('is-updated');
+            }, 700);
+        }
+        
+        // 4. Sincronizamos el valor con la tarjeta del producto en la página principal, si existe
         const productCardInput = document.querySelector(`.product-card[data-product-id="${productId}"] .quantity-input`);
         if (productCardInput) {
             productCardInput.value = quantity;
@@ -24,6 +62,10 @@ async function updateCartAPI(productId, quantity) {
 
     } catch (error) {
         console.error('Error al actualizar el carrito:', error);
+        // SOLO si hay un error, recargamos todo el carrito para asegurar que el usuario vea el estado real.
+        // Esto evita que la interfaz quede en un estado inconsistente.
+        showNotification('Error al actualizar, restaurando carrito.', 'error');
+        await loadCartDetails(); 
     }
 }
 

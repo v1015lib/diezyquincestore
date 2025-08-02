@@ -298,35 +298,62 @@ function handleGetFavoriteDetailsRequest(PDO $pdo, int $client_id) {
 }
 
 function handleAddMultipleToCartRequest(PDO $pdo, int $client_id, array $product_ids) {
-    if (empty($product_ids)) throw new Exception("No se proporcionaron productos para añadir.");
+    if (empty($product_ids)) {
+        throw new Exception("No se proporcionaron productos para añadir.");
+    }
+
     $cart_id = getOrCreateCart($pdo, $client_id);
-    $stmt_price = $pdo->prepare("SELECT precio_venta FROM productos WHERE id_producto = :product_id");
-    $stmt_insert = $pdo->prepare("
-        INSERT INTO detalle_carrito (id_carrito, id_producto, cantidad, precio_unitario)
-        VALUES (:cart_id, :product_id, 1, :unit_price)
-        ON DUPLICATE KEY UPDATE cantidad = cantidad + 1
-    ");
+
+    // Preparar todas las consultas SQL necesarias
+    $stmt_price = $pdo->prepare("SELECT precio_venta, precio_oferta FROM productos WHERE id_producto = :product_id");
+    $stmt_check = $pdo->prepare("SELECT id_detalle_carrito FROM detalle_carrito WHERE id_carrito = :cart_id AND id_producto = :product_id");
+    $stmt_update = $pdo->prepare("UPDATE detalle_carrito SET cantidad = cantidad + 1 WHERE id_detalle_carrito = :detail_id");
+    $stmt_insert = $pdo->prepare(
+        "INSERT INTO detalle_carrito (id_carrito, id_producto, cantidad, precio_unitario)
+         VALUES (:cart_id, :product_id, 1, :unit_price)"
+    );
+
     $pdo->beginTransaction();
     try {
         foreach ($product_ids as $product_id) {
-            $stmt_price->execute([':product_id' => (int)$product_id]);
-            $unit_price = $stmt_price->fetchColumn();
-            if ($unit_price !== false) {
-                $stmt_insert->execute([
-                    ':cart_id' => $cart_id,
-                    ':product_id' => (int)$product_id,
-                    ':unit_price' => $unit_price
-                ]);
+            $product_id_int = (int)$product_id;
+
+            // 1. Verificar si el producto ya existe en el carrito
+            $stmt_check->execute([':cart_id' => $cart_id, ':product_id' => $product_id_int]);
+            $detail_id = $stmt_check->fetchColumn();
+
+            if ($detail_id) {
+                // 2a. Si existe, simplemente incrementa la cantidad
+                $stmt_update->execute([':detail_id' => $detail_id]);
+            } else {
+                // 2b. Si no existe, obtén el precio correcto e insértalo
+                $stmt_price->execute([':product_id' => $product_id_int]);
+                $prices = $stmt_price->fetch(PDO::FETCH_ASSOC);
+
+                if ($prices) {
+                    // Usar precio de oferta si es válido; si no, el precio de venta normal
+                    $unit_price = ($prices['precio_oferta'] !== null && $prices['precio_oferta'] > 0)
+                        ? $prices['precio_oferta']
+                        : $prices['precio_venta'];
+
+                    $stmt_insert->execute([
+                        ':cart_id' => $cart_id,
+                        ':product_id' => $product_id_int,
+                        ':unit_price' => $unit_price
+                    ]);
+                }
             }
         }
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Productos añadidos al carrito con éxito.']);
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        // Lanza una excepción con un mensaje más claro para depuración
         throw new Exception("Error al añadir productos al carrito: " . $e->getMessage());
     }
 }
-
 function handleGetProfileRequest(PDO $pdo, int $client_id) {
     $stmt = $pdo->prepare("SELECT nombre_usuario, nombre, apellido, email, telefono FROM clientes WHERE id_cliente = :client_id");
     $stmt->execute([':client_id' => $client_id]);
@@ -518,44 +545,51 @@ function handleSetCartItemRequest(PDO $pdo) {
         if ($quantity <= 0) {
             deleteCartItem($pdo, $cart_id, $product_id);
         } else {
-            // 1. OBTENEMOS LOS PRECIOS DEL PRODUCTO PRIMERO
             $stmt_price = $pdo->prepare("SELECT precio_venta, precio_oferta FROM productos WHERE id_producto = :product_id");
             $stmt_price->execute([':product_id' => $product_id]);
             $prices = $stmt_price->fetch(PDO::FETCH_ASSOC);
 
-            if (!$prices) {
-                throw new Exception("Producto no encontrado.");
-            }
+            if (!$prices) throw new Exception("Producto no encontrado.");
 
-            // 2. DECIDIMOS QUÉ PRECIO USAR
             $unit_price = ($prices['precio_oferta'] !== null && $prices['precio_oferta'] > 0)
-                ? $prices['precio_oferta']  // Usar precio de oferta si es válido
-                : $prices['precio_venta'];  // Si no, usar precio normal
+                ? $prices['precio_oferta']
+                : $prices['precio_venta'];
 
-            // 3. USAMOS LA LÓGICA ANTIGUA (SEGURA) CON EL PRECIO CORRECTO
             $stmt_check = $pdo->prepare("SELECT id_detalle_carrito FROM detalle_carrito WHERE id_carrito = :cart_id AND id_producto = :product_id");
             $stmt_check->execute([':cart_id' => $cart_id, ':product_id' => $product_id]);
             $detail_id = $stmt_check->fetchColumn();
 
             if ($detail_id) {
-                // Si el producto ya existe, ACTUALIZAMOS cantidad Y precio
                 $stmt_update = $pdo->prepare("UPDATE detalle_carrito SET cantidad = :quantity, precio_unitario = :unit_price WHERE id_detalle_carrito = :detail_id");
                 $stmt_update->execute([':quantity' => $quantity, ':unit_price' => $unit_price, ':detail_id' => $detail_id]);
             } else {
-                // Si es un producto nuevo, lo INSERTAMOS con el precio correcto
                 $stmt_insert = $pdo->prepare("INSERT INTO detalle_carrito (id_carrito, id_producto, cantidad, precio_unitario) VALUES (:cart_id, :product_id, :quantity, :unit_price)");
                 $stmt_insert->execute([':cart_id' => $cart_id, ':product_id' => $product_id, ':quantity' => $quantity, ':unit_price' => $unit_price]);
             }
         }
         
+        // --- INICIO DE LA MEJORA ---
+        // Después de la operación, calculamos el nuevo total del carrito.
+        $stmt_total = $pdo->prepare("SELECT SUM(dc.cantidad * dc.precio_unitario) as total_price FROM detalle_carrito dc WHERE dc.id_carrito = :cart_id");
+        $stmt_total->execute([':cart_id' => $cart_id]);
+        $total_price = $stmt_total->fetchColumn() ?: 0;
+        
         $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'Carrito actualizado.']);
+
+        // Y lo devolvemos en la respuesta.
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Carrito actualizado.',
+            'new_total' => number_format($total_price, 2)
+        ]);
+        // --- FIN DE LA MEJORA ---
 
     } catch (Exception $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
         http_response_code(500);
+        // Devolvemos el error en formato JSON también
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
 }

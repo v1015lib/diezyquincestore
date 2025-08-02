@@ -36,9 +36,9 @@
             display: block;
         }
     }
-    .main-container { flex-direction: column; }
+
     .sidemenu {
-        position: fixed; 
+        position: fixed;
         top: 0; 
         left: -100%; 
         width: 100%; 
@@ -61,3 +61,32 @@
     }
 }
 
+.main-container{
+    display: flex;
+
+    .grid-inner{
+        overflow-y: auto;
+
+            &::-webkit-scrollbar {
+        width: 5px; /* Ancho para scrollbars verticales */
+        height: 10px; /* Alto para scrollbars horizontales */
+    }
+    &::-webkit-scrollbar-track {
+        background: $primary-color;
+
+    }
+    &::-webkit-scrollbar-thumb {
+
+        background: darken($primary-color, 5%)
+
+    }
+        .products-container{
+
+        .pagination{
+
+
+        }        
+    }
+
+    }
+}

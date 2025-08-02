@@ -383,16 +383,16 @@
 .favorite-item .form-group-checkbox {
     flex-basis: 40px;
     flex-shrink: 0;
-    border: 1px solid red;
+
 }
 
 .favorite-item-image {
     width: 40px;
-
+    height: 40px;
     object-fit: contain;
     border-radius: 4px;
     margin-right: 1rem;
-    flex-shrink: 0;
+    flex-shrink: 1;
 }
 
 .favorite-item-details {

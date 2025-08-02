@@ -7,8 +7,8 @@
     background-color: $primary-color;
 
 
-    position: sticky; // Menú pegajoso en PC
-    top: 80px; // Ajustar esto según la altura final del header
+    position: fiex; // Menú pegajoso en PC
+    top: 0px; // Ajustar esto según la altura final del header
     height: 100%; // Se ajusta a la altura de la ventana menos el header
     overflow-y: auto; // Permite scroll si hay muchos departamentos
     z-index: 100000;
@@ -16,7 +16,7 @@
 
 
     &::-webkit-scrollbar {
-        width: 15px; /* Ancho para scrollbars verticales */
+        width: 5px; /* Ancho para scrollbars verticales */
         height: 10px; /* Alto para scrollbars horizontales */
     }
     &::-webkit-scrollbar-track {

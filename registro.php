@@ -103,7 +103,6 @@ try {
         </div>
     </div>
 
-    <?php include 'includes/footer.php'; ?>
     <div id="notification-container" class="notification-container"></div>
     <script type="module" src="js/register.js"></script>
 </body>
