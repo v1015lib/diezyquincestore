@@ -88,3 +88,33 @@
         }
     }
 }
+/* --- INICIO: Animaciones para el Carrito --- */
+
+/* 1. Animación para desvanecer y eliminar un item */
+.cart-item.is-removing {
+  opacity: 0;
+  transform: scale(0.95);
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  border: 0;
+  /* La transición debe ser suave */
+  transition: all 0.4s ease-out !important; /* Usamos !important para asegurar que sobreescriba otras transiciones */
+  overflow: hidden; /* Muy importante para que el contenido no se salga mientras colapsa */
+}
+
+/* 2. Animación de "destello" para confirmar una actualización */
+@keyframes flash-success {
+  0%   { background-color: transparent; }
+  50%  { background-color: #e8f5e9; } /* Un verde muy claro */
+  100% { background-color: transparent; }
+}
+
+.cart-item.is-updated {
+  /* Ejecuta la animación de destello */
+  animation: flash-success 0.7s ease-out;
+}
+
+/* --- FIN: Animaciones para el Carrito --- */

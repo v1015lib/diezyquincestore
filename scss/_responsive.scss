@@ -90,3 +90,29 @@
 
     }
 }
+
+// Archivo: public_html/scss/_responsive.scss
+
+@media (max-width: $breakpoint-tablet) {
+
+    // ... (otros estilos responsivos)
+
+    .sidemenu {
+        position: fixed; // ✅ ¡ESTA ES LA LÍNEA QUE FALTABA!
+        top: 0; 
+        left: -100%; 
+        width: 100%; 
+        height: 100vh;
+        z-index: 2000; 
+        transition: left 0.3s ease-in-out; 
+        box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+
+        &.active { 
+            left: 0; 
+        }
+        
+        .sidemenu-header .close-sidemenu { 
+            display: block; 
+        }
+    }
+}
