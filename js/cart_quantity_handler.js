@@ -4,7 +4,6 @@ import { loadCartDetails } from './cart_view_handler.js';
 import { showLoginPrompt } from './modal_handler.js';
 
 // En: public_html/js/cart_quantity_handler.js
-
 async function updateCartAPI(productId, quantity) {
     const itemElement = document.querySelector(`.cart-item[data-product-id="${productId}"]`);
 

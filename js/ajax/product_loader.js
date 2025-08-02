@@ -110,6 +110,7 @@ export async function loadProducts(productListId, paginationControlsId, params =
                         <div class="product-info">
                             <h3>${product.nombre_producto}</h3>
                             <p class="department">Depto: ${product.nombre_departamento}</p>
+                    
                             <div class="price-container">
                                 ${priceHtml}
                             </div>

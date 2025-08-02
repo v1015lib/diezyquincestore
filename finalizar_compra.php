@@ -109,6 +109,8 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finalizar Compra</title>
     <link rel="stylesheet" href="css/style.css">
+
+
 </head>
 <body class="page-checkout"> 
     <?php include 'includes/header.php'; ?>
@@ -133,7 +135,7 @@ try {
                         <tbody>
                             <?php foreach ($cart_items as $item): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($item['nombre_producto']); ?></td>
+                                    <td class="p_name"><?php echo htmlspecialchars($item['nombre_producto']); ?></td>
                                     <td><?php echo $item['cantidad']; ?></td>
                                     <td>$<?php echo number_format($item['subtotal'], 2); ?></td>
                                 </tr>
@@ -167,7 +169,7 @@ try {
 
     </div>
     
-    <?php include 'includes/footer.php'; ?>
+
     <script type="module" src="js/checkout.js"></script>
 </body>
 </html>

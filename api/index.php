@@ -398,7 +398,6 @@ function handleLoginRequest(PDO $pdo) {
     }
 }
 
-// ... (todo el resto de tu archivo api/index.php se queda igual) ...
 
 
 function handleRegisterRequest(PDO $pdo, array $data) {
@@ -658,7 +657,7 @@ function handleCheckUsernameRequest(PDO $pdo) {
 }
 function handleProductsRequest(PDO $pdo) {
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 25;
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
     $offset = ($page - 1) * $limit;
     $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';

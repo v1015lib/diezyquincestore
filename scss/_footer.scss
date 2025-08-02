@@ -5,7 +5,7 @@
 @import 'vars';
 
 .site-footer {
-    background-color: darken($primary-color, 5%); // Un poco más oscuro que el primario
+    background-color: $primary-color; // Un poco más oscuro que el primario
     color: white;
     padding: 45px 0 20px;
     font-size: 15px;

@@ -27,7 +27,7 @@ if (session_status() == PHP_SESSION_NONE) {
                             <li class="hide-on-mobile"><a href="logout.php">Cerrar Sesión</a></li>
                         <?php else: ?>
                             <li class="hide-on-mobile"><a href="index.php">Inicio</a></li>
-                            <li class="hide-on-mobile"><a href="#">Ofertas</a></li>
+
                             <li class="hide-on-mobile"><a href="registro.php">Crear Cuenta</a></li>
                             <li><a href="login.php" class="login-link">Iniciar Sesión</a></li>
                         <?php endif; ?>

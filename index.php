@@ -8,7 +8,7 @@
     <link rel="shortcut icon" href="img/favicon.png">    
     <meta name="robots" content="index, follow">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diez y Quince Store</title>
+    <title>Vaiedades 10 y 15</title>
     <meta name="description" content="Busca en la variedad de productos disponibles, lo que buscas en un solo lugar, y horarios de atencion unicos.">
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="css/style.css">
