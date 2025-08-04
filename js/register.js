@@ -55,6 +55,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const inputs = Array.from(step.querySelectorAll('input[required], select[required]'));
         let isStepValid = true;
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+    const nameRegex = /^[a-zA-Z\s]*$/; // Expresión regular para letras y espacios
+    const nombreInput = document.getElementById('nombre');
+    const apellidoInput = document.getElementById('apellido');
+
+    if (step.dataset.step === "1") {
+        if (!nameRegex.test(nombreInput.value)) {
+            showNotification('El nombre solo puede contener letras y espacios.', 'error');
+            return false; // Detiene la validación si el nombre es inválido
+        }
+        if (apellidoInput.value && !nameRegex.test(apellidoInput.value)) {
+            showNotification('El apellido solo puede contener letras y espacios.', 'error');
+            return false; // Detiene la validación si el apellido es inválido
+        }
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
         
         inputs.forEach(input => {
             if (!input.value.trim()) {

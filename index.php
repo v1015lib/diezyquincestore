@@ -17,8 +17,10 @@
     <?php include 'includes/header.php'; ?>
 
     <div class="main-container" style="position: relative;">
-        <?php include 'includes/sidemenu.php'; ?>
+        <?php include 'includes/sidemenu.php';?>
             <div class="grid-inner">
+                <?php include 'includes/carrousel-ads.php';?>
+
                 <div class="products-container">
                     <div id="product-list" class="product-grid"></div>
                     <div id="pagination-controls" class="pagination"></div>

@@ -8,6 +8,8 @@ import { updateCartHeader } from './cart_updater.js';
 import { initializeQuantityHandlers } from './cart_quantity_handler.js';
 import { initializeFavoritesHandler } from './favorites_handler.js';
 import { initializeModals } from './modal_handler.js';
+import { initializeCarousel } from './carrousel.js'; 
+
 const API_BASE_URL = 'api/index.php'; 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeQuantityHandlers();
     initializeFavoritesHandler();
     initializeModals();
+    initializeCarousel('.carousel-container'); 
     // --- LÓGICA CORREGIDA PARA MANEJAR BÚSQUEDA DESDE OTRAS PÁGINAS ---
     const urlParams = new URLSearchParams(window.location.search);
     const searchTermFromUrl = urlParams.get('search'); // Usamos 'search' para coincidir con el form

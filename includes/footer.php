@@ -1,5 +1,8 @@
 <footer class="site-footer">
     <div class="footer-container">
+
+
+        <!------------------------
         <div class="footer-column">
             <h4>Información Importante</h4>
             <ul class="footer-links">
@@ -9,7 +12,7 @@
                 <li><a href="terminos-de-uso.php">Términos de Uso</a></li>
             </ul>
         </div>
-
+        -------------------------------------->
         <div class="footer-column">
             <h4>Contacto</h4>
             <div class="contact-info">
@@ -33,6 +36,7 @@
                  style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
 
             </div>
+
         </div>
     </div>
     

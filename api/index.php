@@ -408,6 +408,15 @@ function handleRegisterRequest(PDO $pdo, array $data) {
             throw new Exception("El campo '$field' es obligatorio.");
         }
     }
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Validación para que nombre y apellido solo contengan letras y espacios
+    if (!preg_match("/^[a-zA-Z\s]+$/", $data['nombre'])) {
+        throw new Exception("El nombre solo puede contener letras y espacios.");
+    }
+    if (!empty($data['apellido']) && !preg_match("/^[a-zA-Z\s]+$/", $data['apellido'])) {
+        throw new Exception("El apellido solo puede contener letras y espacios.");
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     $pdo->beginTransaction();
 
