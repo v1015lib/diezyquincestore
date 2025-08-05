@@ -54,6 +54,10 @@ try {
         case 'cart-checkout':
             if ($method === 'POST') handleCheckoutRequest($pdo);
             break;
+        case 'clear-cart':
+            if ($method === 'POST') handleClearCartRequest($pdo);
+            break;
+
         case 'favorites':
             if ($method === 'GET') handleGetFavoritesRequest($pdo);
             elseif ($method === 'POST') handleAddFavoriteRequest($pdo);
@@ -746,4 +750,35 @@ function handleDepartmentsRequest(PDO $pdo) {
     $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($departments);
 }
+
+function handleClearCartRequest(PDO $pdo) {
+    if (!isset($_SESSION['id_cliente'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Debes iniciar sesión para vaciar el carrito.']);
+        return;
+    }
+
+    $client_id = $_SESSION['id_cliente'];
+    // Obtenemos el ID del carrito activo sin crear uno nuevo si no existe.
+    $cart_id = getOrCreateCart($pdo, $client_id, false);
+
+    if ($cart_id) {
+        // Preparamos la sentencia para borrar todos los detalles de ese carrito.
+        $stmt = $pdo->prepare("DELETE FROM detalle_carrito WHERE id_carrito = :cart_id");
+        $stmt->execute([':cart_id' => $cart_id]);
+
+        // Verificamos si se borraron filas para confirmar la operación.
+        if ($stmt->rowCount() > 0) {
+            echo json_encode(['success' => true, 'message' => 'El carrito se ha vaciado con éxito.']);
+        } else {
+            // Esto puede pasar si el carrito ya estaba vacío.
+            echo json_encode(['success' => true, 'message' => 'El carrito ya estaba vacío.']);
+        }
+    } else {
+        // No había un carrito activo para este usuario.
+        echo json_encode(['success' => true, 'message' => 'No se encontró un carrito activo.']);
+    }
+}
+
+
 ?>

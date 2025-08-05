@@ -69,11 +69,12 @@
         li {
 
             a {
+
                 font-size: .9rem;
                 display: block;
-                padding: .3rem;
+                padding: .2rem;
                 color: $tcolor2;
-                font-weight: 900;
+                font-weight: 600;
                 width: 100%;
                 @media screen and (max-width: 425px){
                     font-size: .7rem;

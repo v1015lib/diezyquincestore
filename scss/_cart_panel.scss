@@ -197,3 +197,39 @@
         font-size: 1rem;
     }
 }
+// ... (resto del archivo _cart_panel.scss)
+
+.cart-footer {
+    // ... (estilos existentes)
+    
+    // --- INICIO: CÓDIGO AÑADIDO ---
+    .cart-actions {
+        display: flex;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .checkout-btn, .clear-cart-btn {
+        flex: 1; // Para que ambos botones compartan el espacio
+        padding: .5rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none; // Para el enlace <a>
+        transition: all 0.2s ease;
+        margin: .2rem;
+    }
+
+
+
+    .clear-cart-btn {
+        background-color: #dc3545; // Rojo para indicar una acción destructiva
+        color: white;
+        &:hover {
+            background-color: darken(#dc3545, 10%);
+        }
+    }
+    // --- FIN: CÓDIGO AÑADIDO ---
+}

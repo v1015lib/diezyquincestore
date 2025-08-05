@@ -4,13 +4,13 @@
         <div class="carousel-container">
             <div class="carousel-slides">
                 <div class="carousel-slide active">
-                    <a href="#">
-                        <img src="./img/add1.jpg" alt="Anuncio 1">
+                    <a href="index.php?department_id=8">
+                        <img src="./img/add5.jpg" alt="Anuncio 1">
                     </a>
                 </div>
                 <div class="carousel-slide">
-                    <a href="#">
-                        <img src="./img/add3.jpg" alt="Anuncio 2">
+                    <a href="" >
+                        <img src="./img/add1.jpg" alt="Anuncio 2" >
                     </a>
                 </div>
             </div>
@@ -21,7 +21,7 @@
 
     <div class="promo-sidebar-column">
         <div class="fixed-ad">
-            <a href="#">
+            <a href="dashboard.php?view=ofertas">
                 <img src="./img/add4.jpg" alt="Anuncio fijo 1">
             </a>
         </div>

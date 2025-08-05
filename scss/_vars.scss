@@ -30,7 +30,7 @@ $breakpoint-tablet: 768px;
 $breakpoint-mobile: 480px;
 
 // Fuentes
-$font-family-base: 'Inter', sans-serif;
+$font-family-base: 'Montserrat', sans-serif;
 
 @mixin resp-mobile-header{
         @media screen and (max-width: 425px) and (min-width: 320px){

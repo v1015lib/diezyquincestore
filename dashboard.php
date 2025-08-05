@@ -20,9 +20,9 @@ $view = $_GET['view'] ?? 'perfil';
     <title>Mi Cuenta - <?php echo ucfirst($view); ?></title>
     <link rel="stylesheet" href="css/style.css">
     
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -153,6 +153,8 @@ case 'ofertas':
                 <span id="cart-total-price">$0.00</span>
             </div>
             <a href="finalizar_compra.php" class="checkout-btn">Finalizar Compra</a>
+            <button id="clear-cart-btn" class="clear-cart-btn">Vaciar Carrito</button>
+
         </div>
     </div>
     <div id="cart-overlay" class="cart-overlay"></div>

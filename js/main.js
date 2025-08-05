@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadProducts('product-list', 'pagination-controls', { 
             sortBy: 'random', 
             apiBaseUrl: API_BASE_URL,
-            //hide_no_image: true
+            hide_no_image: true
         });
     }
 

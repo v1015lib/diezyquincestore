@@ -5,7 +5,7 @@
     </div>
     <nav>
         <ul>
-            <li><a href="#" class="department-link" data-department-id="all">Ver todos los productos</a></li>
+            <li><a href="" class="department-link" data-department-id="all">Ver todos los productos</a></li>
             </ul>
     </nav>
 </aside>

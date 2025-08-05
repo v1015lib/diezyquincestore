@@ -2,9 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
     <link rel="shortcut icon" href="img/favicon.png">    
     <meta name="robots" content="index, follow">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,6 +45,8 @@
                 <span id="cart-total-price">$0.00</span>
             </div>
             <button class="checkout-btn">Finalizar Compra</button>
+            <button id="clear-cart-btn" class="clear-cart-btn">Vaciar Carrito</button>
+
         </div>
     </div>
     <div id="cart-overlay" class="cart-overlay"></div>

@@ -7,6 +7,9 @@ const openCartTrigger = document.querySelector('.cart-widget-container');
 const cartContent = document.getElementById('cart-content');
 const cartTotalPrice = document.getElementById('cart-total-price');
 const checkoutBtn = document.querySelector('.checkout-btn');
+import { showNotification } from './notification_handler.js';
+import { updateCartHeader } from './cart_updater.js';
+
 
 export async function loadCartDetails() {
     if (!cartContent) return;
@@ -59,6 +62,10 @@ function toggleCartPanel(event) {
     }
 }
 
+// js/cart_view_handler.js
+
+// ... (importaciones y constantes no cambian)
+
 export function initializeCartView() {
     if (openCartTrigger) {
         openCartTrigger.addEventListener('click', toggleCartPanel);
@@ -72,8 +79,60 @@ export function initializeCartView() {
         cartOverlay.addEventListener('click', toggleCartPanel);
     }
     
+    const clearCartBtn = document.getElementById('clear-cart-btn');
+
+    if (clearCartBtn) {
+        clearCartBtn.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que quieres vaciar tu carrito?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('api/index.php?resource=clear-cart', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Carrito vaciado con éxito.', 'info');
+                    
+                    // --- Lógica de UI en tiempo real ---
+                    
+                    // 1. Animación y vaciado del PANEL del carrito
+                    const items = cartContent.querySelectorAll('.cart-item');
+                    items.forEach(item => item.classList.add('is-removing'));
+
+                    setTimeout(() => {
+                        cartContent.innerHTML = '<p>Tu carrito está vacío.</p>';
+                    }, 400);
+
+                    // 2. Actualizamos totales del PANEL y HEADER
+                    cartTotalPrice.textContent = '$0.00';
+                    updateCartHeader();
+
+                    // --- INICIO: CÓDIGO AÑADIDO PARA LA CORRECCIÓN ---
+                    
+                    // 3. Reseteamos a CERO todos los contadores de las tarjetas de producto en la página.
+                    const allProductCardInputs = document.querySelectorAll('.product-grid .quantity-input');
+                    allProductCardInputs.forEach(input => {
+                        input.value = 0;
+                    });
+                    
+                    // --- FIN: CÓDIGO AÑADIDO PARA LA CORRECCIÓN ---
+
+                } else {
+                    throw new Error(result.error || 'No se pudo vaciar el carrito.');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+                console.error('Error al vaciar el carrito:', error);
+            }
+        });
+    }
+    
     if (checkoutBtn) {
-        checkoutBtn.addEventListener('click', () => {
+        checkoutBtn.addEventListener('click', (e) => {
+            e.preventDefault(); 
             window.location.href = 'finalizar_compra.php';
         });
     }
