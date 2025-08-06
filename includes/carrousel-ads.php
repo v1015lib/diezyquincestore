@@ -4,7 +4,7 @@
         <div class="carousel-container">
             <div class="carousel-slides">
                 <div class="carousel-slide active">
-                    <a href="pageuniquecontent.php?department_id=18">
+                    <a href="pageuniquecontent.php?department_id=18" target="_blank">
                         <img src="./img/add5.jpg" alt="Mes independencia">
                     </a>
                 </div>
