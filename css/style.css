@@ -864,6 +864,51 @@ ul, li, a {
   gap: 1rem;
 }
 
+/* Estilos para los controles de la lista de productos */
+.product-list-controls {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding: 0 1rem 1rem 1rem;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.results-summary-style {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.sort-control {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  gap: 0.5rem;
+}
+.sort-control label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.sort-control select {
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .cart-overlay {
   position: fixed;
   top: 0;

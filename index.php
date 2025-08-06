@@ -66,6 +66,26 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
                 ?>
 
                 <div class="products-container">
+
+
+
+                        <div class="product-list-controls">
+                            <div id="results-summary" class="results-summary-style"></div>
+                            <div class="sort-control">
+                                <label for="sort-by">Ordenar por:</label>
+                                <select id="sort-by" name="sort-by">
+                                    <option value="random">Relevancia</option>
+                                    <option value="nombre_producto-asc">Nombre (A a Z)</option>
+                                    <option value="nombre_producto-desc">Nombre (Z a A)</option>
+                                    <option value="precio_venta-asc">Precio (Menor a Mayor)</option>
+                                    <option value="precio_venta-desc">Precio (Mayor a Menor)</option>
+                                </select>
+                            </div>
+                        </div>
+
+
+
+
                     <div id="product-list" class="product-grid"></div>
                     <div id="pagination-controls" class="pagination"></div>
                 </div>    

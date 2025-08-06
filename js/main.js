@@ -1,6 +1,6 @@
 // js/main.js
 
-import { loadProducts } from './ajax/product_loader.js';
+import { loadProducts, currentProductParams } from './ajax/product_loader.js';
 import { initializeSearch } from './ajax/search_handler.js';
 import { setupMobileMenu } from './mobile_menu.js';
 import { initializeCartView } from './cart_view_handler.js';
@@ -22,28 +22,51 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeModals();
     initializeCarousel('.carousel-container');
     initializeProductCarousels();
-    // --- LÓGICA CORREGIDA PARA MANEJAR BÚSQUEDA DESDE OTRAS PÁGINAS ---
+
     const urlParams = new URLSearchParams(window.location.search);
-    const searchTermFromUrl = urlParams.get('search'); // Usamos 'search' para coincidir con el form
+    const searchTermFromUrl = urlParams.get('search');
 
     if (searchTermFromUrl) {
-        // Si hay un término de búsqueda en la URL, lo ponemos en el input
-        // y cargamos los productos filtrados.
         document.getElementById('search-input').value = searchTermFromUrl;
         loadProducts('product-list', 'pagination-controls', {
             apiBaseUrl: API_BASE_URL,
             search: searchTermFromUrl
         });
     } else {
-        // Si no, cargamos los productos iniciales como siempre.
         loadProducts('product-list', 'pagination-controls', {
             sortBy: 'random',
             apiBaseUrl: API_BASE_URL,
-            //hide_no_image: true
+            hide_no_image: false // La opción para mostrar solo con imágenes está aquí.
         });
     }
 
     initializeSearch('search-input', 'search-button', 'product-list', 'pagination-controls', API_BASE_URL);
+
+    // --- LÓGICA DE ORDENAMIENTO CORREGIDA ---
+    const sortBySelect = document.getElementById('sort-by');
+    if (sortBySelect) {
+        sortBySelect.addEventListener('change', () => {
+            const [sortBy, order] = sortBySelect.value.split('-');
+            
+            // Usamos la variable importada para recordar los filtros activos
+            const paramsToPreserve = {
+                search: currentProductParams.search || null,
+                department_id: currentProductParams.department_id || null,
+                ofertas: currentProductParams.ofertas || null,
+                hide_no_image: currentProductParams.hide_no_image || null
+            };
+
+            loadProducts('product-list', 'pagination-controls', {
+                ...paramsToPreserve,
+                sort_by: sortBy,
+                order: order || 'asc',
+                page: 1,
+                apiBaseUrl: API_BASE_URL,
+                shouldScroll: true
+            });
+        });
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 
     document.getElementById('sidemenu').addEventListener('click', (event) => {
         const target = event.target;
@@ -51,14 +74,11 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             const departmentId = target.dataset.departmentId;
             
-            // ===== INICIO DE LA INTEGRACIÓN =====
-            // Añadimos el parámetro 'shouldScroll' para indicar a la función que debe desplazar la vista.
             let params = { 
                 page: 1, 
                 apiBaseUrl: API_BASE_URL, 
-                shouldScroll: true // <--- ¡AQUÍ ESTÁ LA MAGIA!
+                shouldScroll: true
             };
-            // ===== FIN DE LA INTEGRACIÓN =====
 
             if (departmentId !== 'all') {
                 params.department_id = departmentId;
@@ -68,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             loadProducts('product-list', 'pagination-controls', params);
             
-            // Oculta el menú lateral en móvil después de hacer clic
             document.getElementById('sidemenu').classList.remove('active');
         }
     });
@@ -82,7 +101,6 @@ export async function loadDepartments() {
         const sidemenuUl = document.querySelector('#sidemenu nav ul');
         if (!sidemenuUl) return;
 
-        // Limpiamos solo los departamentos, dejando el "Ver todos"
         sidemenuUl.querySelectorAll('li:not(:first-child)').forEach(li => li.remove());
 
         if (Array.isArray(departments)) {

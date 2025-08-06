@@ -1,5 +1,5 @@
 // public_html/js/ajax/product_loader.js
-let currentProductParams = {};
+export let currentProductParams = {};
 
 // Hacemos que estas funciones sean exportables para que el carrusel las pueda usar
 export async function getCartState() {

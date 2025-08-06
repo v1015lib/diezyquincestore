@@ -88,13 +88,13 @@ try {
 
             // 3. Array final que se envía a la página
             $settings = [
-                'show_main_carousel' => false, // Visivilidad de anuncios principales
-                'show_offers_carousel' => false,// Visivilidad de slider ofertas
+                'show_main_carousel' => true, // Visivilidad de anuncios principales
+                'show_offers_carousel' => true,// Visivilidad de slider ofertas
                 'offers_carousel_config' => [
                     'title'   => $offers_final_title,
                     'filters' => $offers_final_config
                 ],
-                'show_department_carousel' => false,// Visivilidad de slider por departamentos
+                'show_department_carousel' => true,// Visivilidad de slider por departamentos
                 'department_carousel_config' => [
                     'title'   => $department_final_title,
                     'filters' => [
@@ -748,23 +748,27 @@ function handleProductsRequest(PDO $pdo) {
     $offset = ($page - 1) * $limit;
     $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
-    $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
+    
+    $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random'; // 'random' como valor por defecto
     $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
+
     $filter_name = '';
     $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
 
+    // --- INICIO DE LA INTEGRACIÓN ---
+    // Esta es la lógica que se asegura de que el filtro para ocultar productos sin imagen funcione.
+    $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';
+    // --- FIN DE LA INTEGRACIÓN ---
+
     // Validación de seguridad para el ordenamiento
-    $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra'];
-    if (!in_array($sort_by, $allowedSorts) && $sort_by !== 'random') {
+    $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra', 'random'];
+    if (!in_array($sort_by, $allowedSorts)) {
         $sort_by = 'random';
     }
     if (!in_array($order, ['ASC', 'DESC'])) {
         $order = 'ASC';
     }
 
-    // --- CORRECCIÓN DEFINITIVA ---
-    // Se eliminó por completo el bloque 'if' que ocultaba los precios.
-    // Ahora, $select_fields simplemente selecciona todos los campos de productos.
     $select_fields = "p.*"; 
 
     // Construcción de la consulta SQL
@@ -772,7 +776,14 @@ function handleProductsRequest(PDO $pdo) {
     $where_clauses = ["p.estado = 1"];
     $params = [];
     
-    // Filtros (no cambian)
+    // --- INICIO DE LA INTEGRACIÓN ---
+    // Se añade la nueva condición a la consulta si el parámetro está activo.
+    if ($hide_no_image) {
+        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '')";
+    }
+    // --- FIN DE LA INTEGRACIÓN ---
+
+    // Filtros existentes (departamento, búsqueda, ofertas)
     if ($department_id !== null && $department_id > 0) {
         $where_clauses[] = "p.departamento = :department_id";
         $params[':department_id'] = $department_id;
@@ -800,11 +811,9 @@ function handleProductsRequest(PDO $pdo) {
     $total_products = $stmtCount->fetchColumn();
     $total_pages = ceil($total_products / $limit);
     
-    // --- CORRECCIÓN DEFINITIVA ---
-    // Construimos la consulta final añadiendo el nombre del departamento aquí.
-    // Esto evita la duplicación de columnas y soluciona el error.
     $sql = "SELECT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
     
+    // Lógica de ordenamiento
     if ($sort_by === 'random') {
         $sql .= " ORDER BY RAND()";
     } else {
