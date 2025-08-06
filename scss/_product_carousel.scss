@@ -1,17 +1,12 @@
-// public_html/scss/_carrousel.scss
-
-/* ==========================================================================
-   ESTILOS PARA EL NUEVO CARRUSEL DE PRODUCTOS
-   ========================================================================== */
+@import 'vars';
 
 .product-carousel-section {
     max-width: 1200px;
-    margin: 2rem auto;
-    padding: 0 .5rem;
-
+    margin: 3rem auto;
+    padding: 0 1rem;
     h2 {
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
+        font-size: 1.8rem;
+        margin-bottom: 1.5rem;
         color: $primary-color;
         text-align: center;
     }
@@ -19,53 +14,72 @@
 
 .product-carousel-container {
     position: relative;
-    overflow: hidden; // Oculta los slides que no están activos
-
-    .carousel-control { // Reutilizamos los botones del carrusel de anuncios
-        z-index: 20;
-    }
+    overflow: hidden; 
 }
 
 .product-carousel-slides {
     display: flex;
-    // Nueva transición de deslizamiento horizontal
-    transition: transform 0.5s ease-in-out;
+    // La anchura total la gestiona el número de páginas + clones.
 }
 
-.product-carousel-slide {
-    display: grid;
-    // Mostramos 4 productos por slide en escritorio
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    flex-shrink: 0;
+// NUEVO: Estilo para cada "página" del carrusel
+.product-carousel-page {
+    display: flex;
+    gap: 1rem; // Espacio entre tarjetas
     width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
 
-    // --- Estilos Responsivos ---
+.product-carousel-container .product-card {
+    // El ancho de la tarjeta es ahora relativo a la página
+    width: 25%; // 4 tarjetas por página
+    flex-shrink: 0;
+    margin: 0; // Reseteamos el margen que pudiera tener
+
+    // Media queries para responsividad de tarjetas
     @media (max-width: 992px) {
-        grid-template-columns: repeat(3, 1fr);
+        width: 33.333%; // 3 tarjetas
     }
     @media (max-width: 768px) {
-        grid-template-columns: repeat(2, 1fr);
+        width: 50%; // 2 tarjetas
     }
     @media (max-width: 480px) {
-        grid-template-columns: repeat(1, 1fr);
-        padding: 0 2rem; // Centra la única tarjeta en móvil
+        width: 100%; // 1 tarjeta
     }
-
-    // Adaptamos el estilo de la product-card para que encaje bien
-    .product-card {
-        margin: 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        height: 100%; // Asegura que todas las tarjetas tengan la misma altura
-
-        h3 {
-            height: 60px; // Ajusta la altura del título
-            font-size: 0.9rem;
-        }
-
-        .price-container {
-            height: auto;
-            min-height: 40px;
-        }
+    
+    // Estilos internos
+    h3 {
+        height: 60px;
+        font-size: 0.9rem;
     }
+    .price-container {
+        height: auto;
+        min-height: 40px;
+    }
+}
+
+// Estilos de los botones de control
+.product-carousel-container .carousel-control {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    z-index: 10;
+    
+    &:hover { background-color: rgba(0, 0, 0, 0.7); }
+
+    &.prev { left: 10px; }
+    &.next { right: 10px; }
 }

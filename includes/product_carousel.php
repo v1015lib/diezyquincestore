@@ -1,13 +1,7 @@
 <?php
 // public_html/includes/product_carousel.php
 
-/**
- * @param string $id El ID único para este carrusel.
- * @param string $title El título que se mostrará sobre el carrusel.
- * @param array $filters Los filtros de productos para este carrusel.
- */
 function render_product_carousel($id, $title, $filters) {
-    // Convertimos los filtros a atributos de datos para que JavaScript pueda leerlos.
     $data_attributes = '';
     foreach ($filters as $key => $value) {
         $data_attributes .= " data-" . htmlspecialchars($key) . "='" . htmlspecialchars($value) . "'";

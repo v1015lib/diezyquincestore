@@ -38,7 +38,7 @@
                 render_product_carousel(
                     'papeleria-carousel', // ID único diferente
                     'Lo Mejor en Papelería', // Título diferente
-                    ['department_id' => 2, 'limit' => 10] // Filtros: Departamento 2, máximo 10 productos
+                    ['department_id' => 8, 'limit' => 10] // Filtros: Departamento 2, máximo 10 productos
                 );
             ?>
             <?php // --- FIN: CÓDIGO AÑADIDO --- ?>
