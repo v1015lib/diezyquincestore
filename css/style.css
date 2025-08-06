@@ -550,7 +550,8 @@ ul, li, a {
 }
 
 /* --- FIN: Animaciones para el Carrito --- */
-/* 1. Define la animación */
+/* DESPUÉS (Reemplaza el contenido de tu archivo con esto) */
+/* 1. Define la animación (sin cambios) */
 @-webkit-keyframes shake {
   10%, 90% {
     -webkit-transform: translateX(-1px);
@@ -591,6 +592,7 @@ ul, li, a {
   background: #F0F2F5;
 }
 
+/* Estilos solo para la cuadrícula principal */
 .product-grid {
   display: -ms-grid;
   display: grid;
@@ -619,7 +621,10 @@ ul, li, a {
     grid-template-columns: repeat(5, 0.9fr);
   }
 }
-.product-grid .product-card {
+
+/* --- ¡LA CORRECCIÓN CLAVE! --- */
+/* Ahora los estilos de la tarjeta son globales y se aplicarán en todas partes */
+.product-card {
   padding: 1rem;
   position: relative;
   -webkit-box-shadow: 0px 5px 20px -10px rgba(0, 0, 0, 0.68);
@@ -631,7 +636,7 @@ ul, li, a {
   height: -moz-fit-content;
   height: fit-content;
 }
-.product-grid .product-card .product-image-container {
+.product-card .product-image-container {
   width: 150px;
   height: 150px;
   padding: 0.2rem;
@@ -652,13 +657,13 @@ ul, li, a {
   -ms-flex-line-pack: center;
       align-content: center;
 }
-.product-grid .product-card .product-image-container img {
+.product-card .product-image-container img {
   max-width: 100%;
   -o-object-fit: contain;
      object-fit: contain;
   aspect-ratio: 1/1;
 }
-.product-grid .product-card .product-image-container .discount-badge {
+.product-card .product-image-container .discount-badge {
   position: absolute;
   top: 5%;
   right: 5%;
@@ -680,14 +685,12 @@ ul, li, a {
   -webkit-box-align: center;
       -ms-flex-align: center;
           align-items: center;
-  -ms-flex-line-pack: center;
-      align-content: center;
   -webkit-box-pack: center;
       -ms-flex-pack: center;
           justify-content: center;
   font-weight: bold;
 }
-.product-grid .product-card .favorite-btn {
+.product-card .favorite-btn {
   border: none;
   position: absolute;
   top: 5%;
@@ -710,13 +713,11 @@ ul, li, a {
   -webkit-box-align: center;
       -ms-flex-align: center;
           align-items: center;
-  -ms-flex-line-pack: center;
-      align-content: center;
   -webkit-box-pack: center;
       -ms-flex-pack: center;
           justify-content: center;
 }
-.product-grid .product-card .favorite-btn.is-favorite {
+.product-card .favorite-btn.is-favorite {
   -webkit-box-shadow: none;
           box-shadow: none;
   border: none;
@@ -727,45 +728,45 @@ ul, li, a {
   -webkit-animation: shake 0.82s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
           animation: shake 0.82s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
-.product-grid .product-card .product-info {
+.product-card .product-info {
   margin-top: 0.5rem;
 }
-.product-grid .product-card .product-info h3 {
+.product-card .product-info h3 {
   color: black;
   font-size: 1rem;
   height: 100px;
   font-weight: 600;
 }
-.product-grid .product-card .product-info .department {
+.product-card .product-info .department {
   height: 40px;
   font-size: 0.8rem;
   color: #0C0A4E;
   font-weight: 600;
 }
-.product-grid .product-card .product-info .price-container {
+.product-card .product-info .price-container {
   height: 75px;
   font-size: 1rem;
 }
-.product-grid .product-card .product-info .price-container .price {
+.product-card .product-info .price-container .price {
   font-size: 1.1rem;
   font-weight: 600;
   color: red;
 }
-.product-grid .product-card .product-info .price-container .price-offer {
+.product-card .product-info .price-container .price-offer {
   font-size: inherit;
   font-weight: 600;
   color: red;
 }
-.product-grid .product-card .product-info .price-container .price-older {
+.product-card .product-info .price-container .price-older {
   color: #0C0A4E;
   font-weight: 900;
   text-decoration: line-through;
 }
-.product-grid .product-card .product-info .price-container .code {
+.product-card .product-info .price-container .code {
   font-weight: 600;
   font-size: 0.8rem;
 }
-.product-grid .product-card .product-info .quantity-selector {
+.product-card .product-info .quantity-selector {
   width: 100%;
   display: -webkit-box;
   display: -ms-flexbox;
@@ -778,11 +779,9 @@ ul, li, a {
   -webkit-box-align: center;
       -ms-flex-align: center;
           align-items: center;
-  align-content: center;
   padding-bottom: 1rem;
-  /* Para Firefox */
 }
-.product-grid .product-card .product-info .quantity-selector .quantity-input {
+.product-card .product-info .quantity-selector .quantity-input {
   -webkit-box-flex: 1;
       -ms-flex-positive: 1;
           flex-grow: 1;
@@ -794,21 +793,13 @@ ul, li, a {
   -webkit-appearance: none;
   background: transparent;
 }
-.product-grid .product-card .product-info .quantity-selector input[type=number]::-webkit-inner-spin-button,
-.product-grid .product-card .product-info .quantity-selector input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.product-grid .product-card .product-info .quantity-selector input[type=number] {
-  -moz-appearance: textfield;
-}
-.product-grid .product-card .product-info .quantity-selector .quantity-btn {
+.product-card .product-info .quantity-selector .quantity-btn {
   -webkit-box-flex: 1;
       -ms-flex: 1;
           flex: 1;
   width: 100%;
 }
-.product-grid .product-card .product-info .quantity-selector .quantity-btn.minus {
+.product-card .product-info .quantity-selector .quantity-btn.minus, .product-card .product-info .quantity-selector .quantity-btn.plus {
   all: unset;
   padding: 0.5rem;
   border-radius: 0.5rem;
@@ -819,23 +810,10 @@ ul, li, a {
       -ms-flex-positive: 0.5;
           flex-grow: 0.5;
   text-align: center;
-  font-weight: 900;
-}
-.product-grid .product-card .product-info .quantity-selector .quantity-btn.plus {
-  all: unset;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  background: #0C0A4E;
-  color: #D4A017;
-  font-size: 1rem;
-  text-align: center;
-  -webkit-box-flex: 0.5;
-      -ms-flex-positive: 0.5;
-          flex-grow: 0.5;
   font-weight: 900;
 }
 @media screen and (min-width: 320px) and (max-width: 1024px) {
-  .product-grid .product-card .product-info .quantity-selector .quantity-btn.plus, .product-grid .product-card .product-info .quantity-selector .quantity-btn.minus {
+  .product-card .product-info .quantity-selector .quantity-btn.plus, .product-card .product-info .quantity-selector .quantity-btn.minus {
     -webkit-box-flex: 0.4;
         -ms-flex: 0.4;
             flex: 0.4;
@@ -2729,11 +2707,97 @@ body.page-checkout {
     display: block;
   }
 }
+/* ==========================================================================
+   ESTILOS PARA EL NUEVO CARRUSEL DE PRODUCTOS
+   ========================================================================== */
+.product-carousel-section {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 0.5rem;
+}
+.product-carousel-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #0C0A4E;
+  text-align: center;
+}
+
+.product-carousel-container {
+  position: relative;
+  overflow: hidden;
+}
+.product-carousel-container .carousel-control {
+  z-index: 20;
+}
+
+.product-carousel-slides {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-transition: -webkit-transform 0.5s ease-in-out;
+  transition: -webkit-transform 0.5s ease-in-out;
+  transition: transform 0.5s ease-in-out;
+  transition: transform 0.5s ease-in-out, -webkit-transform 0.5s ease-in-out;
+}
+
+.product-carousel-slide {
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr 1rem 1fr 1rem 1fr 1rem 1fr;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+  width: 100%;
+}
+@media (max-width: 992px) {
+  .product-carousel-slide {
+    -ms-grid-columns: (1fr)[3];
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .product-carousel-slide {
+    -ms-grid-columns: (1fr)[2];
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .product-carousel-slide {
+    -ms-grid-columns: (1fr)[1];
+    grid-template-columns: repeat(1, 1fr);
+    padding: 0 2rem;
+  }
+}
+.product-carousel-slide .product-card {
+  margin: 0;
+  -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  height: 100%;
+}
+.product-carousel-slide .product-card h3 {
+  height: 60px;
+  font-size: 0.9rem;
+}
+.product-carousel-slide .product-card .price-container {
+  height: auto;
+  min-height: 40px;
+}
+
 .main-container {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
   -webkit-box-flex: 1;
       -ms-flex-positive: 1;
           flex-grow: 1;
   overflow: hidden;
+}
+.main-container .grid-inner {
+  -webkit-box-flex: 1;
+      -ms-flex-positive: 1;
+          flex-grow: 1;
+  min-width: 0;
 }
 
 .products-container {

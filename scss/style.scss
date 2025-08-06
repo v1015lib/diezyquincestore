@@ -23,11 +23,19 @@
 @import 'footer';
 // Responsividad
 @import 'responsive';
+@import 'product_carousel';
 
 .main-container {//Contenedor padre de product-list
-
+    display: flex; // Aseguramos que sea un contenedor flex
     flex-grow: 1;
     overflow: hidden;
+
+    // --- INICIO: CÓDIGO AÑADIDO ---
+    .grid-inner {
+        flex-grow: 1; // Le dice al contenido que crezca y ocupe el espacio disponible.
+        min-width: 0; // Previene problemas de desbordamiento con contenido grande.
+    }
+
 }
 
 .products-container {

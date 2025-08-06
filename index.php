@@ -22,6 +22,28 @@
             <div class="grid-inner">
                 <?php include 'includes/carrousel-ads.php';?>
 
+               <?php // --- INICIO: CÓDIGO AÑADIDO --- ?>
+                 <?php
+                // 1. Incluimos el nuevo archivo que contiene la función
+                include 'includes/product_carousel.php';
+
+                // 2. Renderizamos un carrusel de "Productos en Oferta"
+                render_product_carousel(
+                    'ofertas-carousel', // ID único
+                    'Nuestras Mejores Ofertas', // Título
+                    ['ofertas' => 'true', 'limit' => 10] // Filtros: Solo ofertas, máximo 10 productos
+                );
+
+                // 3. (OPCIONAL) Renderizamos OTRO carrusel para un departamento específico
+                render_product_carousel(
+                    'papeleria-carousel', // ID único diferente
+                    'Lo Mejor en Papelería', // Título diferente
+                    ['department_id' => 2, 'limit' => 10] // Filtros: Departamento 2, máximo 10 productos
+                );
+            ?>
+            <?php // --- FIN: CÓDIGO AÑADIDO --- ?>
+
+
                 <div class="products-container">
                     <div id="product-list" class="product-grid"></div>
                     <div id="pagination-controls" class="pagination"></div>
@@ -29,27 +51,11 @@
             
                 <?php include 'includes/footer.php'; ?>
             </div>
+
     </div>
 
-    <div id="cart-panel" class="cart-panel">
-        <div class="cart-header">
-            <h2>Mi Carrito</h2>
-            <button id="close-cart-btn" class="close-cart-btn">&times;</button>
-        </div>
-        <div id="cart-content" class="cart-content">
-            <p>Tu carrito está vacío.</p>
-        </div>
-        <div class="cart-footer">
-            <div class="cart-total">
-                <span>Total:</span>
-                <span id="cart-total-price">$0.00</span>
-            </div>
-            <button class="checkout-btn">Finalizar Compra</button>
-            <button id="clear-cart-btn" class="clear-cart-btn">Vaciar Carrito</button>
-
-        </div>
-    </div>
-    <div id="cart-overlay" class="cart-overlay"></div>
+    
+    <?php include 'includes/cart_panel.php' ?>
 
 
     <div id="notification-container" class="notification-container"></div>

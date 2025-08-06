@@ -669,6 +669,7 @@ function handleCheckUsernameRequest(PDO $pdo) {
           // Detiene la ejecución para asegurar una respuesta JSON limpia.
 }
 function handleProductsRequest(PDO $pdo) {
+    // Parámetros de la URL para paginación, filtros y orden
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
     $offset = ($page - 1) * $limit;
@@ -677,27 +678,28 @@ function handleProductsRequest(PDO $pdo) {
     $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
     $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
     $filter_name = '';
-    
-    $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra'];
-    if (!in_array($sort_by, $allowedSorts) && $sort_by !== 'random') $sort_by = 'random';
-    if (!in_array($order, ['ASC', 'DESC'])) $order = 'ASC';
+    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Por defecto, se seleccionan todos los campos para usuarios logueados.
+    // Validación de seguridad para el ordenamiento
+    $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra'];
+    if (!in_array($sort_by, $allowedSorts) && $sort_by !== 'random') {
+        $sort_by = 'random';
+    }
+    if (!in_array($order, ['ASC', 'DESC'])) {
+        $order = 'ASC';
+    }
+
+    // --- CORRECCIÓN DEFINITIVA ---
+    // Se eliminó por completo el bloque 'if' que ocultaba los precios.
+    // Ahora, $select_fields simplemente selecciona todos los campos de productos.
     $select_fields = "p.*"; 
 
-    // Si el usuario NO ha iniciado sesión, modificamos los campos a seleccionar.
-    if (!isset($_SESSION['id_cliente'])) {
-        // Seleccionamos todos los campos EXCEPTO 'precio_oferta', al cual le asignamos NULL.
-        // Esto asegura que los usuarios no logueados nunca vean un precio de oferta.
-        $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.departamento, p.precio_compra, p.precio_venta, NULL AS precio_oferta, p.precio_mayoreo, p.url_imagen, p.stock_actual, p.stock_minimo, p.stock_maximo, p.tipo_de_venta, p.estado, p.fecha_creacion, p.fecha_actualizacion, p.creado_por, p.proveedor";
-    }
-    // --- FIN DE LA CORRECIÓN ---
-
+    // Construcción de la consulta SQL
     $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento";
-    $where_clauses = ["1=1"];
+    $where_clauses = ["p.estado = 1"];
     $params = [];
     
+    // Filtros (no cambian)
     if ($department_id !== null && $department_id > 0) {
         $where_clauses[] = "p.departamento = :department_id";
         $params[':department_id'] = $department_id;
@@ -711,23 +713,30 @@ function handleProductsRequest(PDO $pdo) {
         $params[':search_term_code'] = '%' . $search_term . '%';
         $filter_name = $search_term;
     }
-    if (isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true') {
-        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '')";
+    if ($ofertas_only) {
+        $where_clauses[] = "(p.precio_oferta IS NOT NULL AND p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta)";
+        $filter_name = "Productos en Oferta";
     }
 
     $where_sql = " WHERE " . implode(" AND ", $where_clauses);
     
+    // Contar el total de productos para la paginación
     $countSql = "SELECT COUNT(*) " . $base_sql . $where_sql;
     $stmtCount = $pdo->prepare($countSql);
     $stmtCount->execute($params);
     $total_products = $stmtCount->fetchColumn();
     $total_pages = ceil($total_products / $limit);
     
-    // Usamos los campos de selección dinámicos en la consulta principal.
+    // --- CORRECCIÓN DEFINITIVA ---
+    // Construimos la consulta final añadiendo el nombre del departamento aquí.
+    // Esto evita la duplicación de columnas y soluciona el error.
     $sql = "SELECT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
     
-    if ($sort_by === 'random') $sql .= " ORDER BY RAND()";
-    else $sql .= " ORDER BY " . $sort_by . " " . $order;
+    if ($sort_by === 'random') {
+        $sql .= " ORDER BY RAND()";
+    } else {
+        $sql .= " ORDER BY " . $sort_by . " " . $order;
+    }
     
     $sql .= " LIMIT :limit OFFSET :offset";
     $params[':limit'] = $limit;
@@ -735,16 +744,22 @@ function handleProductsRequest(PDO $pdo) {
     
     $stmt = $pdo->prepare($sql);
     foreach ($params as $key => &$val) {
-        $type = ($key === ':limit' || $key === ':offset') ? PDO::PARAM_INT : PDO::PARAM_STR;
+        $type = ($key === ':limit' || $key === ':offset' || $key === ':department_id') ? PDO::PARAM_INT : PDO::PARAM_STR;
         $stmt->bindParam($key, $val, $type);
     }
     
     $stmt->execute();
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode(['products' => $products, 'total_products' => (int) $total_products, 'total_pages' => $total_pages, 'current_page' => $page, 'limit' => $limit, 'filter_name' => $filter_name]);
+    echo json_encode([
+        'products' => $products, 
+        'total_products' => (int)$total_products, 
+        'total_pages' => $total_pages, 
+        'current_page' => $page, 
+        'limit' => $limit, 
+        'filter_name' => $filter_name
+    ]);
 }
-
 function handleDepartmentsRequest(PDO $pdo) {
     $stmt = $pdo->query("SELECT id_departamento, codigo_departamento, departamento FROM departamentos ORDER BY departamento ASC");
     $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);

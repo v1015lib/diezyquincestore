@@ -9,7 +9,7 @@ import { initializeQuantityHandlers } from './cart_quantity_handler.js';
 import { initializeFavoritesHandler } from './favorites_handler.js';
 import { initializeModals } from './modal_handler.js';
 import { initializeCarousel } from './carrousel.js'; 
-
+import { initializeProductCarousels } from './product_carousel_handler.js';
 const API_BASE_URL = 'api/index.php'; 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeFavoritesHandler();
     initializeModals();
     initializeCarousel('.carousel-container'); 
+    initializeProductCarousels();
     // --- LÓGICA CORREGIDA PARA MANEJAR BÚSQUEDA DESDE OTRAS PÁGINAS ---
     const urlParams = new URLSearchParams(window.location.search);
     const searchTermFromUrl = urlParams.get('search'); // Usamos 'search' para coincidir con el form
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadProducts('product-list', 'pagination-controls', { 
             sortBy: 'random', 
             apiBaseUrl: API_BASE_URL,
-            hide_no_image: true
+            //hide_no_image: true
         });
     }
 
@@ -62,18 +63,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function loadDepartments() {
+export async function loadDepartments() {
     try {
         const response = await fetch(`${API_BASE_URL}?resource=departments`); 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const departments = await response.json();
         const sidemenuUl = document.querySelector('#sidemenu nav ul');
         if (!sidemenuUl) return;
+        
+        // Limpiamos solo los departamentos, dejando el "Ver todos"
         sidemenuUl.querySelectorAll('li:not(:first-child)').forEach(li => li.remove());
+        
         if (Array.isArray(departments)) {
             departments.forEach(dept => {
                 const li = document.createElement('li');
-                li.innerHTML = `<a href="#" class="department-link" data-department-id="${dept.id_departamento}">${dept.departamento}</a>`;
+                li.innerHTML = `<a href="index.php?department_id=${dept.id_departamento}" class="department-link" data-department-id="${dept.id_departamento}">${dept.departamento}</a>`;
                 sidemenuUl.appendChild(li);
             });
         }

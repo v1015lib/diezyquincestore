@@ -1,65 +1,40 @@
-/* 1. Define la animación */
+/* DESPUÉS (Reemplaza el contenido de tu archivo con esto) */
+
+/* 1. Define la animación (sin cambios) */
 @keyframes shake {
-  10%, 90% {
-    transform: translateX(-1px);
-  }
-  
-  20%, 80% {
-    transform: translateX(2px);
-  }
-
-  30%, 50%, 70% {
-    transform: translateX(-4px);
-  }
-
-  40%, 60% {
-    transform: translateX(4px);
-  }
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
 }
 
-
-.products-container{
-
-
-
+.products-container {
     background: #F0F2F5;
-
-
 }
 
-
-.product-grid{
-
+/* Estilos solo para la cuadrícula principal */
+.product-grid {
     display: grid;
     justify-content: center;
     min-height: 100vh;
+    grid-template-columns: repeat(1, .7fr);
+    @media (min-width: 325px) { grid-template-columns: repeat(2, .7fr); }
+    @media (min-width: 768px) { grid-template-columns: repeat(4, .9fr); }
+    @media (min-width: 1440px) { grid-template-columns: repeat(5, .9fr); }
+}
 
+/* --- ¡LA CORRECCIÓN CLAVE! --- */
+/* Ahora los estilos de la tarjeta son globales y se aplicarán en todas partes */
+.product-card {
+    padding: 1rem;
+    position: relative;
+    box-shadow: 0px 5px 20px -10px rgba(0,0,0,0.68);
+    background: #F8F8F8;
+    border-radius: .5rem;
+    margin: .3rem;
+    height: fit-content;
 
-    grid-template-columns: repeat(1, .7fr );
-
-    @media (min-width: 325px){
-        grid-template-columns: repeat(2, .7fr );
-
-    }
-    @media (min-width: 768px){
-        grid-template-columns: repeat(4, .9fr );
-
-    }    
-    @media (min-width: 1440px){
-        grid-template-columns: repeat(5, .9fr );
-
-    } 
-
-    .product-card {
-        padding: 1rem;
-        position: relative;
-        box-shadow: 0px 5px 20px -10px rgba(0,0,0,0.68);
-        background: #F8F8F8;
-        border-radius: .5rem;
-        margin: .3rem;
-        height: fit-content;
-
-      .product-image-container {
+    .product-image-container {
         width: 150px;
         height: 150px;
         padding: .2rem;
@@ -73,9 +48,7 @@
             max-width: 100%;
             object-fit: contain;
             aspect-ratio: 1/1;
-
         }
-
 
         .discount-badge {
             position: absolute;
@@ -92,17 +65,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            align-content: center;
             justify-content: center;
             font-weight: bold;
-
         }
-      }
+    }
 
-
-      .favorite-btn {
+    .favorite-btn {
         border: none;
-
         position: absolute;
         top: 5%;
         left: 5%;
@@ -117,7 +86,6 @@
         font-weight: 900;
         flex-direction: column;
         align-items: center;
-        align-content: center;
         justify-content: center;
 
         &.is-favorite {
@@ -127,14 +95,11 @@
             background: red;
             color: white;
             border: 1px solid red;
-
             animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
-
         }
-      }
+    }
 
-
-      .product-info {
+    .product-info {
         margin-top: .5rem;
         h3 {
             color: black;
@@ -142,127 +107,74 @@
             height: 100px;
             font-weight: 600;
         }
-
-
         .department {
             height: 40px;
             font-size: .8rem;
             color: $primary-color;
             font-weight: 600;
         }
-
-
         .price-container {
             height: 75px;
             font-size: 1rem;
-          .price {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: red;
-
-          }
-          .price-offer {
-            font-size: inherit;
-            font-weight: 600;
-            color: red;
-          }
-          .price-older{
-            color: $primary-color;
-            font-weight: 900;
-            text-decoration: line-through;
-
-          }
-
-
-          .code {
-            font-weight: 600;
-            font-size: .8rem;
-          } 
-          
+            .price {
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: red;
+            }
+            .price-offer {
+                font-size: inherit;
+                font-weight: 600;
+                color: red;
+            }
+            .price-older {
+                color: $primary-color;
+                font-weight: 900;
+                text-decoration: line-through;
+            }
+            .code {
+                font-weight: 600;
+                font-size: .8rem;
+            }
         }
-
-
         .quantity-selector {
             width: 100%;
             display: flex;
-
             align-content: center;
             justify-content: center;
             align-items: center;
-            align-content: center;
-
-
-
             padding-bottom: 1rem;
-          .quantity-input {
-            flex-grow: 1;
-            all: unset;
-            height: 100%;
-            text-align: center;
-            font-weight: 900;
-            font-size: 1.2rem;
-              -webkit-appearance: none; 
-              background: transparent;
-
-
-          }
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
-        }
-
-        /* Para Firefox */
-            input[type=number] {
-            -moz-appearance: textfield;
-            }     
-
-
-          .quantity-btn {
-            flex: 1;
-            width: 100%;
-
-
-            &.minus {
-
+            
+            .quantity-input {
+                flex-grow: 1;
                 all: unset;
-
-                padding: .5rem;
-                border-radius: .5rem;
-                background: $primary-color;
-                color: $tcolor2;
-                font-size: 1rem;
-                flex-grow: .5;
-
+                height: 100%;
                 text-align: center;
                 font-weight: 900;
-
+                font-size: 1.2rem;
+                -webkit-appearance: none;
+                background: transparent;
             }
+            .quantity-btn {
+                flex: 1;
+                width: 100%;
 
-
-            &.plus {
-
-                all: unset;
-
-                padding: .5rem;
-                border-radius: .5rem;
-                background: $primary-color;
-                color: $tcolor2;
-                font-size: 1rem;
-                text-align: center;
-                flex-grow: .5;
-                font-weight: 900;
-              // ...
-            }
-
-            @media screen and (min-width: 320px) and (max-width: 1024px){
-                &.plus, &.minus{
-                    flex: .4;
-
+                &.minus, &.plus {
+                    all: unset;
+                    padding: .5rem;
+                    border-radius: .5rem;
+                    background: $primary-color;
+                    color: $tcolor2;
+                    font-size: 1rem;
+                    flex-grow: .5;
+                    text-align: center;
+                    font-weight: 900;
+                }
+                @media screen and (min-width: 320px) and (max-width: 1024px) {
+                    &.plus, &.minus {
+                        flex: .4;
+                    }
                 }
             }
-          }
         }
-      }
     }
 }

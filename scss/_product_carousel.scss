@@ -1,0 +1,71 @@
+// public_html/scss/_carrousel.scss
+
+/* ==========================================================================
+   ESTILOS PARA EL NUEVO CARRUSEL DE PRODUCTOS
+   ========================================================================== */
+
+.product-carousel-section {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 .5rem;
+
+    h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: $primary-color;
+        text-align: center;
+    }
+}
+
+.product-carousel-container {
+    position: relative;
+    overflow: hidden; // Oculta los slides que no están activos
+
+    .carousel-control { // Reutilizamos los botones del carrusel de anuncios
+        z-index: 20;
+    }
+}
+
+.product-carousel-slides {
+    display: flex;
+    // Nueva transición de deslizamiento horizontal
+    transition: transform 0.5s ease-in-out;
+}
+
+.product-carousel-slide {
+    display: grid;
+    // Mostramos 4 productos por slide en escritorio
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    flex-shrink: 0;
+    width: 100%;
+
+    // --- Estilos Responsivos ---
+    @media (max-width: 992px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 768px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    @media (max-width: 480px) {
+        grid-template-columns: repeat(1, 1fr);
+        padding: 0 2rem; // Centra la única tarjeta en móvil
+    }
+
+    // Adaptamos el estilo de la product-card para que encaje bien
+    .product-card {
+        margin: 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        height: 100%; // Asegura que todas las tarjetas tengan la misma altura
+
+        h3 {
+            height: 60px; // Ajusta la altura del título
+            font-size: 0.9rem;
+        }
+
+        .price-container {
+            height: auto;
+            min-height: 40px;
+        }
+    }
+}
