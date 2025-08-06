@@ -165,7 +165,7 @@
                     background: $primary-color;
                     color: $tcolor2;
                     font-size: 1rem;
-                    flex-grow: .5;
+                    flex-grow: .3;
                     text-align: center;
                     font-weight: 900;
                 }
@@ -178,3 +178,58 @@
         }
     }
 }
+
+
+
+@import 'vars';
+
+.product-carousel-section {
+    max-width: 1200px;
+    margin: 3rem auto;
+    padding: 0 1rem;
+    h2 {
+        font-size: 1.8rem;
+        margin-bottom: 1.5rem;
+        color: $primary-color;
+        text-align: center;
+    }
+}
+
+.product-carousel-container {
+    position: relative;
+    overflow: hidden;
+
+    // --- INICIO: Efecto de desvanecimiento lateral ---
+    // Usamos pseudo-elementos para crear una capa de degradado a los lados.
+    &::before,
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 60px; // Ancho del área de desvanecimiento. Ajústalo si lo quieres más grande o pequeño.
+        z-index: 2;  // Se asegura de que esté por encima de las tarjetas.
+        pointer-events: none; // Permite que los clics "atraviesen" el degradado.
+    }
+
+    // Degradado del lado izquierdo
+    &::before {
+        left: 0;
+        background: linear-gradient(to right, white 55%, transparent); // Cambia 'white' si tu fondo es de otro color.
+    }
+
+    // Degradado del lado derecho
+    &::after {
+        right: 0;
+        background: linear-gradient(to left, white 55%, transparent); // Cambia 'white' si tu fondo es de otro color.
+    }
+    // --- FIN: Efecto de desvanecimiento lateral ---
+}
+
+// Contenedor de slides que se moverá
+.product-carousel-slides {
+    display: flex;
+    gap: 1rem;
+}
+
+

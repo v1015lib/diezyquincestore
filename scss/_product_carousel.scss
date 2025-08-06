@@ -2,10 +2,10 @@
 
 .product-carousel-section {
     max-width: 1200px;
-    margin: 3rem auto;
-    padding: 0 1rem;
+    margin: .2rem ;
+    padding: .5rem;
     h2 {
-        font-size: 1.8rem;
+        font-size: 1rem;
         margin-bottom: 1.5rem;
         color: $primary-color;
         text-align: center;
@@ -17,49 +17,43 @@
     overflow: hidden; 
 }
 
+// Contenedor de slides que se moverá
 .product-carousel-slides {
     display: flex;
-    // La anchura total la gestiona el número de páginas + clones.
+    gap: .5rem; // Espacio entre tarjetas
+    // El ancho y la transición son gestionados por JavaScript
 }
 
-// NUEVO: Estilo para cada "página" del carrusel
-.product-carousel-page {
-    display: flex;
-    gap: 1rem; // Espacio entre tarjetas
-    width: 100%;
-    flex-shrink: 0;
-    box-sizing: border-box;
-}
-
+// Estilos de la tarjeta de producto DENTRO del carrusel
 .product-carousel-container .product-card {
-    // El ancho de la tarjeta es ahora relativo a la página
-    width: 25%; // 4 tarjetas por página
-    flex-shrink: 0;
-    margin: 0; // Reseteamos el margen que pudiera tener
-
+    // El ancho se define por el número de tarjetas por página
+    width: calc(25% - 0.75rem); // 4 tarjetas (1rem de gap, se resta 3/4 del gap)
+    flex-shrink: 0; // Evita que las tarjetas se encojan
+    margin: 0;
+    box-shadow: .1rem 1px .3rem grey;
     // Media queries para responsividad de tarjetas
     @media (max-width: 992px) {
-        width: 33.333%; // 3 tarjetas
+        width: calc(33.333% - 0.67rem); // 3 tarjetas
     }
     @media (max-width: 768px) {
-        width: 50%; // 2 tarjetas
+        width: calc(50% - 0.5rem); // 2 tarjetas
     }
     @media (max-width: 480px) {
-        width: 100%; // 1 tarjeta
+        width: 50%; // 1 tarjeta
     }
     
-    // Estilos internos
+    // Estilos internos para consistencia visual
     h3 {
-        height: 60px;
-        font-size: 0.9rem;
+        height: 70px;
+        font-size: 0.7rem;
     }
     .price-container {
-        height: auto;
-        min-height: 40px;
+        height: 70px;
+        min-height: 50px;
     }
 }
 
-// Estilos de los botones de control
+// Estilos de los botones de control (sin cambios)
 .product-carousel-container .carousel-control {
     position: absolute;
     top: 50%;
@@ -75,7 +69,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+    font-size: 1rem;
     z-index: 10;
     
     &:hover { background-color: rgba(0, 0, 0, 0.7); }

@@ -30,7 +30,7 @@
                 // 2. Renderizamos un carrusel de "Productos en Oferta"
                 render_product_carousel(
                     'ofertas-carousel', // ID único
-                    'Nuestras Mejores Ofertas', // Título
+                    'Aprovecha estas oportunidades!', // Título
                     ['ofertas' => 'true', 'limit' => 10] // Filtros: Solo ofertas, máximo 10 productos
                 );
 

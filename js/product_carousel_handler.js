@@ -16,112 +16,101 @@ async function fetchCarouselProducts(filters) {
 }
 
 /**
- * Configura un carrusel de productos infinito, automático y proporcional.
- * @param {HTMLElement} carousel - El contenedor del carrusel.
+ * REDISEÑO COMPLETO: Configura un carrusel de productos infinito, profesional y fluido.
+ * @param {HTMLElement} carouselEl - El elemento contenedor del carrusel.
  */
-function setupCarousel(carousel) {
-    const slidesContainer = carousel.querySelector('.product-carousel-slides');
-    const prevButton = carousel.querySelector('.carousel-control.prev');
-    const nextButton = carousel.querySelector('.carousel-control.next');
-
+function setupCarousel(carouselEl) {
+    const slidesContainer = carouselEl.querySelector('.product-carousel-slides');
+    const prevButton = carouselEl.querySelector('.carousel-control.prev');
+    const nextButton = carouselEl.querySelector('.carousel-control.next');
     let originalCards = Array.from(slidesContainer.querySelectorAll('.product-card'));
+
     if (originalCards.length === 0) {
-        if(prevButton) prevButton.style.display = 'none';
-        if(nextButton) nextButton.style.display = 'none';
+        if (prevButton) prevButton.style.display = 'none';
+        if (nextButton) nextButton.style.display = 'none';
         return;
     }
 
-    // --- Configuración Responsiva y Proporcional ---
     let slidesPerPage;
     const updateSlidesPerPage = () => {
-        if (window.innerWidth <= 480) slidesPerPage = 1;
-        else if (window.innerWidth <= 768) slidesPerPage = 2;
-        else if (window.innerWidth <= 992) slidesPerPage = 3;
+        const width = window.innerWidth;
+        if (width <= 480) slidesPerPage = 1;
+        else if (width <= 768) slidesPerPage = 2;
+        else if (width <= 992) slidesPerPage = 3;
         else slidesPerPage = 4;
     };
     updateSlidesPerPage();
 
+    // Si no hay suficientes tarjetas para hacer un bucle, se centra el contenido y se detiene.
     if (originalCards.length <= slidesPerPage) {
-        if(prevButton) prevButton.style.display = 'none';
-        if(nextButton) nextButton.style.display = 'none';
-        slidesContainer.style.justifyContent = 'center'; // Centrar si no hay suficientes para el bucle
+        if (prevButton) prevButton.style.display = 'none';
+        if (nextButton) nextButton.style.display = 'none';
+        slidesContainer.style.justifyContent = 'center';
         return;
     }
 
-    // --- Lógica de Clonación para Bucle Infinito ---
-    const clonesToAppend = originalCards.map(card => card.cloneNode(true));
-    const clonesToPrepend = originalCards.map(card => card.cloneNode(true));
-    clonesToAppend.forEach(clone => slidesContainer.appendChild(clone));
-    clonesToPrepend.reverse().forEach(clone => slidesContainer.insertBefore(clone, originalCards[0]));
+    // --- Lógica de Clonación Optimizada ---
+    const clonesToPrepend = originalCards.slice(-slidesPerPage).map(card => card.cloneNode(true));
+    const clonesToAppend = originalCards.slice(0, slidesPerPage).map(card => card.cloneNode(true));
     
-    let currentIndex = originalCards.length; // Posición inicial (inicio de los items originales)
+    slidesContainer.append(...clonesToAppend);
+    slidesContainer.prepend(...clonesToPrepend);
+
+    let allSlides = Array.from(slidesContainer.children);
+    let currentIndex = slidesPerPage; // Posición inicial (inicio de los items originales)
     let isTransitioning = false;
     let slideInterval;
-    const slideIntervalTime = 5000; // 5 segundos
 
     const updateSlidePosition = (animate = true) => {
-        slidesContainer.style.transition = animate ? 'transform 0.8s ease-in-out' : 'none';
-        // La posición se basa en el ancho de una tarjeta individual
-        const cardWidth = 100 / (originalCards.length * 3); // Total de tarjetas (original + 2 clones)
-        slidesContainer.style.transform = `translateX(-${currentIndex * cardWidth}%)`;
+        slidesContainer.style.transition = animate ? 'transform 0.5s ease-in-out' : 'none';
+        const cardWidth = allSlides[0].getBoundingClientRect().width;
+        // Ajuste para el gap entre tarjetas
+        const gap = parseInt(window.getComputedStyle(slidesContainer).gap) || 0;
+        slidesContainer.style.transform = `translateX(-${currentIndex * (cardWidth + gap)}px)`;
     };
 
-    const moveToNext = () => {
+    const moveTo = (newIndex) => {
         if (isTransitioning) return;
         isTransitioning = true;
-        currentIndex += slidesPerPage; // Mover un bloque completo
-        updateSlidePosition();
-    };
-    
-    const moveToPrev = () => {
-        if (isTransitioning) return;
-        isTransitioning = true;
-        currentIndex -= slidesPerPage; // Mover un bloque completo
+        currentIndex = newIndex;
         updateSlidePosition();
     };
 
-    // La magia del bucle infinito: se resetea la posición sin animación
+    // Evento que hace la magia del bucle infinito
     slidesContainer.addEventListener('transitionend', () => {
-        if (currentIndex >= originalCards.length * 2) {
+        isTransitioning = false;
+        if (currentIndex === 0) {
             currentIndex = originalCards.length;
             updateSlidePosition(false);
-        }
-        if (currentIndex <= slidesPerPage - 1) {
-            currentIndex = originalCards.length + (currentIndex % slidesPerPage);
+        } else if (currentIndex === originalCards.length + slidesPerPage) {
+            currentIndex = slidesPerPage;
             updateSlidePosition(false);
         }
-        isTransitioning = false;
     });
 
     const startSlideShow = () => {
         stopSlideShow();
-        slideInterval = setInterval(moveToNext, slideIntervalTime);
+        slideInterval = setInterval(() => moveTo(currentIndex + 1), 5000);
     };
 
     const stopSlideShow = () => clearInterval(slideInterval);
 
-    nextButton.addEventListener('click', () => {
-        moveToNext();
-        startSlideShow(); // Reiniciar temporizador
-    });
-    prevButton.addEventListener('click', () => {
-        moveToPrev();
-        startSlideShow(); // Reiniciar temporizador
-    });
-    
-    carousel.addEventListener('mouseenter', stopSlideShow);
-    carousel.addEventListener('mouseleave', startSlideShow);
+    nextButton.addEventListener('click', () => moveTo(currentIndex + 1));
+    prevButton.addEventListener('click', () => moveTo(currentIndex - 1));
+
+    carouselEl.addEventListener('mouseenter', stopSlideShow);
+    carouselEl.addEventListener('mouseleave', startSlideShow);
+
     window.addEventListener('resize', () => {
-        stopSlideShow();
-        // Recargar la lógica en redimensionamiento puede ser complejo,
-        // por ahora solo ajustamos variables y reiniciamos.
-        updateSlidesPerPage();
-        startSlideShow();
+        // En un redimensionamiento, es más seguro y limpio recargar la lógica
+        initializeProductCarousels();
     });
 
+    // Posición inicial sin animación
     updateSlidePosition(false);
     startSlideShow();
 }
+
 
 async function renderProducts(container, products, cartState, userFavorites) {
     const slidesContainer = container.querySelector('.product-carousel-slides');
@@ -134,6 +123,7 @@ async function renderProducts(container, products, cartState, userFavorites) {
         slidesContainer.innerHTML += createProductCardHTML(product, currentQuantity, isFavorite);
     });
 
+    // Llama a la nueva función de configuración del carrusel
     setupCarousel(container);
 }
 
@@ -144,6 +134,14 @@ export async function initializeProductCarousels() {
     const [cartState, userFavorites] = await Promise.all([getCartState(), getUserFavorites()]);
 
     for (const carousel of carousels) {
+        // Limpiar clones y listeners anteriores si existieran para evitar duplicados en recargas
+        const oldSlides = carousel.querySelector('.product-carousel-slides');
+        if (oldSlides) {
+            const originalCards = Array.from(oldSlides.querySelectorAll('.product-card[data-product-id]'));
+            oldSlides.innerHTML = '';
+            originalCards.forEach(card => oldSlides.appendChild(card));
+        }
+
         const filters = { ...carousel.dataset };
         const products = await fetchCarouselProducts(filters);
         
