@@ -110,29 +110,37 @@ export async function loadProducts(productListId, paginationControlsId, params =
     }
 
     try {
-        const response = await fetch(`api/index.php?${urlParams.toString()}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
+    const response = await fetch(`api/index.php?${urlParams.toString()}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
 
-        let summaryText = `<b>${data.total_products}</b> productos encontrados`;
-        if (data.filter_name) summaryText += ` para "<b>${data.filter_name}</b>"`;
-        summaryElement.innerHTML = summaryText;
+    let summaryText = `<b>${data.total_products}</b> productos encontrados`;
+    if (data.filter_name) summaryText += ` para "<b>${data.filter_name}</b>"`;
+    summaryElement.innerHTML = summaryText;
 
-        productListElement.innerHTML = '';
-        if (data.products && data.products.length > 0) {
-            data.products.forEach(product => {
-                const currentQuantity = cartState[product.id_producto] || 0;
-                const isFavorite = userFavorites.has(parseInt(product.id_producto, 10));
-                
-                // Usamos la nueva función centralizada para generar el HTML
-                const productCardHtml = createProductCardHTML(product, currentQuantity, isFavorite);
-                productListElement.insertAdjacentHTML('beforeend', productCardHtml);
-            });
-        } else {
-            productListElement.innerHTML = '<p>No se encontraron productos.</p>';
-        }
-        setupPagination(paginationControlsId, data.total_pages, data.current_page, productListId);
-    } catch (error) {
+    // ===== INICIO DE LA CORRECCIÓN =====
+    // Ahora, el scroll SÓLO se ejecutará si 'params.shouldScroll' es verdadero.
+    if (params.shouldScroll) {
+        summaryElement.scrollIntoView({ block: 'start' });
+    }
+    // ===== FIN DE LA CORRECCIÓN =====
+    
+    productListElement.innerHTML = '';
+    if (data.products && data.products.length > 0) {
+        data.products.forEach(product => {
+            const currentQuantity = cartState[product.id_producto] || 0;
+            const isFavorite = userFavorites.has(parseInt(product.id_producto, 10));
+            
+            // Usamos la nueva función centralizada para generar el HTML
+            const productCardHtml = createProductCardHTML(product, currentQuantity, isFavorite);
+            productListElement.insertAdjacentHTML('beforeend', productCardHtml);
+        });
+    } else {
+        productListElement.innerHTML = '<p>No se encontraron productos.</p>';
+    }
+    setupPagination(paginationControlsId, data.total_pages, data.current_page, productListId);
+} // ... (resto del try-catch)
+ catch (error) {
         console.error('Error al cargar productos:', error);
         summaryElement.innerHTML = '<span style="color: red;">Error al cargar resultados.</span>';
         productListElement.innerHTML = '<p>Error al cargar los productos.</p>';

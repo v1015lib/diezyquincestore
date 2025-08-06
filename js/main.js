@@ -8,19 +8,19 @@ import { updateCartHeader } from './cart_updater.js';
 import { initializeQuantityHandlers } from './cart_quantity_handler.js';
 import { initializeFavoritesHandler } from './favorites_handler.js';
 import { initializeModals } from './modal_handler.js';
-import { initializeCarousel } from './carrousel.js'; 
+import { initializeCarousel } from './carrousel.js';
 import { initializeProductCarousels } from './product_carousel_handler.js';
-const API_BASE_URL = 'api/index.php'; 
+const API_BASE_URL = 'api/index.php';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupMobileMenu();
-    loadDepartments(); 
+    loadDepartments();
     initializeCartView();
     updateCartHeader();
     initializeQuantityHandlers();
     initializeFavoritesHandler();
     initializeModals();
-    initializeCarousel('.carousel-container'); 
+    initializeCarousel('.carousel-container');
     initializeProductCarousels();
     // --- LÓGICA CORREGIDA PARA MANEJAR BÚSQUEDA DESDE OTRAS PÁGINAS ---
     const urlParams = new URLSearchParams(window.location.search);
@@ -30,34 +30,45 @@ document.addEventListener('DOMContentLoaded', () => {
         // Si hay un término de búsqueda en la URL, lo ponemos en el input
         // y cargamos los productos filtrados.
         document.getElementById('search-input').value = searchTermFromUrl;
-        loadProducts('product-list', 'pagination-controls', { 
+        loadProducts('product-list', 'pagination-controls', {
             apiBaseUrl: API_BASE_URL,
-            search: searchTermFromUrl 
+            search: searchTermFromUrl
         });
     } else {
         // Si no, cargamos los productos iniciales como siempre.
-        loadProducts('product-list', 'pagination-controls', { 
-            sortBy: 'random', 
+        loadProducts('product-list', 'pagination-controls', {
+            sortBy: 'random',
             apiBaseUrl: API_BASE_URL,
             //hide_no_image: true
         });
     }
 
     initializeSearch('search-input', 'search-button', 'product-list', 'pagination-controls', API_BASE_URL);
-    
+
     document.getElementById('sidemenu').addEventListener('click', (event) => {
         const target = event.target;
         if (target.matches('.department-link')) {
-            event.preventDefault(); 
+            event.preventDefault();
             const departmentId = target.dataset.departmentId;
-            let params = { page: 1, apiBaseUrl: API_BASE_URL };
+            
+            // ===== INICIO DE LA INTEGRACIÓN =====
+            // Añadimos el parámetro 'shouldScroll' para indicar a la función que debe desplazar la vista.
+            let params = { 
+                page: 1, 
+                apiBaseUrl: API_BASE_URL, 
+                shouldScroll: true // <--- ¡AQUÍ ESTÁ LA MAGIA!
+            };
+            // ===== FIN DE LA INTEGRACIÓN =====
+
             if (departmentId !== 'all') {
                 params.department_id = departmentId;
             } else {
-                params.department_id = null; 
-                params.sortBy = 'random'; 
+                params.department_id = null;
+                params.sortBy = 'random';
             }
             loadProducts('product-list', 'pagination-controls', params);
+            
+            // Oculta el menú lateral en móvil después de hacer clic
             document.getElementById('sidemenu').classList.remove('active');
         }
     });
@@ -65,15 +76,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 export async function loadDepartments() {
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=departments`); 
+        const response = await fetch(`${API_BASE_URL}?resource=departments`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const departments = await response.json();
         const sidemenuUl = document.querySelector('#sidemenu nav ul');
         if (!sidemenuUl) return;
-        
+
         // Limpiamos solo los departamentos, dejando el "Ver todos"
         sidemenuUl.querySelectorAll('li:not(:first-child)').forEach(li => li.remove());
-        
+
         if (Array.isArray(departments)) {
             departments.forEach(dept => {
                 const li = document.createElement('li');

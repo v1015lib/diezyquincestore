@@ -35,6 +35,79 @@ $inputData = json_decode(file_get_contents('php://input'), true);
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
+
+        case 'layout-settings':
+            // --- INICIO DE LA SOLUCIÓN DEFINITIVA ---
+
+            // --- Carrusel #1: CONTROL DE OFERTAS ---
+            $offers_carousel_config = [
+                // ✅ Pon un ID para ofertas de un depto, o 0 para ofertas generales.
+                // Si pones 8 aquí, buscará productos EN OFERTA del departamento 8.
+                'department_id' => 2, 
+                'limit'         => 12,
+                'title'         => 'Aprovecha estas oportunidades' // Título base
+            ];
+
+            // --- Carrusel #2: CONTROL DE DEPARTAMENTO DESTACADO ---
+            $department_carousel_config = [
+                'department_id' => 8,  // ID del departamento que quieres destacar
+                'limit'         => 8,
+                'title_prefix'  => 'Lo mejor en' // Frase que acompaña al nombre
+            ];
+
+            // --- Lógica Automática (No necesitas tocar esto de aquí para abajo) ---
+
+            // 1. Construye la configuración final para el Carrusel de Ofertas
+            $offers_final_config = [
+                'limit' => $offers_carousel_config['limit'],
+                'ofertas' => 'true' // Siempre buscará productos en oferta
+            ];
+            $offers_final_title = $offers_carousel_config['title'];
+
+            if ($offers_carousel_config['department_id'] > 0) {
+                // Si especificamos un departamento, se lo añade al filtro...
+                $offers_final_config['department_id'] = $offers_carousel_config['department_id'];
+                
+                // ...y también busca su nombre para añadirlo al título.
+                $stmt_dept_name = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
+                $stmt_dept_name->execute([':id' => $offers_carousel_config['department_id']]);
+                $dept_name = $stmt_dept_name->fetchColumn();
+                if ($dept_name) {
+                    $offers_final_title .= ' en ' . $dept_name;
+                }
+            }
+            
+            // 2. Construye la configuración final para el Carrusel de Departamento
+            $stmt_dept_name_2 = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
+            $stmt_dept_name_2->execute([':id' => $department_carousel_config['department_id']]);
+            $dept_name_2 = $stmt_dept_name_2->fetchColumn();
+            
+            $department_final_title = $dept_name_2
+                ? $department_carousel_config['title_prefix'] . ' ' . $dept_name_2
+                : 'Departamento Destacado';
+
+            // 3. Array final que se envía a la página
+            $settings = [
+                'show_main_carousel' => true, // Visivilidad de anuncios principales
+                'show_offers_carousel' => false,// Visivilidad de slider ofertas
+                'offers_carousel_config' => [
+                    'title'   => $offers_final_title,
+                    'filters' => $offers_final_config
+                ],
+                'show_department_carousel' => false,// Visivilidad de slider por departamentos
+                'department_carousel_config' => [
+                    'title'   => $department_final_title,
+                    'filters' => [
+                        'department_id' => $department_carousel_config['department_id'],
+                        'limit'         => $department_carousel_config['limit']
+                    ]
+                ]
+            ];
+            // --- FIN DE LA SOLUCIÓN DEFINITIVA ---
+
+            echo json_encode(['success' => true, 'settings' => $settings]);
+        break;
+
         case 'products':
             handleProductsRequest($pdo);
             break;

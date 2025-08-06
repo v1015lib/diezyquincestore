@@ -215,13 +215,13 @@
     // Degradado del lado izquierdo
     &::before {
         left: 0;
-        background: linear-gradient(to right, white 55%, transparent); // Cambia 'white' si tu fondo es de otro color.
+        background: linear-gradient(to right, white 1%, transparent 60%); // Cambia 'white' si tu fondo es de otro color.
     }
 
     // Degradado del lado derecho
     &::after {
         right: 0;
-        background: linear-gradient(to left, white 55%, transparent); // Cambia 'white' si tu fondo es de otro color.
+        background: linear-gradient(to left, white 1%, transparent 60%); // Cambia 'white' si tu fondo es de otro color.
     }
     // --- FIN: Efecto de desvanecimiento lateral ---
 }
