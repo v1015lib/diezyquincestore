@@ -43,7 +43,7 @@ try {
             $offers_carousel_config = [
                 // ✅ Pon un ID para ofertas de un depto, o 0 para ofertas generales.
                 // Si pones 8 aquí, buscará productos EN OFERTA del departamento 8.
-                'department_id' => 2, 
+                'department_id' => 0, 
                 'limit'         => 12,
                 'title'         => 'Aprovecha estas oportunidades' // Título base
             ];
@@ -88,7 +88,7 @@ try {
 
             // 3. Array final que se envía a la página
             $settings = [
-                'show_main_carousel' => true, // Visivilidad de anuncios principales
+                'show_main_carousel' => false, // Visivilidad de anuncios principales
                 'show_offers_carousel' => false,// Visivilidad de slider ofertas
                 'offers_carousel_config' => [
                     'title'   => $offers_final_title,
