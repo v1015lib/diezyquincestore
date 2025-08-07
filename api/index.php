@@ -37,7 +37,66 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
             
-            // En tu API principal (api/index.php), dentro del switch($resource)
+        case 'admin/batchAction':
+      // require_admin(); // Seguridad (descomentar en producción)
+     
+      $data = json_decode(file_get_contents('php://input'), true);
+      $action = $data['action'] ?? null;
+      $productIds = $data['productIds'] ?? [];
+
+      // Validar que tengamos una acción y IDs
+      if (!$action || empty($productIds)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Acción o IDs de productos no proporcionados.']);
+        break;
+      }
+
+      // Crear una cadena de placeholders (?, ?, ?) para la consulta IN()
+      $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+
+      try {
+        switch ($action) {
+          case 'delete':
+            $stmt = $pdo->prepare("DELETE FROM productos WHERE id_producto IN ($placeholders)");
+            $stmt->execute($productIds);
+            $message = 'Productos eliminados correctamente.';
+            break;
+
+          case 'deactivate':
+            // Asumiendo que el estado 'Inactivo' tiene el ID 2
+            $stmt = $pdo->prepare("UPDATE productos SET estado = 2 WHERE id_producto IN ($placeholders)");
+            $stmt->execute($productIds);
+            $message = 'Productos inactivados en la tienda.';
+            break;
+
+                    // --- CÓDIGO INTEGRADO ---
+                    case 'activate':
+                        // Asumiendo que el estado 'Activo' tiene el ID 1
+                        $stmt = $pdo->prepare("UPDATE productos SET estado = 1 WHERE id_producto IN ($placeholders)");
+                        $stmt->execute($productIds);
+                        $message = 'Productos activados en la tienda.';
+                        break;
+                    // --- FIN DEL CÓDIGO INTEGRADO ---
+         
+          case 'toggle-inventory':
+            // Esto cambia el valor de 'usa_inventario' al opuesto (si es 1 lo hace 0, y viceversa)
+            $stmt = $pdo->prepare("UPDATE productos SET usa_inventario = NOT usa_inventario WHERE id_producto IN ($placeholders)");
+            $stmt->execute($productIds);
+            $message = 'Gestión de inventario actualizada.';
+            break;
+         
+          default:
+            throw new Exception('Acción en lote no reconocida: ' . htmlspecialchars($action));
+        }
+
+        echo json_encode(['success' => true, 'message' => $message]);
+
+      } catch (Exception $e) { // Captura tanto errores de Lógica como de BD
+        http_response_code(500);
+                // Usamos getMessage() para obtener el error específico, como "Acción no reconocida"
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+      }
+      break;
 
     case 'admin/getProducts':
     // require_admin(); // Descomentar en producción

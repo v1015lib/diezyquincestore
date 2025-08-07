@@ -5,7 +5,6 @@
   //  die('Acceso denegado.');
 //}
 ?>
-
 <div class="list-header">
     <div class="search-container">
         <input type="text" id="product-search-input" placeholder="Buscar por nombre o código...">
@@ -14,10 +13,12 @@
         <select id="batch-action-selector" disabled>
             <option value="">Acciones en lote...</option>
             <option value="delete">Eliminar Seleccionados</option>
-            <option value="toggle-inventory">Activar/Desactivar Inventario</option>
-            <option value="deactivate">Inactivar en Tienda</option>
+            
+            <option value="activate" style="display: none;">Activar en Tienda</option>
+            <option value="deactivate" style="display: none;">Inactivar en Tienda</option>
+            
             <option value="change-department">Cambiar Departamento</option>
-            </select>
+        </select>
         <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
     </div>
 </div>
