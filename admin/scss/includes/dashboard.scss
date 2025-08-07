@@ -1,0 +1,85 @@
+// Estilos minimalistas para los componentes del admin
+
+// Header de cada módulo (donde va el título y la cinta de opciones)
+.module-header {
+    margin-bottom: 2rem;
+
+    h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: $primary-color;
+        margin-bottom: 1.25rem;
+    }
+
+    .action-ribbon {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .action-btn {
+        background-color: transparent;
+        border: 1px solid $border-color;
+        color: $secondary-color;
+        padding: 0.5rem 1rem;
+        border-radius: 20px; // Botones redondeados
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease !important;
+        font-size: 0.9rem;
+
+        &:hover {
+            border-color: $primary-color;
+            color: $primary-color;
+            background-color: lighten($primary-color, 48%);
+        }
+
+        &.active {
+            background-color: $primary-color;
+            color: white;
+            border-color: $primary-color;
+        }
+    }
+}
+
+// Área principal donde se carga el contenido (formularios, listas)
+.module-content {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid $border-color;
+    min-height: 400px;
+}
+
+// Cuadrícula para los Widgets del Dashboard
+.widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.widget {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid $border-color;
+
+    h3 {
+        font-size: 1.1rem;
+        color: $text-color;
+        margin: 0 0 1rem 0;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .widget-content {
+        color: $secondary-color;
+    }
+}
+
+// Estilo para el enlace activo en el menú lateral
+.dashboard-sidemenu .nav-link.active {
+    background-color: lighten($primary-color, 5%);
+    border-left-color: $tcolor2;
+    color: #fff;
+}

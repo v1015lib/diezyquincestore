@@ -36,7 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadProducts('product-list', 'pagination-controls', {
             sortBy: 'random',
             apiBaseUrl: API_BASE_URL,
-            hide_no_image: false // La opción para mostrar solo con imágenes está aquí.
+            hide_no_image: layoutSettings.hide_products_without_image
+            //hide_no_image: false 
+            // Lo dejamos fijo en FALSE para mostrar todos los productos con y sin imagen ya que ahora se manejaran desde el
+            //amin panel
         });
     }
 

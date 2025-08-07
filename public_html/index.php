@@ -109,5 +109,10 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
         </div>
     </div>
     <script type="module" src="js/main.js"></script>
+
+    <script>
+        const layoutSettings = <?php echo json_encode($layout_settings); ?>;
+    </script>
+    
 </body>
 </html>

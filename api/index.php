@@ -7,35 +7,99 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // LÓGICA DE CIERRE DE SESIÓN AUTOMÁTICO POR INACTIVIDAD
-$timeout_duration = 1800; // 30 minutos
-if (isset($_SESSION['id_cliente']) && isset($_SESSION['last_activity'])) {
-    if ((time() - $_SESSION['last_activity']) > $timeout_duration) {
-        session_unset();
-        session_destroy();
-        http_response_code(401);
-        echo json_encode(['error' => 'Tu sesión ha expirado por inactividad.']);
-        exit;
-    }
-}
-if (isset($_SESSION['id_cliente'])) {
-    $_SESSION['last_activity'] = time();
-}
+        $timeout_duration = 1800; // 30 minutos
+        if (isset($_SESSION['id_cliente']) && isset($_SESSION['last_activity'])) {
+            if ((time() - $_SESSION['last_activity']) > $timeout_duration) {
+                session_unset();
+                session_destroy();
+                http_response_code(401);
+                echo json_encode(['error' => 'Tu sesión ha expirado por inactividad.']);
+                exit;
+            }
+        }
+        if (isset($_SESSION['id_cliente'])) {
+            $_SESSION['last_activity'] = time();
+        }
 
-// --- CONFIGURACIÓN Y CABECERAS ---
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-require_once __DIR__ . '/../config/config.php';
-//die('La conexión SÍ fue incluida correctamente.');
+            // --- CONFIGURACIÓN Y CABECERAS ---
+            ini_set('display_errors', 1);
+            error_reporting(E_ALL);
+            header('Content-Type: application/json');
+            header('Access-Control-Allow-Origin: *');
+            require_once __DIR__ . '/../config/config.php';
+            //die('La conexión SÍ fue incluida correctamente.');
 
-$resource = $_GET['resource'] ?? '';
-$method = $_SERVER['REQUEST_METHOD'];
-$inputData = json_decode(file_get_contents('php://input'), true);
+            $resource = $_GET['resource'] ?? '';
+            $method = $_SERVER['REQUEST_METHOD'];
+            $inputData = json_decode(file_get_contents('php://input'), true);
 
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
+            
+            // En tu API principal (api/index.php), dentro del switch($resource)
+
+    case 'admin/getProducts':
+    // require_admin(); // Descomentar en producción
+
+    // Prepara la consulta base
+    $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado FROM productos p JOIN departamentos d ON p.departamento = d.id_departamento JOIN estados e ON p.estado = e.id_estado";
+    $params = [];
+    $where_clauses = [];
+
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    if (!empty($_GET['search'])) {
+        $search_term = '%' . $_GET['search'] . '%';
+        
+        // Usamos dos placeholders diferentes: :search_name y :search_code
+        $where_clauses[] = "(p.nombre_producto LIKE :search_name OR p.codigo_producto LIKE :search_code)";
+        
+        // Añadimos ambos parámetros al array
+        $params[':search_name'] = $search_term;
+        $params[':search_code'] = $search_term;
+    }
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
+
+    if (!empty($where_clauses)) {
+        $query .= " WHERE " . implode(" AND ", $where_clauses);
+    }
+    
+    $query .= " ORDER BY p.nombre_producto ASC";
+
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'products' => $products]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error en la consulta a la base de datos.', 'details' => $e->getMessage()]);
+    }
+    break;
+    case 'admin/updateProductField':
+                // require_admin(); 
+                $data = json_decode(file_get_contents('php://input'), true);
+                $productId = $data['id'] ?? null;
+                $field = $data['field'] ?? null;
+                $value = $data['value'] ?? null;
+
+                $allowed_fields = ['nombre_producto', 'precio_venta']; 
+                
+                if ($productId && in_array($field, $allowed_fields) && $value !== null) {
+                    try {
+                        $stmt = $pdo->prepare("UPDATE productos SET {$field} = :value WHERE id_producto = :id");
+                        $stmt->execute([':value' => $value, ':id' => $productId]);
+                        echo json_encode(['success' => true, 'message' => 'Producto actualizado.']);
+                    } catch (PDOException $e) {
+                        http_response_code(500);
+                        echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
+                    }
+                } else {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
+                }
+    break;    
+
 
         case 'layout-settings':
             // --- INICIO DE LA SOLUCIÓN DEFINITIVA ---
@@ -107,6 +171,7 @@ try {
             // --- FIN DE LA SOLUCIÓN DEFINITIVA ---
 
             echo json_encode(['success' => true, 'settings' => $settings]);
+
         break;
 
         case 'products':
@@ -756,10 +821,9 @@ function handleProductsRequest(PDO $pdo) {
     $filter_name = '';
     $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
 
-    // --- INICIO DE LA INTEGRACIÓN ---
-    // Esta es la lógica que se asegura de que el filtro para ocultar productos sin imagen funcione.
-    $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';
-    // --- FIN DE LA INTEGRACIÓN ---
+    $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';//cometar para que $hide_no_image = true; funcione
+    
+    //$hide_no_image = true; forzar para desarrrolo el mostrar solo aquellos productos que si tienen imagen
 
     // Validación de seguridad para el ordenamiento
     $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra', 'random'];
@@ -777,12 +841,10 @@ function handleProductsRequest(PDO $pdo) {
     $where_clauses = ["p.estado = 1"];
     $params = [];
     
-    // --- INICIO DE LA INTEGRACIÓN ---
     // Se añade la nueva condición a la consulta si el parámetro está activo.
     if ($hide_no_image) {
-        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '')";
+        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
     }
-    // --- FIN DE LA INTEGRACIÓN ---
 
     // Filtros existentes (departamento, búsqueda, ofertas)
     if ($department_id !== null && $department_id > 0) {

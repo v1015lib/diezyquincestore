@@ -1,0 +1,45 @@
+// Estilos para que el panel de administración sea responsivo
+
+// --- Para Tablets y Móviles (hasta 991px) ---
+@media (max-width: 991px) {
+    .dashboard-sidemenu {
+        position: fixed;
+        left: -100%; // El menú está oculto por defecto
+        height: 100%;
+        transition: left 0.3s ease-in-out !important; // Asegura una transición suave
+
+        &.active {
+            left: 0; // La clase .active lo hace visible
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+    }
+
+    .dashboard-header .dashboard-menu-toggle {
+        display: block; // Muestra el botón de hamburguesa
+    }
+
+    .dashboard-content {
+        padding: 1.5rem; // Reduce el padding en pantallas más pequeñas
+    }
+}
+
+// --- Para Móviles (hasta 480px) ---
+@media (max-width: 480px) {
+    .dashboard-content {
+        padding: 1rem;
+    }
+
+    .module-header h2 {
+        font-size: 1.5rem; // Reduce el tamaño del título principal del módulo
+    }
+
+    .action-ribbon {
+        // En móvil, los botones de la cinta ocupan todo el ancho
+        flex-direction: column;
+        align-items: stretch;
+
+        .action-btn {
+            text-align: center;
+        }
+    }
+}
