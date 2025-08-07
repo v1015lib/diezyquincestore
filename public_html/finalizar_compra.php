@@ -12,7 +12,7 @@ if (!isset($_SESSION['id_cliente'])) {
     exit;
 }
 
-require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/../config/config.php';
 
 // Usamos el ID de la sesión
 $client_id = $_SESSION['id_cliente'];

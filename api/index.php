@@ -27,6 +27,7 @@ error_reporting(E_ALL);
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 require_once __DIR__ . '/../config/config.php';
+//die('La conexión SÍ fue incluida correctamente.');
 
 $resource = $_GET['resource'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];

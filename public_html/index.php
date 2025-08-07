@@ -1,5 +1,6 @@
 <?php 
 // 1. Preguntamos a la API qué componentes debemos mostrar.
+// LÍNEA CORREGIDA
 $settings_json = @file_get_contents('http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/api/index.php?resource=layout-settings');
 
 // 2. Valores por "defecto" actualizados para la nueva estructura
