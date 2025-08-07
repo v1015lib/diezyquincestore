@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "nifty-garden-465619-p3",
+  "private_key_id": "81dc3b2dce2ad7998e2cbd586c39ed105b1b2cdd",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDnqsTYhJVqvsMH\nIdyObkXG7UHieenADijrbPI2ZsyJp6D085+VbtjMeIHTcjBn4Oze9G+KPzNHeSCY\nwZu4/aZj7VbslwLMU7zLxg5dY5fZoTUY9niHn9llNDCJVy6IGp/VRrSbf8eWan91\nLBpCbBwI4LLUYl3UmOGBAZAN6ZSLU7h9zrNwHxjSiCOULPPLMDeEJVTKaRshdanJ\nYDdVxUx1jyrkLzyXK2aZaXXK/+cZooJTG8zLPpXCx5lQbzjTI2PIa8hLq2LekFmY\nj4N4NK5RPKxhjSjvq5GuSpPzLKR54A+y5qNtw4KlOfSPy0Fo7/nMHYooSE05oPzJ\n2rQeaNNbAgMBAAECggEACEepNhffA0FYKnFtDEYoBkkajrlOv8eBx5BNmTYpX04i\nHunKLVwYhuOpDYv065w1ZcPqF1B/nlwCQejBjmYPxAiKj8rXQG2fFNAPrrTNi5YL\nFh5RBn/nFDU+UC+mgRolK56VppfK5AxgYSliCDe29MubI04fY7wnFdD0JhslbP6l\nSMvONL9/fAs7YBS7CK+OTha9GR8SE3RkEU5XglBaIg2afQDWSn/iEyuDXA2M36iS\nHd6jBOU/gHvqZj51EeXTbpZ6MHkxAQHytuT1dXoazsxgkGMp6DX1r0itQa/7wgU+\nQkWaRw1tJS1BIFIrJFMds7buTTx3OsRavGTa3hqjaQKBgQD3GRisL5QBW3CWrQ+f\nNc2DN1370ujDmx9NoVWP1g4A32jcY8SHRseZywqagJ4Nn/qS2V0LH4WJyMiA+Fme\nFJYRGWC/pGfrCXkAtApzAZFXXdJClQk3QVvavklfkCokcCWxLqhk/AYKGAevHK4T\nWuU4oyAQW6o/sSayY+P6z+BClwKBgQDwA1ubSISCOK4uzdHn5qvbyx3HE4jhr6v9\nCDFT5CJ/v2sQwf5LTLpMDbIwZ3bE1R8yycY8rR1MMnSGT8Hja/ApEiUkh0WjYcro\nvTXJ2WCH2gofisA90Sdloi9proqOrsvcqC3c4jLBv4lhgu3g4HBSLHRrwVAThM6l\nZM5nFjFB3QKBgQCmeu8nm4qxe2UY75K15u8G+DfHIeuXVp05lXhrR4H5zov86O8R\nYXu7v5PuUreqYF3XsMFCbENxeKi2VB01J5OQA7QuiltFfQVclvDvWWAOJ/UwzO7/\nnnZ/o3MWArCSCkkq3k+wciizhksvDTiva69CgI1q2AeVkAqNaEXCx2nGEwKBgAwP\nTyINUcMtT+tAIkTxvT7tBNEE9ULJze2H5NqfQvCCUMHlzX5BG7dIlOSDvl8Dim7F\n3rUbybYTbvF0vnxL5yRZKg6c0W31Mvngz/wVdRk+ZnXRRfmVMdKUhKddws6Kj+nF\ndZB8uSotEp0YtBUxkdM/MpZbf0eLy8pZt1lMryrtAoGAK5DqN1+1LJmm3Ac3rVxj\nfR9Gm8JEpVe4iEGCROa9T6heE9gpYm3tZzom64yqbWwfAhsCFH0h3FQnYVt8myxL\nj3NVyi9gtfV43KaOdFPKJDEtMeBnHKkDLQ37iWVeDv32Sq+1YGxYURzLWC5WzEXS\nmFoFdk9IyttsKRCIQAS6lhY=\n-----END PRIVATE KEY-----\n",
+  "client_email": "libreriaweb@nifty-garden-465619-p3.iam.gserviceaccount.com",
+  "client_id": "118206986095576130559",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/libreriaweb%40nifty-garden-465619-p3.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

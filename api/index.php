@@ -53,7 +53,7 @@ try {
             $department_carousel_config = [
                 'department_id' => 8,  // ID del departamento que quieres destacar
                 'limit'         => 8,
-                'title_prefix'  => 'Lo mejor en' // Frase que acompaña al nombre
+                'title_prefix'  => 'Lo que siempre buscas en ' // Frase que acompaña al nombre
             ];
 
             // --- Lógica Automática (No necesitas tocar esto de aquí para abajo) ---
@@ -90,7 +90,7 @@ try {
             // 3. Array final que se envía a la página
             $settings = [
                 'show_main_carousel' => true, // Visivilidad de anuncios principales
-                'show_offers_carousel' => true,// Visivilidad de slider ofertas
+                'show_offers_carousel' => false,// Visivilidad de slider ofertas
                 'offers_carousel_config' => [
                     'title'   => $offers_final_title,
                     'filters' => $offers_final_config
