@@ -32,7 +32,9 @@
     <table class="product-table">
         <thead>
             <tr>
-            <th><input type="checkbox" id="select-all-products"></th>
+            <th>
+                <input type="checkbox" id="select-all-products">
+            </th>
             <th>Código</th>
             <th class="sortable" data-sort="nombre_producto">Nombre del Producto</th>
             <th class="sortable" data-sort="departamento">Departamento</th>

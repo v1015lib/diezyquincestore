@@ -19,7 +19,7 @@ body {
 
 .dashboard-content {
     flex-grow: 1;
-    padding: 2rem; // Más espaciado para un look más limpio
+    padding: .5rem; // Más espaciado para un look más limpio
     overflow-y: auto;
     // Scrollbar más sutil
     &::-webkit-scrollbar { width: 6px; }
@@ -41,7 +41,7 @@ body {
         h3 {
             margin: 0;
             font-size: 1.1rem;
-            font-weight: 600;
+            font-weight: 900;
             color: white;
         }
     }
@@ -54,10 +54,10 @@ body {
     }
     nav ul li a {
         display: block;
-        padding: 0.9rem 1.5rem;
-        color: darken($tcolor2, 20%);
+        padding: .5rem;
+        color: $tcolor2;
         text-decoration: none;
-        font-weight: 500;
+        font-weight: 600;
         border-left: 4px solid transparent;
         transition: all 0.2s ease !important;
 

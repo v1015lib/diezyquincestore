@@ -20,7 +20,7 @@
   -webkit-box-pack: justify;
       -ms-flex-pack: justify;
           justify-content: space-between;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem;
   background-color: #ffffff;
   border-bottom: 1px solid #dee2e6;
   -ms-flex-negative: 0;
@@ -28,8 +28,10 @@
   z-index: 900;
 }
 .dashboard-header .logo img {
-  max-height: 40px;
+  max-height: 30px;
   width: auto;
+  -webkit-filter: invert(1);
+          filter: invert(1);
 }
 .dashboard-header .admin-info {
   color: #343a40;
@@ -44,11 +46,11 @@
 }
 
 .module-header {
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
 }
 .module-header h2 {
-  font-size: 1.8rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 900;
   color: #0C0A4E;
   margin-bottom: 1.25rem;
 }
@@ -58,24 +60,20 @@
   display: flex;
   -ms-flex-wrap: wrap;
       flex-wrap: wrap;
-  gap: 0.5rem;
 }
 .module-header .action-btn {
   background-color: transparent;
   border: 1px solid #dee2e6;
-  color: #6c757d;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: 600;
+  padding: 0.5rem;
+  font-weight: 200;
   cursor: pointer;
   -webkit-transition: all 0.2s ease !important;
   transition: all 0.2s ease !important;
   font-size: 0.9rem;
 }
 .module-header .action-btn:hover {
-  border-color: #0C0A4E;
   color: #0C0A4E;
-  background-color: #6662eb;
+  background-color: white;
 }
 .module-header .action-btn.active {
   background-color: #0C0A4E;
@@ -85,7 +83,7 @@
 
 .module-content {
   background-color: #ffffff;
-  padding: 2rem;
+  padding: 0.5rem;
   border-radius: 8px;
   border: 1px solid #dee2e6;
   min-height: 400px;
@@ -183,22 +181,24 @@
   font-size: 0.9rem;
 }
 .product-table th, .product-table td {
-  padding: 0.3rem;
+  padding: 0.75rem;
   text-align: left;
-  white-space: wrap;
-  text-overflow: ellipsis;
   border-bottom: 1px solid #dee2e6;
   font-size: 0.8rem;
-}
-.product-table thead {
-  background-color: #f8f9fa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .product-table thead th {
-  font-weight: 400;
+  font-weight: 900;
   color: #6c757d;
+  background-color: #f8f9fa;
 }
 .product-table tbody tr:hover {
   background-color: #6662eb;
+}
+.product-table td[data-field=nombre_producto] {
+  max-width: 350px;
 }
 .product-table .editable {
   cursor: pointer;
@@ -222,6 +222,7 @@
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 .status-badge.status-active {
   background-color: #d4edda;
@@ -280,7 +281,7 @@ body {
   -webkit-box-flex: 1;
       -ms-flex-positive: 1;
           flex-grow: 1;
-  padding: 2rem;
+  padding: 0.5rem;
   overflow-y: auto;
 }
 .dashboard-content::-webkit-scrollbar {
@@ -315,7 +316,7 @@ body {
 .dashboard-sidemenu .dashboard-sidemenu-header h3 {
   margin: 0;
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 900;
   color: white;
 }
 .dashboard-sidemenu nav {
@@ -328,10 +329,10 @@ body {
 }
 .dashboard-sidemenu nav ul li a {
   display: block;
-  padding: 0.9rem 1.5rem;
-  color: #785b0d;
+  padding: 0.5rem;
+  color: #D4A017;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   border-left: 4px solid transparent;
   -webkit-transition: all 0.2s ease !important;
   transition: all 0.2s ease !important;
@@ -535,11 +536,14 @@ body {
 /* --- ESTILOS PARA ORDENAMIENTO DE TABLA --- */
 .product-table th.sortable {
   cursor: pointer;
-  position: relative;
+  position: sticky;
+  top: 0;
   -webkit-user-select: none; /* Evita que el texto se seleccione al hacer doble clic */
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+  background-color: white;
+  z-index: 100;
 }
 
 .product-table th.sortable:hover {
@@ -590,5 +594,4 @@ body {
   position: sticky;
   top: 0; /* Pega el encabezado en la parte superior del contenedor */
   z-index: 10; /* Asegura que esté por encima del contenido de la tabla */
-  background-color: #f8f9fa; /* Color de fondo para que el texto de abajo no se vea */
 }

@@ -46,32 +46,46 @@
     overflow-x: auto; // Permite scroll horizontal en tablas grandes
 }
 
+// Reemplaza el bloque .product-table en admin/scss/includes/_productos_module.scss con esto
+
 .product-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
 
+    // Estilo base para todas las celdas (encabezados y datos)
     th, td {
-        padding: 0.3rem;
+        padding: 0.75rem; // Un poco más de padding para que respire
         text-align: left;
-        white-space: wrap;
-        text-overflow: ellipsis;
         border-bottom: 1px solid $border-color;
         font-size: .8rem;
+        
+        // CORRECCIÓN 1: Aplicamos el truncado de texto correctamente a TODO
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    thead {
-        background-color: #f8f9fa;
-        th {
-            font-weight: 400;
-            color: $secondary-color;
-        }
+    // Estilos específicos para el encabezado (thead)
+    thead th {
+        font-weight: 900;
+        color: $secondary-color;
+        
+        // CORRECCIÓN 2: Fondo consistente para el efecto "sticky" en TODOS los encabezados
+        background-color: #f8f9fa; // Un gris claro profesional
     }
 
+    // Estilo para las filas del cuerpo de la tabla
     tbody tr:hover {
         background-color: lighten($primary-color, 48%);
     }
+    
+    // Celda específica para el nombre del producto, le damos más espacio
+    td[data-field="nombre_producto"] {
+        max-width: 350px; 
+    }
 
+    // Icono de lápiz para celdas editables
     .editable {
         cursor: pointer;
         position: relative;
@@ -83,6 +97,7 @@
         }
     }
     
+    // Estilo para los inputs de edición
     input[type="text"], input[type="number"] {
         width: 100%;
         padding: 0.5rem;
@@ -91,25 +106,23 @@
     }
 }
 
-// ... (tus estilos existentes de la tabla) ...
-
-// Estilos para el badge de estado
+// Estilos para el badge de estado (sin cambios)
 .status-badge {
     padding: 0.2rem 0.6rem;
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 600;
+    white-space: nowrap; // Aseguramos que el badge no se rompa
     
     &.status-active {
-        background-color: #d4edda; // Verde claro
-        color: #155724; // Verde oscuro
+        background-color: #d4edda;
+        color: #155724;
     }
     &.status-inactive {
-        background-color: #f8d7da; // Rojo claro
-        color: #721c24; // Rojo oscuro
+        background-color: #f8d7da;
+        color: #721c24;
     }
 }
-
 .product-table td {
     max-width: 250px; /* Ancho máximo para las celdas, ajústalo si es necesario */
     white-space: nowrap; /* Evita que el texto se divida en varias líneas */

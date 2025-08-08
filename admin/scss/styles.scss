@@ -116,11 +116,14 @@
 /* --- ESTILOS PARA ORDENAMIENTO DE TABLA --- */
 .product-table th.sortable {
     cursor: pointer;
-    position: relative;
+    position: sticky;
+    top: 0;
     -webkit-user-select: none; /* Evita que el texto se seleccione al hacer doble clic */
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    background-color: white;
+    z-index: 100;
 }
 
 .product-table th.sortable:hover {
@@ -171,5 +174,5 @@
     position: sticky;
     top: 0; /* Pega el encabezado en la parte superior del contenedor */
     z-index: 10; /* Asegura que esté por encima del contenido de la tabla */
-    background-color: #f8f9fa; /* Color de fondo para que el texto de abajo no se vea */
+
 }
