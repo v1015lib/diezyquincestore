@@ -18,33 +18,36 @@
         <select id="batch-action-selector" disabled>
             <option value="">Acciones en lote...</option>
             <option value="delete">Eliminar Seleccionados</option>
-            
             <option value="activate" style="display: none;">Activar en Tienda</option>
             <option value="deactivate" style="display: none;">Inactivar en Tienda</option>
-            
             <option value="change-department">Cambiar Departamento</option>
         </select>
         <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
     </div>
 </div>
 
-<div class="product-list-container">
-<table class="product-table">
-    <thead>
-        <tr>
-            <th><input type="checkbox" id="select-all-products"></th>
-            <th>Código</th>
-            <th class="sortable" data-sort="nombre_producto">Nombre del Producto</th>
-            <th class="sortable" data-sort="departamento">Departamento</th>
-            <th class="sortable" data-sort="precio_venta">Precio Venta</th>
-            <th class="sortable" data-sort="stock_actual">Stock</th>
-            <th>Mín.</th>
-            <th>Máx.</th>
-            <th class="sortable" data-sort="usa_inventario">Usa Inv.</th>
-            <th class="sortable" data-sort="nombre_estado">Estado</th>
-        </tr>
-    </thead>
-    <tbody id="product-table-body">
-        </tbody>
-</table>
+<div class="product-list-container" id="product-list-container">
+    <table class="product-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="select-all-products"></th>
+                <th>Código</th>
+                <th class="sortable" data-sort="nombre_producto">Nombre del Producto</th>
+                <th class="sortable" data-sort="departamento">Departamento</th>
+                <th class="sortable" data-sort="precio_venta">Precio Venta</th>
+                <th class="sortable" data-sort="stock_actual">Stock</th>
+                <th>Mín.</th>
+                <th>Máx.</th>
+                <th class="sortable" data-sort="usa_inventario">Usa Inv.</th>
+                <th class="sortable" data-sort="nombre_estado">Estado</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody id="product-table-body">
+            </tbody>
+    </table>
+</div>
+
+<div id="loading-indicator" style="display: none; text-align: center; padding: 1rem;">
+    <p>Cargando más productos...</p>
 </div>

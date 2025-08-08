@@ -37,7 +37,48 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+     case 'admin/deleteProduct':
+            // require_admin(); // Seguridad
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $productId = $data['id_producto'] ?? 0;
 
+            if (!$productId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'No se proporcionó el ID del producto.']);
+                break;
+            }
+
+            try {
+                // Verificación de seguridad: no eliminar si hay stock
+                $stmt_check = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id");
+                $stmt_check->execute([':id' => $productId]);
+                $stock = $stmt_check->fetchColumn();
+
+                if ($stock > 0) {
+                    http_response_code(409); // 409 Conflict: El estado actual del recurso impide la acción.
+                    echo json_encode(['success' => false, 'error' => 'Este producto no se puede eliminar porque tiene stock disponible.']);
+                    break;
+                }
+
+                // Si el stock es 0, procedemos a eliminar
+                $stmt_delete = $pdo->prepare("DELETE FROM productos WHERE id_producto = :id");
+                $stmt_delete->execute([':id' => $productId]);
+
+                if ($stmt_delete->rowCount() > 0) {
+                    echo json_encode(['success' => true, 'message' => 'Producto eliminado correctamente.']);
+                } else {
+                    throw new Exception('No se encontró el producto para eliminar o ya fue eliminado.');
+                }
+
+            } catch (PDOException $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error de base de datos al intentar eliminar el producto.']);
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
 
         case 'admin/uploadImage':
     // Endpoint dedicado exclusivamente a subir una imagen al bucket.
@@ -171,25 +212,40 @@ case 'admin/deleteBucketImage':
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
     }
+
     break;
-        case 'admin/checkProductCode':
-    // No necesita permisos de admin tan estrictos, ya que solo consulta.
-    $code = $_GET['code'] ?? '';
-    
-    if (empty($code)) {
-        echo json_encode(['is_available' => false, 'message' => 'Código no proporcionado.']);
-        break;
-    }
-    
-    $stmt = $pdo->prepare("SELECT 1 FROM productos WHERE codigo_producto = :code LIMIT 1");
-    $stmt->execute([':code' => $code]);
-    
-    if ($stmt->fetch()) {
-        echo json_encode(['is_available' => false, 'message' => 'Este código ya está en uso.']);
-    } else {
-        echo json_encode(['is_available' => true, 'message' => 'Código disponible.']);
-    }
-    break;
+
+            case 'admin/checkProductCode':
+            $code = $_GET['code'] ?? '';
+            $current_id = isset($_GET['current_id']) ? (int)$_GET['current_id'] : 0;
+            
+            if (empty($code)) {
+                echo json_encode(['is_available' => false, 'message' => 'Código no proporcionado.']);
+                break;
+            }
+            
+            // Construimos la consulta base
+            $sql = "SELECT 1 FROM productos WHERE codigo_producto = :code";
+            $params = [':code' => $code];
+            
+            // Si estamos editando (current_id > 0), excluimos ese producto de la búsqueda
+            // para no detectar su propio código como un duplicado.
+            if ($current_id > 0) {
+                $sql .= " AND id_producto != :current_id";
+                $params[':current_id'] = $current_id;
+            }
+            
+            $sql .= " LIMIT 1";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            
+            if ($stmt->fetch()) {
+                echo json_encode(['is_available' => false, 'message' => 'Este código ya está en uso.']);
+            } else {
+                echo json_encode(['is_available' => true, 'message' => 'Código disponible.']);
+            }
+            break;
        
        // api/index.php
 
@@ -366,67 +422,82 @@ case 'admin/deleteBucketImage':
       }
       break;
 
+    
+    // Reemplaza este case en tu api/index.php
+
     case 'admin/getProducts':
-    // require_admin(); // Descomentar en producción
+        // require_admin(); // Descomentar en producción
+
+        // --- INICIO DE LA LÓGICA DE PAGINACIÓN Y ORDENAMIENTO ---
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = 25; // 25 productos por página, puedes ajustar este número
+        $offset = ($page - 1) * $limit;
 
         $allowed_sorts = [
-            'nombre_producto' => 'p.nombre_producto',
-            'departamento'    => 'd.departamento',
-            'precio_venta'    => 'p.precio_venta',
-            'nombre_estado'   => 'e.nombre_estado',
-            'stock_actual'    => 'p.stock_actual', 
-            'usa_inventario'  => 'p.usa_inventario'
+            'nombre_producto' => 'p.nombre_producto', 'departamento' => 'd.departamento',
+            'precio_venta' => 'p.precio_venta', 'nombre_estado' => 'e.nombre_estado',
+            'stock_actual' => 'p.stock_actual', 'usa_inventario' => 'p.usa_inventario'
         ];
+        $sort_by_key = $_GET['sort_by'] ?? 'nombre_producto';
+        $order = isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC' ? 'DESC' : 'ASC';
+        $sort_column = $allowed_sorts[$sort_by_key] ?? $allowed_sorts['nombre_producto'];
+        
+        // --- CONSTRUCCIÓN DE LA CONSULTA ---
+        $base_query = "FROM productos p 
+                       JOIN departamentos d ON p.departamento = d.id_departamento 
+                       JOIN estados e ON p.estado = e.id_estado";
+        
+        $where_clauses = [];
+        $params = [];
 
-    // 2. Obtenemos los parámetros de la URL, con valores por defecto seguros.
-    $sort_by_key = $_GET['sort_by'] ?? 'nombre_producto';
-    $order = isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC' ? 'DESC' : 'ASC';
+        if (!empty($_GET['search'])) {
+            $search_term = '%' . $_GET['search'] . '%';
+            $where_clauses[] = "(p.nombre_producto LIKE :search_name OR p.codigo_producto LIKE :search_code)";
+            $params[':search_name'] = $search_term;
+            $params[':search_code'] = $search_term;
+        }
+        if (!empty($_GET['department_id']) && is_numeric($_GET['department_id'])) {
+            $where_clauses[] = "p.departamento = :department_id";
+            $params[':department_id'] = (int)$_GET['department_id'];
+        }
+        
+        $where_sql = !empty($where_clauses) ? " WHERE " . implode(" AND ", $where_clauses) : "";
 
-    // 3. Validamos que la columna de ordenamiento sea una de las permitidas.
-    $sort_column = $allowed_sorts[$sort_by_key] ?? $allowed_sorts['nombre_producto'];
-   // --- FIN DE LA LÓGICA DE ORDENAMIENTO ---
+        // --- OBTENER EL CONTEO TOTAL PARA LA PAGINACIÓN ---
+        $count_sql = "SELECT COUNT(p.id_producto) " . $base_query . $where_sql;
+        $stmt_count = $pdo->prepare($count_sql);
+        $stmt_count->execute($params);
+        $total_products = $stmt_count->fetchColumn();
+        $total_pages = ceil($total_products / $limit);
 
-    // Prepara la consulta base
-     $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado,
-                     p.stock_actual, p.stock_minimo, p.stock_maximo, p.usa_inventario
-              FROM productos p 
-              JOIN departamentos d ON p.departamento = d.id_departamento 
-              JOIN estados e ON p.estado = e.id_estado";
+        // --- OBTENER LOS PRODUCTOS DE LA PÁGINA ACTUAL ---
+        $products_sql = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado,
+                                p.stock_actual, p.stock_minimo, p.stock_maximo, p.usa_inventario " . $base_query . $where_sql .
+                        " ORDER BY $sort_column $order LIMIT :limit OFFSET :offset";
 
-     $params = [];
-    $where_clauses = [];
+        $stmt_products = $pdo->prepare($products_sql);
+        // Bindeamos los parámetros de la cláusula WHERE
+        foreach ($params as $key => &$val) {
+            $stmt_products->bindParam($key, $val, PDO::PARAM_STR);
+        }
+        // Bindeamos los parámetros de LIMIT y OFFSET
+        $stmt_products->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt_products->bindParam(':offset', $offset, PDO::PARAM_INT);
+        
+        $stmt_products->execute();
+        $products = $stmt_products->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'success' => true, 
+            'products' => $products,
+            'pagination' => [
+                'currentPage' => $page,
+                'totalPages' => $total_pages,
+                'totalProducts' => $total_products
+            ]
+        ]);
 
-    if (!empty($_GET['search'])) {
-        $search_term = '%' . $_GET['search'] . '%';
-        $where_clauses[] = "(p.nombre_producto LIKE :search_name OR p.codigo_producto LIKE :search_code)";
-        $params[':search_name'] = $search_term;
-        $params[':search_code'] = $search_term;
-    }
-       // --- INICIO DE LA NUEVA INTEGRACIÓN ---
-    // Filtro por departamento
-    if (!empty($_GET['department_id']) && is_numeric($_GET['department_id'])) {
-        $where_clauses[] = "p.departamento = :department_id";
-        $params[':department_id'] = (int)$_GET['department_id'];
-    }
-    // --- FIN DE LA NUEVA INTEGRACIÓN ---
-
-    if (!empty($where_clauses)) {
-        $query .= " WHERE " . implode(" AND ", $where_clauses);
-    }
-    
-    // 4. Añadimos la cláusula ORDER BY dinámica a la consulta.
-    $query .= " ORDER BY $sort_column $order";
-
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['success' => true, 'products' => $products]);
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error en la consulta a la base de datos.', 'details' => $e->getMessage()]);
-    }
-    break;
+        break;
 
     // Prepara la consulta base
     $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado FROM productos p JOIN departamentos d ON p.departamento = d.id_departamento JOIN estados e ON p.estado = e.id_estado";
