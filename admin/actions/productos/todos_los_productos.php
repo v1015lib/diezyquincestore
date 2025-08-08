@@ -29,20 +29,22 @@
 </div>
 
 <div class="product-list-container">
-    <table class="product-table">
-        <thead>
-            <tr>
-            <th>
-                <input type="checkbox" id="select-all-products">
-            </th>
+<table class="product-table">
+    <thead>
+        <tr>
+            <th><input type="checkbox" id="select-all-products"></th>
             <th>Código</th>
             <th class="sortable" data-sort="nombre_producto">Nombre del Producto</th>
             <th class="sortable" data-sort="departamento">Departamento</th>
             <th class="sortable" data-sort="precio_venta">Precio Venta</th>
+            <th class="sortable" data-sort="stock_actual">Stock</th>
+            <th>Mín.</th>
+            <th>Máx.</th>
+            <th class="sortable" data-sort="usa_inventario">Usa Inv.</th>
             <th class="sortable" data-sort="nombre_estado">Estado</th>
-            </tr>
-        </thead>
-        <tbody id="product-table-body">
-            </tbody>
-    </table>
+        </tr>
+    </thead>
+    <tbody id="product-table-body">
+        </tbody>
+</table>
 </div>

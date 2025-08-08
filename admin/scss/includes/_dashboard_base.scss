@@ -28,7 +28,7 @@ body {
 }
 
 .dashboard-sidemenu {
-    width: 250px;
+    width: 200px;
     background-color: $primary-color;
     flex-shrink: 0;
     z-index: 1001;
@@ -36,11 +36,11 @@ body {
     flex-direction: column;
 
     .dashboard-sidemenu-header {
-        padding: 1.5rem;
+        padding: .5rem;
         border-bottom: 1px solid lighten($primary-color, 10%);
         h3 {
             margin: 0;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 900;
             color: white;
         }
@@ -52,18 +52,29 @@ body {
     nav ul {
         padding: 0.5rem 0;
     }
+  // --- ESTA ES LA SECCIÓN CORREGIDA ---
     nav ul li a {
         display: block;
-        padding: .5rem;
-        color: $tcolor2;
+        padding: .5rem 1.5rem;
+        color: $tcolor2; // Variable aplicada al contenedor del enlace
         text-decoration: none;
         font-weight: 600;
         border-left: 4px solid transparent;
-        transition: all 0.2s ease !important;
+        transition: all 0.2s ease;
+
+        // Aseguramos que los spans internos también hereden el color correcto
+        .menu-icon, .menu-text {
+            color: inherit; // 'inherit' toma el color del padre (el <a>)
+            transition: color 0.2s ease;
+        }
 
         &:hover {
             background-color: lighten($primary-color, 5%);
-            color: #fff;
+            
+            // Al pasar el mouse, todo se vuelve blanco
+            .menu-icon, .menu-text {
+                color: #fff;
+            }
         }
     }
     nav ul li.separator {

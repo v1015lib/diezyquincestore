@@ -7,7 +7,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // LÓGICA DE CIERRE DE SESIÓN AUTOMÁTICO POR INACTIVIDAD
-        $timeout_duration = 1800; // 30 minutos
+        $timeout_duration = 3600; // 30 minutos
         if (isset($_SESSION['id_cliente']) && isset($_SESSION['last_activity'])) {
             if ((time() - $_SESSION['last_activity']) > $timeout_duration) {
                 session_unset();
@@ -36,6 +36,80 @@ if (session_status() == PHP_SESSION_NONE) {
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
+
+
+
+        case 'admin/uploadImage':
+    // Endpoint dedicado exclusivamente a subir una imagen al bucket.
+    try {
+        if (!isset($_FILES['url_imagen']) || $_FILES['url_imagen']['error'] !== UPLOAD_ERR_OK) {
+            throw new Exception('No se recibió ningún archivo o hubo un error en la subida.');
+        }
+
+        // Reutilizamos la misma lógica de GCS que ya tienes
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $keyFilePath = __DIR__ . '/../keygcs.json';
+        $bucketName = 'libreria-web-imagenes';
+        
+        $fileTmpPath = $_FILES['url_imagen']['tmp_name'];
+        $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'], PATHINFO_EXTENSION));
+        $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
+        $gcsPath = 'productos/' . $newFileName;
+        
+        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
+        $bucket = $storage->bucket($bucketName);
+        
+        $bucket->upload(
+            fopen($fileTmpPath, 'r'),
+            ['name' => $gcsPath]
+        );
+        
+        echo json_encode(['success' => true, 'message' => 'Imagen subida correctamente.']);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+    // api/index.php (reemplaza este case específico)
+
+    case 'admin/getProductDetails':
+        $productCode = $_GET['id'] ?? ''; // Aunque el param se llama 'id', lo tratamos como el código.
+        
+        if (empty($productCode)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'No se proporcionó un código de producto.']);
+            break;
+        }
+
+        try {
+            // --- INICIO DE LA CORRECCIÓN ---
+            // La consulta ahora busca estricta y únicamente por la columna 'codigo_producto'.
+            $stmt = $pdo->prepare("
+                SELECT p.*, d.departamento as nombre_departamento, e.nombre_estado, pr.nombre_proveedor, um.nombre_unidad
+                FROM productos p
+                LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                LEFT JOIN estados e ON p.estado = e.id_estado
+                LEFT JOIN proveedor pr ON p.proveedor = pr.id_proveedor
+                LEFT JOIN unidad_medida um ON p.tipo_de_venta = um.id_unidad_medida
+                WHERE p.codigo_producto = :code
+            ");
+            $stmt->execute([':code' => $productCode]);
+            $product = $stmt->fetch(PDO::FETCH_ASSOC);
+            // --- FIN DE LA CORRECCIÓN ---
+
+        if (!$product) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Producto no encontrado con ese código.']);
+        } else {
+            echo json_encode(['success' => true, 'product' => $product]);
+        }
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
+    }
+    break;
 
     // api/index.php (dentro del switch)
 
@@ -299,7 +373,9 @@ case 'admin/deleteBucketImage':
             'nombre_producto' => 'p.nombre_producto',
             'departamento'    => 'd.departamento',
             'precio_venta'    => 'p.precio_venta',
-            'nombre_estado'   => 'e.nombre_estado'
+            'nombre_estado'   => 'e.nombre_estado',
+            'stock_actual'    => 'p.stock_actual', 
+            'usa_inventario'  => 'p.usa_inventario'
         ];
 
     // 2. Obtenemos los parámetros de la URL, con valores por defecto seguros.
@@ -311,11 +387,13 @@ case 'admin/deleteBucketImage':
    // --- FIN DE LA LÓGICA DE ORDENAMIENTO ---
 
     // Prepara la consulta base
-    $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado 
+     $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado,
+                     p.stock_actual, p.stock_minimo, p.stock_maximo, p.usa_inventario
               FROM productos p 
               JOIN departamentos d ON p.departamento = d.id_departamento 
               JOIN estados e ON p.estado = e.id_estado";
-    $params = [];
+
+     $params = [];
     $where_clauses = [];
 
     if (!empty($_GET['search'])) {
@@ -408,7 +486,49 @@ case 'admin/deleteBucketImage':
                 }
     break;    
 
+     case 'admin/updateProduct':
+            $pdo->beginTransaction();
+            try {
+                $productId = $_POST['id_producto'] ?? 0;
+                if (!$productId) { throw new Exception('ID de producto no válido.'); }
+                $stmt_check = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id");
+                $stmt_check->execute([':id' => $productId]);
+                $current_stock = $stmt_check->fetchColumn();
+                $usa_inventario_nuevo = isset($_POST['usa_inventario_checkbox']) ? 1 : 0;
+                if ($usa_inventario_nuevo == 0 && $current_stock > 0) {
+                    throw new Exception('No se puede desactivar la gestión de inventario si el stock actual no es cero.');
+                }
+                
+                $codigo_producto = trim($_POST['codigo_producto'] ?? '');
+                $nombre_producto = trim($_POST['nombre_producto'] ?? '');
+                $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
+                $precio_compra = filter_var($_POST['precio_compra'] ?? 0, FILTER_VALIDATE_FLOAT);
+                $precio_venta = filter_var($_POST['precio_venta'] ?? 0, FILTER_VALIDATE_FLOAT);
+                $precio_mayoreo = filter_var($_POST['precio_mayoreo'] ?? 0, FILTER_VALIDATE_FLOAT);
+                $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? '', FILTER_VALIDATE_INT);
+                $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
+                $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
+                $stock_actual = $usa_inventario_nuevo ? filter_var($_POST['stock_actual'] ?? 0, FILTER_VALIDATE_INT) : 0;
+                $stock_minimo = $usa_inventario_nuevo ? filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+                $stock_maximo = $usa_inventario_nuevo ? filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+                $url_imagen = $_POST['url_imagen'] ?? '';
 
+                $sql_update = "UPDATE productos SET codigo_producto = :codigo_producto, nombre_producto = :nombre_producto, departamento = :departamento, precio_compra = :precio_compra, precio_venta = :precio_venta, precio_mayoreo = :precio_mayoreo, url_imagen = :url_imagen, stock_actual = :stock_actual, stock_minimo = :stock_minimo, stock_maximo = :stock_maximo, tipo_de_venta = :tipo_de_venta, estado = :estado, usa_inventario = :usa_inventario, proveedor = :proveedor WHERE id_producto = :id_producto";
+                $stmt_update = $pdo->prepare($sql_update);
+                $stmt_update->execute([
+                    ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':departamento' => $departamento_id,
+                    ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta, ':precio_mayoreo' => $precio_mayoreo,
+                    ':url_imagen' => $url_imagen, ':stock_actual' => $stock_actual, ':stock_minimo' => $stock_minimo,
+                    ':stock_maximo' => $stock_maximo, ':tipo_de_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
+                    ':usa_inventario' => $usa_inventario_nuevo, ':proveedor' => $proveedor_id, ':id_producto' => $productId
+                ]);
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Producto actualizado correctamente.']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                throw $e; // Relanza la excepción para que el manejador principal la capture
+            }
+            break;
         case 'layout-settings':
             // --- INICIO DE LA SOLUCIÓN DEFINITIVA ---
 

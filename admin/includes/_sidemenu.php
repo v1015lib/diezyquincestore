@@ -1,21 +1,46 @@
 <aside class="dashboard-sidemenu" id="admin-sidemenu">
     <div class="dashboard-sidemenu-header">
-        <h3>Panel de Control</h3>
+        <h3 class="menu-text">Panel de Control</h3>
     </div>
     <nav>
         <ul>
-            <li><a href="#" class="nav-link" data-module="dashboard">Dashboard</a></li>
+            <li><a href="#" class="nav-link" data-module="dashboard">
+                <span class="menu-icon">🏠</span>
+                <span class="menu-text">Dashboard</span>
+            </a></li>
             <li class="separator"></li>
-            <li><a href="#" class="nav-link" data-module="productos">Productos</a></li>
-            <li><a href="#" class="nav-link" data-module="clientes">Clientes</a></li>
-            <li><a href="#" class="nav-link" data-module="inventario">Inventario</a></li>
-            <li><a href="#" class="nav-link" data-module="estadisticas">Estadísticas</a></li>
-            <li><a href="#" class="nav-link" data-module="listas">Listas</a></li>
-            <li><a href="#" class="nav-link" data-module="usuarios">Usuarios</a></li>
-            <li><a href="#" class="nav-link" data-module="logs">Logs</a></li>
-            <li><a href="#" class="nav-link" data-module="admin_web">Admin Web</a></li>
+            <li><a href="#" class="nav-link" data-module="productos">
+                <span class="menu-icon">📦</span>
+                <span class="menu-text">Productos</span>
+            </a></li>
+            <li><a href="#" class="nav-link" data-module="clientes">
+                <span class="menu-icon">👥</span>
+                <span class="menu-text">Clientes</span>
+            </a></li>
+            <li><a href="#" class="nav-link" data-module="inventario">
+                <span class="menu-icon">📊</span>
+                <span class="menu-text">Inventario</span>
+            </a></li>
+            
+            <li><a href="#" class="nav-link" data-module="estadisticas">
+                <span class="menu-icon">📈</span>
+                <span class="menu-text">Estadísticas</span>
+            </a></li>
+            <li><a href="#" class="nav-link" data-module="web_admin">
+                <span class="menu-icon">🌐</span>
+                <span class="menu-text">Web Admin</span>
+            </a></li>
             <li class="separator"></li>
-            <li><a href="https://www.tudominio.com/logout.php">Cerrar Sesión</a></li>
+            <li><a href="https://www.tudominio.com/logout.php">
+                <span class="menu-icon">🚪</span>
+                <span class="menu-text">Cerrar Sesión</span>
+            </a></li>
         </ul>
     </nav>
+    
+    <div class="sidemenu-footer">
+        <button id="sidemenu-collapse-btn" title="Colapsar menú">
+            <span class="menu-icon">➔</span>
+        </button>
+    </div>
 </aside>

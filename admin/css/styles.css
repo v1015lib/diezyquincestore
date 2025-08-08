@@ -116,7 +116,6 @@
 .dashboard-sidemenu .nav-link.active {
   background-color: #0f0d65;
   border-left-color: #D4A017;
-  color: #fff;
 }
 
 .list-header {
@@ -181,7 +180,7 @@
   font-size: 0.9rem;
 }
 .product-table th, .product-table td {
-  padding: 0.75rem;
+  padding: 0.3rem;
   text-align: left;
   border-bottom: 1px solid #dee2e6;
   font-size: 0.8rem;
@@ -296,7 +295,7 @@ body {
 }
 
 .dashboard-sidemenu {
-  width: 250px;
+  width: 200px;
   background-color: #0C0A4E;
   -ms-flex-negative: 0;
       flex-shrink: 0;
@@ -310,12 +309,12 @@ body {
           flex-direction: column;
 }
 .dashboard-sidemenu .dashboard-sidemenu-header {
-  padding: 1.5rem;
+  padding: 0.5rem;
   border-bottom: 1px solid #13107b;
 }
 .dashboard-sidemenu .dashboard-sidemenu-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 900;
   color: white;
 }
@@ -329,16 +328,23 @@ body {
 }
 .dashboard-sidemenu nav ul li a {
   display: block;
-  padding: 0.5rem;
+  padding: 0.5rem 1.5rem;
   color: #D4A017;
   text-decoration: none;
   font-weight: 600;
   border-left: 4px solid transparent;
-  -webkit-transition: all 0.2s ease !important;
-  transition: all 0.2s ease !important;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+}
+.dashboard-sidemenu nav ul li a .menu-icon, .dashboard-sidemenu nav ul li a .menu-text {
+  color: inherit;
+  -webkit-transition: color 0.2s ease;
+  transition: color 0.2s ease;
 }
 .dashboard-sidemenu nav ul li a:hover {
   background-color: #0f0d65;
+}
+.dashboard-sidemenu nav ul li a:hover .menu-icon, .dashboard-sidemenu nav ul li a:hover .menu-text {
   color: #fff;
 }
 .dashboard-sidemenu nav ul li.separator {
@@ -541,6 +547,62 @@ body {
   }
   .action-ribbon .action-btn {
     text-align: center;
+  }
+}
+@media (min-width: 992px) {
+  .dashboard-sidemenu {
+    -webkit-transition: width 0.3s ease-in-out;
+    transition: width 0.3s ease-in-out;
+  }
+  .dashboard-sidemenu .nav-link {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: 1rem;
+  }
+  .dashboard-sidemenu .menu-icon {
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+  }
+  .sidemenu-footer {
+    margin-top: auto;
+    padding: 1rem;
+    border-top: 1px solid #13107b;
+  }
+  #sidemenu-collapse-btn {
+    background: none;
+    border: none;
+    width: 100%;
+    color: #D4A017;
+    cursor: pointer;
+    font-size: 1.5rem;
+    -webkit-transition: -webkit-transform 0.3s ease-in-out;
+    transition: -webkit-transform 0.3s ease-in-out;
+    transition: transform 0.3s ease-in-out;
+    transition: transform 0.3s ease-in-out, -webkit-transform 0.3s ease-in-out;
+  }
+  .sidemenu-collapsed {
+    width: 80px;
+  }
+  .sidemenu-collapsed .menu-text, .sidemenu-collapsed .dashboard-sidemenu-header h3 {
+    opacity: 0;
+    visibility: hidden;
+    width: 0;
+    white-space: nowrap;
+  }
+  .sidemenu-collapsed .nav-link {
+    color: white;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+  }
+  .sidemenu-collapsed #sidemenu-collapse-btn {
+    -webkit-transform: rotate(180deg);
+            transform: rotate(180deg);
   }
 }
 /* admin/css/styles.css */
@@ -858,4 +920,10 @@ body {
 
 .hidden {
   display: none;
+}
+
+.product-table td.stock-low {
+  font-weight: bold;
+  color: #856404;
+  background-color: #fff3cd;
 }
