@@ -1,4 +1,4 @@
-// admin/js/admin.js (PARTE 1 DE 2 - VERSIÓN COMPLETA Y CORREGIDA)
+// admin/js/admin.js (PARTE 1 DE 2 - VERSIÓN COMPLETA Y FINAL)
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Referencias a Elementos del DOM ---
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tableBody.appendChild(row);
                 });
 
-                if (data.products.length < 25) {
+                if (data.products.length < 25) { // Ajusta el '25' si cambias el límite en la API
                     currentFilters.page = -1;
                 }
 
@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
         }
     }
-    // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y CORREGIDA)
+    // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 
     // --- FUNCIONES AUXILIARES Y DE FORMULARIOS ---
 
@@ -491,13 +491,151 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+// --- LÓGICA PARA ELIMINAR PRODUCTO (RESTAURADA) ---
+    function initializeProductSearchForDelete() {
+        const searchForm = document.getElementById('product-search-form-delete');
+        if (!searchForm) return;
+
+        const searchInput = document.getElementById('product-search-to-delete');
+        const feedbackDiv = document.getElementById('search-feedback-delete');
+        const container = document.getElementById('delete-product-container');
+
+        searchForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // <-- ESTA LÍNEA EVITA QUE LA PÁGINA SE RECARGUE
+            const productCode = searchInput.value.trim();
+            if (!productCode) return;
+
+            feedbackDiv.textContent = 'Buscando...';
+            feedbackDiv.style.color = 'inherit';
+            container.classList.add('hidden');
+            container.innerHTML = '';
+
+            try {
+                const response = await fetch(`../api/index.php?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    feedbackDiv.textContent = '';
+                    renderDeleteView(result.product);
+                } else {
+                    throw new Error(result.error || 'Producto no encontrado.');
+                }
+            } catch (error) {
+                feedbackDiv.textContent = error.message;
+                feedbackDiv.style.color = 'red';
+            }
+        });
+    }
+
+    function renderDeleteView(product) {
+        const container = document.getElementById('delete-product-container');
+        container.classList.remove('hidden');
+
+        const canBeDeleted = parseInt(product.stock_actual, 10) === 0;
+        let deleteButtonHtml = '';
+        let warningMessageHtml = '';
+
+        if (canBeDeleted) {
+            deleteButtonHtml = `<button id="confirm-delete-btn" class="action-btn form-submit-btn" data-product-id="${product.id_producto}">Eliminar Producto Permanentemente</button>`;
+        } else {
+            warningMessageHtml = `
+                <div class="message error">
+                    No se puede eliminar. Stock actual: <strong>${product.stock_actual}</strong>.
+                    <br>
+                    Por favor, realiza un ajuste de inventario a cero para poder eliminarlo.
+                </div>`;
+            deleteButtonHtml = `<button class="action-btn form-submit-btn" disabled>Eliminar Producto</button>`;
+        }
+
+        container.innerHTML = `
+            <h4>Detalles del Producto</h4>
+            <div class="product-summary">
+                <p><strong>Código:</strong> ${product.codigo_producto}</p>
+                <p><strong>Nombre:</strong> ${product.nombre_producto}</p>
+                <p><strong>Departamento:</strong> ${product.nombre_departamento}</p>
+                <p><strong>Stock Actual:</strong> <strong class="${!canBeDeleted ? 'stock-low' : ''}">${product.stock_actual}</strong></p>
+            </div>
+            <div id="delete-feedback"></div>
+            ${warningMessageHtml}
+            <div class="form-group" style="justify-content: center; margin-top: 1rem;">
+                ${deleteButtonHtml}
+            </div>
+        `;
+
+        if (canBeDeleted) {
+            document.getElementById('confirm-delete-btn').addEventListener('click', handleDeleteConfirmation);
+        }
+    }
+
+    async function handleDeleteConfirmation(event) {
+        const button = event.target;
+        const productId = button.dataset.productId;
+        const feedbackDiv = document.getElementById('delete-feedback');
+
+        if (!confirm('¿Estás SEGURO de que quieres eliminar este producto? Esta acción es irreversible.')) {
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Eliminando...';
+        feedbackDiv.innerHTML = '';
+
+        try {
+            const response = await fetch('../api/index.php?resource=admin/deleteProduct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_producto: productId })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                document.getElementById('delete-product-container').innerHTML = feedbackDiv.innerHTML;
+            } else {
+                throw new Error(result.error);
+            }
+
+        } catch (error) {
+            feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
+            button.disabled = false;
+            button.textContent = 'Eliminar Producto Permanentemente';
+        }
+    }
+
+    // --- ⭐ FUNCIONES DE LA GALERÍA RESTAURADAS ⭐ ---
+    async function openImageGallery() {
+        if (!galleryModal) return;
+        galleryModal.style.display = 'flex';
+        await loadImageGrid();
+    }
     
-    function initializeProductSearchForDelete() { /* ...código sin cambios... */ }
-    function renderDeleteView(product) { /* ...código sin cambios... */ }
-    async function handleDeleteConfirmation(event) { /* ...código sin cambios... */ }
-    async function openImageGallery() { if (!galleryModal) return; galleryModal.style.display = 'flex'; await loadImageGrid(); }
-    function closeImageGallery() { if (galleryModal) galleryModal.style.display = 'none'; }
-    async function loadImageGrid() { /* ...código sin cambios... */ }
+    function closeImageGallery() {
+        if (galleryModal) galleryModal.style.display = 'none';
+    }
+
+    async function loadImageGrid() {
+        const grid = galleryModal.querySelector('.image-grid-container');
+        grid.innerHTML = '<p>Cargando imágenes...</p>';
+        try {
+            const response = await fetch('../api/index.php?resource=admin/getBucketImages');
+            const result = await response.json();
+            grid.innerHTML = '';
+            if (result.success && result.images.length > 0) {
+                result.images.forEach(image => {
+                    const item = document.createElement('div');
+                    item.className = 'image-grid-item';
+                    item.dataset.imageUrl = image.url;
+                    item.dataset.imageName = image.name;
+                    item.innerHTML = `<img src="${image.url}" alt="${image.name}"><button class="delete-image-btn" title="Eliminar del bucket">&times;</button>`;
+                    grid.appendChild(item);
+                });
+            } else {
+                grid.innerHTML = '<p>No hay imágenes en el bucket.</p>';
+            }
+        } catch (error) {
+            grid.innerHTML = `<p style="color:red;">Error al cargar las imágenes.</p>`;
+        }
+    }
 
     // --- MANEJADORES DE EVENTOS GLOBALES ---
     

@@ -271,14 +271,19 @@ case 'admin/deleteBucketImage':
             $stock_actual = $usa_inventario ? filter_var($_POST['stock_actual'] ?? 0, FILTER_VALIDATE_INT) : 0;
             $stock_minimo = $usa_inventario ? filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
             $stock_maximo = $usa_inventario ? filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+            $url_imagen = trim($_POST['url_imagen'] ?? '');
 
             if (empty($codigo_producto) || empty($nombre_producto) || $departamento_id === false || $precio_venta === false) {
                 throw new Exception("Por favor, completa todos los campos obligatorios.");
             }
 
             // 1. Inserción INICIAL en la Base de Datos (con url_imagen vacía)
-            $sql_insert = "INSERT INTO productos (codigo_producto, nombre_producto, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_actual, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, fecha_creacion, fecha_actualizacion) VALUES (:codigo_producto, :nombre_producto, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, '', :stock_actual, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, :usa_inventario, :creado_por, :proveedor_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
-            $stmt_insert = $pdo->prepare($sql_insert);
+        $sql_insert = "INSERT INTO productos 
+            (codigo_producto, nombre_producto, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_actual, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, fecha_creacion, fecha_actualizacion) 
+            VALUES 
+            (:codigo_producto, :nombre_producto, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_actual, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, :usa_inventario, :creado_por, :proveedor_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+        
+             $stmt_insert = $pdo->prepare($sql_insert);
             
             $creado_por = $_SESSION['id_usuario'] ?? null;
 
@@ -289,6 +294,7 @@ case 'admin/deleteBucketImage':
                 ':precio_compra' => $precio_compra,
                 ':precio_venta' => $precio_venta,
                 ':precio_mayoreo' => $precio_mayoreo,
+                ':url_imagen' => $url_imagen, // <-- Se inserta la URL de la galería
                 ':stock_actual' => $stock_actual,
                 ':stock_minimo' => $stock_minimo,
                 ':stock_maximo' => $stock_maximo,
@@ -653,7 +659,7 @@ case 'admin/deleteBucketImage':
             // 3. Array final que se envía a la página
             $settings = [
                 'show_main_carousel' => true, // Visivilidad de anuncios principales
-                'show_offers_carousel' => false,// Visivilidad de slider ofertas
+                'show_offers_carousel' => true,// Visivilidad de slider ofertas
                 'offers_carousel_config' => [
                     'title'   => $offers_final_title,
                     'filters' => $offers_final_config
