@@ -233,12 +233,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
                 if (!result.success) throw new Error(result.error || 'Error en la API.');
                 alert(result.message);
+
                 await fetchAndRenderProducts(document.getElementById('product-search-input').value);
             } catch (error) {
                 alert(`Error: ${error.message}`);
+                target.disabled = false;
             } finally {
                 // El estado se reseteará con la llamada a updateBatchActionsState que se dispara
                 // al refrescar los productos y limpiar los checkboxes.
+                target.textContent = 'Ejecutar';
+                updateBatchActionsState();
             }
         }
     });
