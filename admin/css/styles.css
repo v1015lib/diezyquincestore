@@ -131,10 +131,10 @@
   -webkit-box-align: center;
       -ms-flex-align: center;
           align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   -ms-flex-wrap: wrap;
       flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .search-container {
@@ -145,7 +145,7 @@
 .search-container input {
   width: 100%;
   max-width: 400px;
-  padding: 0.75rem;
+  padding: 0.5rem;
   border: 1px solid #dee2e6;
   border-radius: 6px;
   font-size: 0.9rem;
@@ -183,15 +183,18 @@
   font-size: 0.9rem;
 }
 .product-table th, .product-table td {
-  padding: 0.8rem 1rem;
+  padding: 0.3rem;
   text-align: left;
+  white-space: wrap;
+  text-overflow: ellipsis;
   border-bottom: 1px solid #dee2e6;
+  font-size: 0.8rem;
 }
 .product-table thead {
   background-color: #f8f9fa;
 }
 .product-table thead th {
-  font-weight: 600;
+  font-weight: 400;
   color: #6c757d;
 }
 .product-table tbody tr:hover {
@@ -227,6 +230,24 @@
 .status-badge.status-inactive {
   background-color: #f8d7da;
   color: #721c24;
+}
+
+.product-table td {
+  max-width: 250px; /* Ancho máximo para las celdas, ajústalo si es necesario */
+  white-space: nowrap; /* Evita que el texto se divida en varias líneas */
+  overflow: hidden; /* Oculta el texto que se desborda */
+  text-overflow: ellipsis; /* Muestra "..." en el texto oculto */
+}
+
+/* Opcional: Si solo quieres aplicarlo a la columna de nombres */
+.product-table td[data-field=nombre_producto] {
+  /* Puedes darle un ancho máximo específico si lo deseas */
+  max-width: 360px;
+}
+
+/* Opcional: Quitar el ancho máximo de otras celdas si no lo quieres */
+.product-table td:not([data-field=nombre_producto]) {
+  max-width: none;
 }
 
 body {
@@ -393,4 +414,181 @@ body {
   .action-ribbon .action-btn {
     text-align: center;
   }
+}
+/* admin/css/styles.css */
+/* --- ESTILOS PARA EL MODAL de Eleccion de departaento--- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  -webkit-box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #0C0A4E;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.modal-body .modal-select {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+}
+
+.modal-error {
+  color: #721c24;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.modal-footer {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: end;
+      -ms-flex-pack: end;
+          justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.modal-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-transition: background-color 0.2s;
+  transition: background-color 0.2s;
+}
+
+.modal-btn-primary {
+  background-color: #0C0A4E;
+  color: white;
+}
+
+.modal-btn-primary:hover {
+  background-color: #0f0d65;
+}
+
+.modal-btn-secondary {
+  background-color: #f8f9fa;
+  color: #343a40;
+  border: 1px solid #dee2e6;
+}
+
+.modal-btn-secondary:hover {
+  background-color: #e2e6ea;
+}
+
+/* admin/css/styles.css */
+/* --- ESTILOS PARA ORDENAMIENTO DE TABLA --- */
+.product-table th.sortable {
+  cursor: pointer;
+  position: relative;
+  -webkit-user-select: none; /* Evita que el texto se seleccione al hacer doble clic */
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.product-table th.sortable:hover {
+  background-color: #e9ecef;
+}
+
+/* Flechas indicadoras de dirección */
+.product-table th.sortable::after {
+  content: " ▲"; /* Flecha hacia arriba (ASC) */
+  position: absolute;
+  right: 10px;
+  opacity: 0.2;
+  color: #0C0A4E;
+}
+
+.product-table th.sortable.sort-desc::after {
+  content: " ▼"; /* Flecha hacia abajo (DESC) */
+}
+
+/* Muestra la flecha solo en la columna activa */
+.product-table th.sortable:not(.sort-asc):not(.sort-desc)::after {
+  opacity: 0.2;
+}
+
+.product-table th.sortable.sort-asc::after,
+.product-table th.sortable.sort-desc::after {
+  opacity: 1;
+}
+
+/* --- ESTILOS PARA EL FILTRO DE DEPARTAMENTO --- */
+.filter-container select {
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background-color: #fff;
+  cursor: pointer;
+  min-width: 200px; /* Ancho mínimo para que se vea bien */
+}
+
+/* --- ESTILOS PARA EL ENCABEZADO FIJO (STICKY HEADER) --- */
+.product-list-container {
+  /* Altura máxima para que el scroll se active dentro de este contenedor */
+  max-height: 70vh; /* Ajusta este valor según tus necesidades */
+  overflow-y: auto;
+}
+
+.product-table thead th { /* Para Safari */
+  position: sticky;
+  top: 0; /* Pega el encabezado en la parte superior del contenedor */
+  z-index: 10; /* Asegura que esté por encima del contenido de la tabla */
+  background-color: #f8f9fa; /* Color de fondo para que el texto de abajo no se vea */
 }

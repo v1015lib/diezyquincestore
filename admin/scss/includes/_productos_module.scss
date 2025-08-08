@@ -4,9 +4,10 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: .5rem;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: .5rem;
+
 }
 
 .search-container {
@@ -14,7 +15,7 @@
     input {
         width: 100%;
         max-width: 400px;
-        padding: 0.75rem;
+        padding: 0.5rem;
         border: 1px solid $border-color;
         border-radius: 6px;
         font-size: 0.9rem;
@@ -51,15 +52,18 @@
     font-size: 0.9rem;
 
     th, td {
-        padding: 0.8rem 1rem;
+        padding: 0.3rem;
         text-align: left;
+        white-space: wrap;
+        text-overflow: ellipsis;
         border-bottom: 1px solid $border-color;
+        font-size: .8rem;
     }
 
     thead {
         background-color: #f8f9fa;
         th {
-            font-weight: 600;
+            font-weight: 400;
             color: $secondary-color;
         }
     }
@@ -104,4 +108,22 @@
         background-color: #f8d7da; // Rojo claro
         color: #721c24; // Rojo oscuro
     }
+}
+
+.product-table td {
+    max-width: 250px; /* Ancho máximo para las celdas, ajústalo si es necesario */
+    white-space: nowrap; /* Evita que el texto se divida en varias líneas */
+    overflow: hidden; /* Oculta el texto que se desborda */
+    text-overflow: ellipsis; /* Muestra "..." en el texto oculto */
+}
+
+/* Opcional: Si solo quieres aplicarlo a la columna de nombres */
+.product-table td[data-field="nombre_producto"] {
+    /* Puedes darle un ancho máximo específico si lo deseas */
+     max-width: 360px; 
+}
+
+/* Opcional: Quitar el ancho máximo de otras celdas si no lo quieres */
+.product-table td:not([data-field="nombre_producto"]) {
+    max-width: none;
 }

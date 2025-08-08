@@ -9,6 +9,11 @@
     <div class="search-container">
         <input type="text" id="product-search-input" placeholder="Buscar por nombre o código...">
     </div>
+    <div class="filter-container">
+        <select id="department-filter">
+            <option value="">Todos los departamentos</option>
+            </select>
+    </div>
     <div class="batch-actions-container">
         <select id="batch-action-selector" disabled>
             <option value="">Acciones en lote...</option>
@@ -27,12 +32,12 @@
     <table class="product-table">
         <thead>
             <tr>
-                <th><input type="checkbox" id="select-all-products"></th>
-                <th>Código</th>
-                <th>Nombre del Producto</th>
-                <th>Departamento</th>
-                <th>Precio Venta</th>
-                <th>Estado</th>
+            <th><input type="checkbox" id="select-all-products"></th>
+            <th>Código</th>
+            <th class="sortable" data-sort="nombre_producto">Nombre del Producto</th>
+            <th class="sortable" data-sort="departamento">Departamento</th>
+            <th class="sortable" data-sort="precio_venta">Precio Venta</th>
+            <th class="sortable" data-sort="nombre_estado">Estado</th>
             </tr>
         </thead>
         <tbody id="product-table-body">

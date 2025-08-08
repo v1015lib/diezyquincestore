@@ -77,6 +77,25 @@ try {
                         $message = 'Productos activados en la tienda.';
                         break;
                     // --- FIN DEL CÓDIGO INTEGRADO ---
+                                    case 'change-department':
+                $departmentId = $data['departmentId'] ?? null;
+                if (!$departmentId) {
+                    throw new Exception('No se especificó el departamento de destino.');
+                }
+                
+                // 1. La consulta ahora solo usa '?'
+                $stmt = $pdo->prepare("UPDATE productos SET departamento = ? WHERE id_producto IN ($placeholders)");
+                
+                // 2. Construimos el array de parámetros en el orden correcto
+                // El primer '?' corresponde al departmentId, los siguientes a los productIds.
+                $params = array_merge([$departmentId], $productIds);
+                
+                // 3. Ejecutamos con el array de parámetros unificado
+                $stmt->execute($params);
+
+                $message = 'Departamento de los productos actualizado correctamente.';
+                break;
+   
          
           case 'toggle-inventory':
             // Esto cambia el valor de 'usa_inventario' al opuesto (si es 1 lo hace 0, y viceversa)
@@ -100,6 +119,61 @@ try {
 
     case 'admin/getProducts':
     // require_admin(); // Descomentar en producción
+
+        $allowed_sorts = [
+            'nombre_producto' => 'p.nombre_producto',
+            'departamento'    => 'd.departamento',
+            'precio_venta'    => 'p.precio_venta',
+            'nombre_estado'   => 'e.nombre_estado'
+        ];
+
+    // 2. Obtenemos los parámetros de la URL, con valores por defecto seguros.
+    $sort_by_key = $_GET['sort_by'] ?? 'nombre_producto';
+    $order = isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC' ? 'DESC' : 'ASC';
+
+    // 3. Validamos que la columna de ordenamiento sea una de las permitidas.
+    $sort_column = $allowed_sorts[$sort_by_key] ?? $allowed_sorts['nombre_producto'];
+   // --- FIN DE LA LÓGICA DE ORDENAMIENTO ---
+
+    // Prepara la consulta base
+    $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado 
+              FROM productos p 
+              JOIN departamentos d ON p.departamento = d.id_departamento 
+              JOIN estados e ON p.estado = e.id_estado";
+    $params = [];
+    $where_clauses = [];
+
+    if (!empty($_GET['search'])) {
+        $search_term = '%' . $_GET['search'] . '%';
+        $where_clauses[] = "(p.nombre_producto LIKE :search_name OR p.codigo_producto LIKE :search_code)";
+        $params[':search_name'] = $search_term;
+        $params[':search_code'] = $search_term;
+    }
+       // --- INICIO DE LA NUEVA INTEGRACIÓN ---
+    // Filtro por departamento
+    if (!empty($_GET['department_id']) && is_numeric($_GET['department_id'])) {
+        $where_clauses[] = "p.departamento = :department_id";
+        $params[':department_id'] = (int)$_GET['department_id'];
+    }
+    // --- FIN DE LA NUEVA INTEGRACIÓN ---
+
+    if (!empty($where_clauses)) {
+        $query .= " WHERE " . implode(" AND ", $where_clauses);
+    }
+    
+    // 4. Añadimos la cláusula ORDER BY dinámica a la consulta.
+    $query .= " ORDER BY $sort_column $order";
+
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'products' => $products]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error en la consulta a la base de datos.', 'details' => $e->getMessage()]);
+    }
+    break;
 
     // Prepara la consulta base
     $query = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado FROM productos p JOIN departamentos d ON p.departamento = d.id_departamento JOIN estados e ON p.estado = e.id_estado";

@@ -40,5 +40,24 @@ session_start();
     </div>
     
     <script type="module" src="js/admin.js"></script>
+    <div id="department-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cambiar Departamento</h3>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Selecciona el nuevo departamento para los productos marcados:</p>
+                <select id="modal-department-selector" class="modal-select">
+                    <option value="">Cargando departamentos...</option>
+                </select>
+                <div id="modal-error-message" class="modal-error"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="modal-btn modal-btn-secondary">Cancelar</button>
+                <button id="modal-confirm-btn" class="modal-btn modal-btn-primary">Confirmar Cambio</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
