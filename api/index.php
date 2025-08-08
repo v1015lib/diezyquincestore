@@ -36,6 +36,181 @@ if (session_status() == PHP_SESSION_NONE) {
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
+
+    // api/index.php (dentro del switch)
+
+case 'admin/getBucketImages':
+    // Lógica para listar todas las imágenes en la carpeta 'productos' del bucket
+    try {
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $keyFilePath = __DIR__ . '/../keygcs.json';
+        $bucketName = 'libreria-web-imagenes';
+        $cdnDomain = "https://cdngcs.diezyquince.store";
+
+        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
+        $bucket = $storage->bucket($bucketName);
+        $options = ['prefix' => 'productos/']; // Solo listar imágenes de la carpeta de productos
+        
+        $imageUrls = [];
+        foreach ($bucket->objects($options) as $object) {
+            // Ignoramos "carpetas vacías" si existen
+            if (substr($object->name(), -1) === '/') {
+                continue;
+            }
+            $imageUrls[] = [
+                'url' => $cdnDomain . '/' . $object->name(),
+                'name' => $object->name() // Guardamos el 'path' para poder borrarlo
+            ];
+        }
+        
+        echo json_encode(['success' => true, 'images' => $imageUrls]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudieron listar las imágenes: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/deleteBucketImage':
+    // Lógica para eliminar una imagen específica del bucket
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $objectName = $data['name'] ?? null;
+
+        if (!$objectName) {
+            throw new Exception('No se proporcionó el nombre del objeto a eliminar.');
+        }
+
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $keyFilePath = __DIR__ . '/../keygcs.json';
+        $bucketName = 'libreria-web-imagenes';
+
+        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
+        $bucket = $storage->bucket($bucketName);
+        $object = $bucket->object($objectName);
+
+        $object->delete(); // Eliminamos el objeto
+
+        echo json_encode(['success' => true, 'message' => 'Imagen eliminada correctamente.']);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
+    }
+    break;
+        case 'admin/checkProductCode':
+    // No necesita permisos de admin tan estrictos, ya que solo consulta.
+    $code = $_GET['code'] ?? '';
+    
+    if (empty($code)) {
+        echo json_encode(['is_available' => false, 'message' => 'Código no proporcionado.']);
+        break;
+    }
+    
+    $stmt = $pdo->prepare("SELECT 1 FROM productos WHERE codigo_producto = :code LIMIT 1");
+    $stmt->execute([':code' => $code]);
+    
+    if ($stmt->fetch()) {
+        echo json_encode(['is_available' => false, 'message' => 'Este código ya está en uso.']);
+    } else {
+        echo json_encode(['is_available' => true, 'message' => 'Código disponible.']);
+    }
+    break;
+       
+       // api/index.php
+
+    case 'admin/createProduct':
+        // Inicia la transacción
+        $pdo->beginTransaction();
+
+        try {
+            // Recoger y validar datos del formulario (sin cambios)
+            $codigo_producto = trim($_POST['codigo_producto'] ?? '');
+            $nombre_producto = trim($_POST['nombre_producto'] ?? '');
+            // ... (resto de las variables del formulario)
+            $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
+            $precio_compra_raw = $_POST['precio_compra'] ?? '';
+            $precio_compra = ($precio_compra_raw === '' || $precio_compra_raw === null) ? 0.00 : filter_var($precio_compra_raw, FILTER_VALIDATE_FLOAT);
+            $precio_venta = filter_var($_POST['precio_venta'] ?? '', FILTER_VALIDATE_FLOAT);
+            $precio_mayoreo_raw = $_POST['precio_mayoreo'] ?? '';
+            $precio_mayoreo = ($precio_mayoreo_raw === '' || $precio_mayoreo_raw === null) ? 0.00 : filter_var($precio_mayoreo_raw, FILTER_VALIDATE_FLOAT);
+            $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? '', FILTER_VALIDATE_INT);
+            $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
+            $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
+            $usa_inventario = isset($_POST['usa_inventario_checkbox']) ? 1 : 0;
+            $stock_actual = $usa_inventario ? filter_var($_POST['stock_actual'] ?? 0, FILTER_VALIDATE_INT) : 0;
+            $stock_minimo = $usa_inventario ? filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+            $stock_maximo = $usa_inventario ? filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+
+            if (empty($codigo_producto) || empty($nombre_producto) || $departamento_id === false || $precio_venta === false) {
+                throw new Exception("Por favor, completa todos los campos obligatorios.");
+            }
+
+            // 1. Inserción INICIAL en la Base de Datos (con url_imagen vacía)
+            $sql_insert = "INSERT INTO productos (codigo_producto, nombre_producto, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_actual, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, fecha_creacion, fecha_actualizacion) VALUES (:codigo_producto, :nombre_producto, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, '', :stock_actual, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, :usa_inventario, :creado_por, :proveedor_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+            $stmt_insert = $pdo->prepare($sql_insert);
+            
+            $creado_por = $_SESSION['id_usuario'] ?? null;
+
+            $stmt_insert->execute([
+                ':codigo_producto' => $codigo_producto,
+                ':nombre_producto' => $nombre_producto,
+                ':departamento_id' => $departamento_id,
+                ':precio_compra' => $precio_compra,
+                ':precio_venta' => $precio_venta,
+                ':precio_mayoreo' => $precio_mayoreo,
+                ':stock_actual' => $stock_actual,
+                ':stock_minimo' => $stock_minimo,
+                ':stock_maximo' => $stock_maximo,
+                ':tipo_de_venta_id' => $tipo_de_venta_id,
+                ':estado_id' => $estado_id,
+                ':usa_inventario' => $usa_inventario,
+                ':creado_por' => $creado_por,
+                ':proveedor_id' => $proveedor_id
+            ]);
+
+            $lastProductId = $pdo->lastInsertId(); // Obtenemos el ID del producto que acabamos de crear
+
+            // 2. Lógica de subida de imagen a GCS (sólo si se proporcionó una imagen)
+            if (isset($_FILES['url_imagen']) && $_FILES['url_imagen']['error'] === UPLOAD_ERR_OK) {
+                require_once __DIR__ . '/../vendor/autoload.php';
+                $keyFilePath = __DIR__ . '/../keygcs.json';
+                $bucketName = 'libreria-web-imagenes';
+                $cdnDomain = "https://cdngcs.diezyquince.store";
+
+                $fileTmpPath = $_FILES['url_imagen']['tmp_name'];
+                $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'], PATHINFO_EXTENSION));
+                $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
+                $gcsPath = 'productos/' . $newFileName;
+                
+                $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
+                $bucket = $storage->bucket($bucketName);
+                $bucket->upload(fopen($fileTmpPath, 'r'), ['name' => $gcsPath]);
+                
+                $url_imagen = $cdnDomain . "/" . $gcsPath;
+
+                // 3. ACTUALIZAMOS el registro del producto con la nueva URL de la imagen
+                $stmt_update_img = $pdo->prepare("UPDATE productos SET url_imagen = :url_imagen WHERE id_producto = :id_producto");
+                $stmt_update_img->execute([':url_imagen' => $url_imagen, ':id_producto' => $lastProductId]);
+            }
+
+            // 4. Si todo fue exitoso, confirmamos la transacción
+            $pdo->commit();
+            
+            echo json_encode(['success' => true, 'message' => "Producto '" . htmlspecialchars($nombre_producto) . "' ingresado exitosamente."]);
+
+        } catch (Exception $e) {
+            // 5. Si algo falló, revertimos todos los cambios en la base de datos
+            $pdo->rollBack();
+            
+            http_response_code(400); // Bad Request
+            $error_message = $e->getMessage();
+            if ($e instanceof PDOException && $e->getCode() == 23000) {
+                 $error_message = "Error: El código de producto '" . htmlspecialchars($codigo_producto) . "' ya existe.";
+            }
+            echo json_encode(['success' => false, 'error' => $error_message]);
+        }
+        break;
             
         case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)

@@ -59,5 +59,36 @@ session_start();
             </div>
         </div>
     </div>
+
+    <div id="image-gallery-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>Galería de Imágenes</h3>
+            <button class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="gallery-tabs">
+                <button class="gallery-tab-btn active" data-tab="select">Seleccionar Existente</button>
+                <button class="gallery-tab-btn" data-tab="upload">Subir Nueva</button>
+            </div>
+
+            <div id="gallery-select-tab" class="gallery-tab-content active">
+                <div class="image-grid-container">
+                    </div>
+            </div>
+
+            <div id="gallery-upload-tab" class="gallery-tab-content">
+                <p>Sube una nueva imagen al bucket. Se añadirá a la galería para usos futuros.</p>
+                <input type="file" id="gallery-upload-input" name="url_imagen" accept="image/*">
+                <button id="gallery-upload-btn" class="modal-btn modal-btn-primary">Subir Imagen</button>
+                <div id="gallery-upload-feedback"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="gallery-cancel-btn" class="modal-btn modal-btn-secondary">Cancelar</button>
+            <button id="gallery-confirm-btn" class="modal-btn modal-btn-primary" disabled>Confirmar Selección</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>

@@ -1,0 +1,104 @@
+// admin/scss/includes/_agregar_producto.scss
+#add-product-form {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem; // Espacio vertical entre cada fila (label + input)
+}
+
+// Contenedor para cada fila del formulario
+.form-group {
+    display: flex;
+    align-items: center; // Alinea verticalmente el label y el input
+    gap: .5rem; // Espacio entre el label y el input
+
+    label {
+        flex-basis: 200px; // ANCHO FIJO para todas las etiquetas
+        flex-shrink: 0;    // Evita que la etiqueta se encoja
+        text-align: right; // Alinea el texto de la etiqueta a la derecha
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: $secondary-color;
+        padding-right: 1rem; // Espacio extra para que no esté pegado al input
+    }
+
+    // El input ocupa todo el espacio restante
+    input[type="text"],
+    input[type="number"],
+    input[type="file"],
+    select {
+        flex-grow: .2; // Hace que el campo crezca para ocupar el espacio disponible
+
+        padding: 0.5rem;
+        border: 1px solid $border-color;
+
+    }
+}
+
+// Caso especial para el checkbox, para que se alinee correctamente
+.inventory-toggle {
+    // Hacemos que el "label" (que no es un label real aquí) no ocupe espacio
+    // para que el input y el label verdadero se alineen con los otros inputs.
+    justify-content: flex-end;
+    
+    label {
+        flex-basis: auto; // Quita el ancho fijo
+        text-align: left;
+        font-weight: normal;
+        order: 2; // Pone el label después del checkbox
+    }
+
+    input[type="checkbox"] {
+        flex-grow: 0;
+        width: auto;
+        order: 1; // Pone el checkbox primero
+    }
+}
+
+// Los campos de inventario heredan el estilo de .form-group
+.inventory-fields {
+    border-top: 1px solid $border-color;
+    margin-top: .5rem;
+    padding-top: .5rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+
+    &.hidden {
+        display: none;
+    }
+    h3 { display: none; }
+}
+// Mensajes de error/éxito (sin cambios)
+#form-messages .message {
+    padding: .5rem;
+    margin-bottom: .5rem;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 500;
+    
+    &.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    &.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+}
+
+// Botón de envío
+.form-submit-btn {
+    align-self: center;
+    width: 100%;
+    max-width: 300px;
+    margin-top: .5rem;
+}
+
+// Feedback de validación del código de producto
+.validation-feedback {
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-top: 0.4rem;
+    height: 1.5em;
+}
+// Al final de admin/scss/includes/_agregar_producto.scss
+.validation-feedback {
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-top: 0.4rem;
+    height: 1.5em; // Le da un alto fijo para que no salte el layout
+}
