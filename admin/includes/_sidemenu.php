@@ -4,20 +4,18 @@
     </div>
     <nav>
         <ul>
-            <li><a href="#" class="nav-link" data-module="dashboard">
+            <li>
+                <a href="#" class="nav-link" data-module="dashboard">
                 <span class="menu-icon">🏠</span>
                 <span class="menu-text">Dashboard</span>
-            </a></li>
+                </a>
+            </li>
             <li class="separator"></li>
             <li><a href="#" class="nav-link" data-module="productos">
                 <span class="menu-icon">📦</span>
                 <span class="menu-text">Productos</span>
             </a></li>
-            
-            <li><a href="#" class="nav-link" data-module="procesador_imagenes">
-                <span class="menu-icon">✨</span>
-                <span class="menu-text">Utilidades</span>
-            </a></li>
+
             <li class="separator"></li>
             <li><a href="#" class="nav-link" data-module="clientes">
                 <span class="menu-icon">👥</span>
@@ -36,8 +34,12 @@
                 <span class="menu-icon">🌐</span>
                 <span class="menu-text">Web Admin</span>
             </a></li>
+                        <li><a href="#" class="nav-link" data-module="procesador_imagenes">
+                <span class="menu-icon">✨</span>
+                <span class="menu-text">Utilidades</span>
+            </a></li>
             <li class="separator"></li>
-            <li><a href="https://www.tudominio.com/logout.php">
+            <li><a href="#">
                 <span class="menu-icon">🚪</span>
                 <span class="menu-text">Cerrar Sesión</span>
             </a></li>
