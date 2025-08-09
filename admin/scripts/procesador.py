@@ -19,7 +19,7 @@ except NameError:
 carpeta_entrada = os.path.join(script_dir, 'entrada')
 carpeta_salida = os.path.join(script_dir, 'salida_ia')
 tamaño_final = (500, 500)
-padding_porcentaje = 0
+padding_porcentaje = 0.05
 extensiones_validas = ('.png', '.jpg', '.jpeg', '.webp')
 
 # --- LÓGICA DE ARGUMENTOS (sin cambios) ---
@@ -94,5 +94,5 @@ for nombre_archivo in archivos:
         except Exception as e:
             print(f"-> ERROR procesando {nombre_archivo}: {e}")
 
-print(f"\n--- ¡Proceso con IA completado! ---")
+print(f"\n--- ¡Proceso completado! ---")
 print(f"Total de imágenes procesadas: {contador}")
