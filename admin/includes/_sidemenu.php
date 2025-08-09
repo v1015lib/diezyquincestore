@@ -13,6 +13,12 @@
                 <span class="menu-icon">📦</span>
                 <span class="menu-text">Productos</span>
             </a></li>
+            
+            <li><a href="#" class="nav-link" data-module="procesador_imagenes">
+                <span class="menu-icon">✨</span>
+                <span class="menu-text">Utilidades</span>
+            </a></li>
+            <li class="separator"></li>
             <li><a href="#" class="nav-link" data-module="clientes">
                 <span class="menu-icon">👥</span>
                 <span class="menu-text">Clientes</span>

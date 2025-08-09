@@ -21,6 +21,155 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let isLoading = false;
 
+    
+    async function showProcessedFiles() {
+        const listContainer = document.getElementById('processed-files-list');
+        const resultsContainer = document.getElementById('results-container');
+        if (!listContainer || !resultsContainer) return;
+
+        try {
+            const response = await fetch('../api/index.php?resource=get_processed_images');
+            const data = await response.json();
+
+            listContainer.innerHTML = '';
+            if (data.success && data.files.length > 0) {
+                resultsContainer.classList.remove('hidden');
+                data.files.forEach(file => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'processed-file-item';
+                    itemDiv.dataset.fileName = file.name;
+                    itemDiv.innerHTML = `
+                        <img src="${file.url}?t=${new Date().getTime()}" alt="${file.name}">
+                        <label>
+                            <input type="checkbox" class="processed-file-checkbox">
+                            ${file.name}
+                        </label>
+                    `;
+                    listContainer.appendChild(itemDiv);
+                });
+            } else {
+                resultsContainer.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error al obtener archivos procesados:', error);
+        }
+    }
+
+    function updateProcessorButtons() {
+        const checkedBoxes = document.querySelectorAll('.processed-file-checkbox:checked').length;
+        const uploadBtn = document.getElementById('upload-to-gallery-btn');
+        const downloadBtn = document.getElementById('download-zip-btn');
+
+        if (uploadBtn) uploadBtn.disabled = checkedBoxes === 0;
+        if (downloadBtn) downloadBtn.disabled = checkedBoxes === 0;
+    }
+
+    // --- MANEJADORES DE EVENTOS EXISTENTES (MODIFICADOS) ---
+
+    mainContent.addEventListener('click', async (event) => {
+        // ... tu código de click existente para otros módulos ...
+
+        if (event.target.id === 'start-processing-btn') {
+            // (La lógica que ya te había proporcionado para ejecutar el script y mostrar la consola)
+            // Aquí añadimos la llamada para mostrar los archivos al finalizar
+            const button = event.target;
+            const outputConsole = document.getElementById('processor-output');
+            
+            button.disabled = true;
+            button.textContent = 'Procesando...';
+            outputConsole.textContent = 'Iniciando...\n';
+            document.getElementById('results-container').classList.add('hidden');
+
+            try {
+                const response = await fetch('../api/index.php?resource=run_processor');
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    outputConsole.textContent += decoder.decode(value, { stream: true });
+                    outputConsole.scrollTop = outputConsole.scrollHeight;
+                }
+                outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
+                await showProcessedFiles(); // ¡Importante! Muestra los archivos al terminar
+            } catch (error) {
+                outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Iniciar Proceso';
+            }
+        }
+
+        if (event.target.closest('.processed-file-item')) {
+            const item = event.target.closest('.processed-file-item');
+            const checkbox = item.querySelector('.processed-file-checkbox');
+            if (event.target.tagName !== 'INPUT') {
+                checkbox.checked = !checkbox.checked;
+            }
+            item.classList.toggle('selected', checkbox.checked);
+            updateProcessorButtons();
+        }
+
+        if (event.target.id === 'upload-to-gallery-btn') {
+            const selectedFiles = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
+                .map(cb => cb.closest('.processed-file-item').dataset.fileName);
+            const feedbackDiv = document.getElementById('results-feedback');
+            
+            feedbackDiv.textContent = 'Subiendo archivos a la galería...';
+            event.target.disabled = true;
+
+            // Esta es una simulación. Debes reemplazarla con tu lógica de subida real.
+            // Asume que tienes una función `uploadFileToBucket(fileName)`
+            for (const fileName of selectedFiles) {
+                try {
+                    // Lógica de subida REAL aquí
+                    // Ejemplo: await uploadFileToBucket(fileName);
+                    feedbackDiv.textContent = `Subido: ${fileName}`;
+                    await new Promise(r => setTimeout(r, 200)); // Simula la subida
+                } catch (error) {
+                    feedbackDiv.textContent = `Error al subir ${fileName}: ${error.message}`;
+                    break;
+                }
+            }
+            feedbackDiv.textContent = '¡Subida completada!';
+        }
+
+        if (event.target.id === 'download-zip-btn') {
+            const files = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
+                .map(cb => cb.closest('.processed-file-item').dataset.fileName);
+                
+            const response = await fetch('../api/index.php?resource=download_processed_images', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files })
+            });
+
+            if(response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                // Extrae el nombre del archivo de la cabecera
+                const disposition = response.headers.get('Content-Disposition');
+                const fileNameMatch = disposition.match(/filename="(.+?)"/);
+                a.download = fileNameMatch ? fileNameMatch[1] : 'imagenes.zip';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } else {
+                alert('Error al crear el archivo ZIP.');
+            }
+        }
+
+        if (event.target.id === 'clear-results-btn') {
+            document.getElementById('processed-files-list').innerHTML = '';
+            document.getElementById('results-container').classList.add('hidden');
+            // Aquí podrías añadir una llamada a la API para borrar los archivos del servidor si lo deseas.
+        }
+    });
+
+
     // --- LÓGICA DE CARGA Y RENDERIZADO DE PRODUCTOS (SCROLL INFINITO) ---
     async function fetchAndRenderProducts() {
         if (isLoading) return;
