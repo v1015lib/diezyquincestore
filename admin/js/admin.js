@@ -21,39 +21,50 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let isLoading = false;
 
-    
-    async function showProcessedFiles() {
-        const listContainer = document.getElementById('processed-files-list');
-        const resultsContainer = document.getElementById('results-container');
-        if (!listContainer || !resultsContainer) return;
 
-        try {
-            const response = await fetch('../api/index.php?resource=get_processed_images');
-            const data = await response.json();
+async function showProcessedFiles() {
+    const listContainer = document.getElementById('processed-files-list');
+    const resultsContainer = document.getElementById('results-container');
+    if (!listContainer || !resultsContainer) return;
 
-            listContainer.innerHTML = '';
-            if (data.success && data.files.length > 0) {
-                resultsContainer.classList.remove('hidden');
-                data.files.forEach(file => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'processed-file-item';
-                    itemDiv.dataset.fileName = file.name;
-                    itemDiv.innerHTML = `
-                        <img src="${file.url}?t=${new Date().getTime()}" alt="${file.name}">
-                        <label>
-                            <input type="checkbox" class="processed-file-checkbox">
-                            ${file.name}
-                        </label>
-                    `;
-                    listContainer.appendChild(itemDiv);
-                });
-            } else {
-                resultsContainer.classList.add('hidden');
-            }
-        } catch (error) {
-            console.error('Error al obtener archivos procesados:', error);
+    try {
+        const response = await fetch('../api/index.php?resource=get_processed_images');
+        const data = await response.json();
+
+        listContainer.innerHTML = ''; // Limpiamos la lista anterior
+        if (data.success && data.files.length > 0) {
+            resultsContainer.classList.remove('hidden');
+            data.files.forEach(file => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'processed-file-item';
+                itemDiv.dataset.fileName = file.name;
+
+                // --- MEJORA: Se crea un enlace de descarga ---
+                const downloadLink = document.createElement('a');
+                downloadLink.href = file.url;
+                downloadLink.download = file.name; // Este atributo fuerza la descarga
+                downloadLink.title = `Descargar ${file.name}`;
+                downloadLink.innerHTML = `<img src="${file.url}?t=${new Date().getTime()}" alt="${file.name}">`;
+
+                // Se crea la etiqueta con el checkbox por separado
+                const label = document.createElement('label');
+                label.innerHTML = `
+                    <input type="checkbox" class="processed-file-checkbox">
+                    ${file.name}
+                `;
+                
+                // Se añaden ambos elementos al contenedor del item
+                itemDiv.appendChild(downloadLink);
+                itemDiv.appendChild(label);
+                listContainer.appendChild(itemDiv);
+            });
+        } else {
+            resultsContainer.classList.add('hidden');
         }
+    } catch (error) {
+        console.error('Error al obtener archivos procesados:', error);
     }
+}
 
     function updateProcessorButtons() {
         const checkedBoxes = document.querySelectorAll('.processed-file-checkbox:checked').length;
@@ -114,25 +125,41 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedFiles = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
                 .map(cb => cb.closest('.processed-file-item').dataset.fileName);
             const feedbackDiv = document.getElementById('results-feedback');
+            const button = event.target;
             
-            feedbackDiv.textContent = 'Subiendo archivos a la galería...';
-            event.target.disabled = true;
+            if (selectedFiles.length === 0) return;
 
-            // Esta es una simulación. Debes reemplazarla con tu lógica de subida real.
-            // Asume que tienes una función `uploadFileToBucket(fileName)`
-            for (const fileName of selectedFiles) {
-                try {
-                    // Lógica de subida REAL aquí
-                    // Ejemplo: await uploadFileToBucket(fileName);
-                    feedbackDiv.textContent = `Subido: ${fileName}`;
-                    await new Promise(r => setTimeout(r, 200)); // Simula la subida
-                } catch (error) {
-                    feedbackDiv.textContent = `Error al subir ${fileName}: ${error.message}`;
-                    break;
+            feedbackDiv.textContent = `Subiendo ${selectedFiles.length} archivo(s) a la galería...`;
+            feedbackDiv.style.color = 'inherit';
+            button.disabled = true;
+
+            try {
+                // --- MEJORA: LLAMADA REAL A LA API ---
+                const response = await fetch('../api/index.php?resource=admin/uploadProcessedToBucket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: selectedFiles })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Error desconocido del servidor.');
                 }
+
+                feedbackDiv.textContent = result.message;
+                feedbackDiv.style.color = 'green';
+
+            } catch (error) {
+                feedbackDiv.textContent = `Error al subir: ${error.message}`;
+                feedbackDiv.style.color = 'red';
+            } finally {
+                // Aunque no lo reactivamos, es buena práctica dejarlo.
+                // Podrías decidir reactivarlo si quieres que el usuario reintente.
+                // button.disabled = false; 
             }
-            feedbackDiv.textContent = '¡Subida completada!';
         }
+
 
         if (event.target.id === 'download-zip-btn') {
             const files = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))

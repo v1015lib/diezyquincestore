@@ -6,20 +6,20 @@
     <div id="processor-controls">
         <h3>Instrucciones</h3>
         <ol>
-            <li>Coloca las imágenes originales en la carpeta <strong><code>admin/scripts/entrada/</code></strong> en tu servidor.</li>
-            <li>Haz clic en "Iniciar Proceso". El proceso puede tardar varios minutos.</li>
-            <li>Una vez finalizado, las imágenes aparecerán en la lista de "Resultados".</li>
+            <li>Coloca las imágenes originales en la carpeta <strong><code>admin/scripts/entrada/</code></strong>.</li>
+            <li>Haz clic en "Iniciar Proceso".</li>
+            <li>Cuando termine, haz clic sobre cualquier imagen en la lista de "Resultados" para descargarla.</li>
         </ol>
         <button id="start-processing-btn" class="action-btn form-submit-btn">Iniciar Proceso</button>
     </div>
 
     <div id="results-container" class="hidden" style="margin-top: 2rem;">
         <h3>Resultados del Procesamiento</h3>
+        <p>Haz clic en una imagen para descargarla. Usa la casilla para seleccionar las que quieres subir a la galería.</p>
         <div id="processed-files-list">
             </div>
         <div class="batch-actions-container" style="margin-top: 1rem;">
             <button id="upload-to-gallery-btn" class="action-btn modal-btn-primary" disabled>Subir a Galería</button>
-            <button id="download-zip-btn" class="action-btn modal-btn-secondary" disabled>Descargar ZIP</button>
             <button id="clear-results-btn" class="action-btn" style="background-color: #f8d7da;">Limpiar</button>
         </div>
         <div id="results-feedback" style="margin-top: 1rem; font-weight: bold;"></div>

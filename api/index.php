@@ -63,24 +63,76 @@ case 'run_processor':
     passthru($command);
     break;
 
-case 'get_processed_images':
-    header('Content-Type: application/json');
-    $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
-    $baseUrl = '../admin/scripts/salida_ia/'; // Ruta relativa para el src de la imagen
-    $files = [];
-    if (is_dir($outputDir)) {
-        $items = array_diff(scandir($outputDir), array('..', '.'));
-        foreach ($items as $item) {
-            if (!is_dir($outputDir . $item)) {
-                $files[] = [
-                    'name' => $item,
-                    'url' => $baseUrl . $item
-                ];
+    case 'get_processed_images':
+        header('Content-Type: application/json');
+        $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
+        $baseUrl = '../admin/scripts/salida_ia/'; // Ruta relativa para el src de la imagen
+        $files = [];
+        if (is_dir($outputDir)) {
+            $items = array_diff(scandir($outputDir), array('..', '.'));
+            foreach ($items as $item) {
+                if (!is_dir($outputDir . $item)) {
+                    $files[] = [
+                        'name' => $item,
+                        'url' => $baseUrl . $item
+                    ];
+                }
             }
         }
-    }
-    echo json_encode(['success' => true, 'files' => $files]);
+        echo json_encode(['success' => true, 'files' => $files]);
     break;
+
+    // PEGA ESTE NUEVO BLOQUE EN api/index.php
+
+case 'admin/uploadProcessedToBucket':
+    // Lógica para subir los archivos procesados al bucket
+    try {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $filesToUpload = $input['files'] ?? [];
+
+        if (empty($filesToUpload)) {
+            throw new Exception('No se seleccionaron archivos para subir.');
+        }
+
+        // Reutilizamos la misma lógica de conexión a Google Cloud Storage
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $keyFilePath = __DIR__ . '/../keygcs.json';
+        $bucketName = 'libreria-web-imagenes';
+        $cdnDomain = "https://cdngcs.diezyquince.store"; // Tu dominio de CDN
+
+        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
+        $bucket = $storage->bucket($bucketName);
+        
+        $sourceDir = __DIR__ . '/../admin/scripts/salida_ia/';
+        $uploadedUrls = [];
+
+        foreach ($filesToUpload as $fileName) {
+            $localFilePath = realpath($sourceDir . $fileName);
+
+            if ($localFilePath && file_exists($localFilePath)) {
+                // Define la ruta y el nombre del archivo en el bucket
+                $gcsPath = 'productos/' . $fileName;
+
+                // Sube el archivo
+                $bucket->upload(
+                    fopen($localFilePath, 'r'),
+                    ['name' => $gcsPath]
+                );
+                
+                // Guarda la URL pública para devolverla si es necesario
+                $uploadedUrls[] = $cdnDomain . '/' . $gcsPath;
+            }
+        }
+        
+        echo json_encode(['success' => true, 'message' => '¡Imágenes subidas a la galería con éxito!', 'urls' => $uploadedUrls]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al subir a GCS: ' . $e->getMessage()]);
+    }
+    break;
+
+// FIN DEL NUEVO BLOQUE
 
 case 'download_processed_images':
     $input = json_decode(file_get_contents('php://input'), true);
