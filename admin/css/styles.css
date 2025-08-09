@@ -982,3 +982,48 @@ body {
   color: #856404;
   background-color: #fff3cd;
 }
+
+/* AÑADIR ESTO AL FINAL DE TU ARCHIVO DE ESTILOS */
+.processed-file-item {
+  /* (El estilo existente se mantiene) */
+  /* Contenedor para el nombre y el icono de descarga */
+  /* Estilo para la etiqueta del checkbox */
+  /* Estilo para el icono de descarga */
+}
+.processed-file-item .file-info {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  gap: 0.5rem; /* Espacio entre el checkbox/nombre y el icono */
+  width: 100%;
+}
+.processed-file-item .file-info label {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  /* Trunca el texto si es muy largo */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.processed-file-item .download-icon {
+  font-size: 1.1rem;
+  text-decoration: none;
+  opacity: 0.7;
+  -webkit-transition: opacity 0.2s;
+  transition: opacity 0.2s;
+}
+.processed-file-item .download-icon:hover {
+  opacity: 1;
+}

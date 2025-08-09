@@ -37,28 +37,33 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
-case 'run_processor':
+        case 'run_processor':
     header('Content-Type: text/plain; charset=utf-8');
     if (ob_get_level()) ob_end_clean();
     
-    // --- MEJORA: RUTA ABSOLUTA A PYTHON ---
-    // REEMPLAZA la ruta del ejemplo con la ruta real de tu python.exe en el servidor.
-    // Usa dobles barras invertidas \\ como se muestra.
+    // Ruta a tu ejecutable de Python
     $python_executable = 'C:\Users\LibreriaPc\AppData\Local\Programs\Python\Python313\python.exe';
-
-    // Se construye la ruta al script de Python de forma segura
+    
+    // Ruta al script de Python
     $python_script_path = realpath(__DIR__ . '/../admin/scripts/procesador.py');
+    
+    // --- LÍNEA NUEVA: Obtenemos el parámetro de rotación ---
+    $rotation = $_GET['rotate'] ?? '';
 
+    // Verificaciones de seguridad (sin cambios)
     if (!$python_script_path || !file_exists($python_script_path)) {
         die("Error Crítico: No se pudo encontrar el script procesador.py.");
     }
-
     if (!file_exists($python_executable)) {
-        die("Error Crítico: No se pudo encontrar el ejecutable de Python en la ruta especificada: " . $python_executable);
+        die("Error Crítico: No se pudo encontrar el ejecutable de Python en la ruta especificada.");
     }
     
-    // El comando a ejecutar
-    $command = '"' . $python_executable . '" "' . $python_script_path . '" 2>&1';
+    // --- LÓGICA MODIFICADA: Se construye el comando con el argumento de rotación ---
+    $command = '"' . $python_executable . '" "' . $python_script_path . '"';
+    if ($rotation === 'left' || $rotation === 'right') {
+        $command .= ' --rotate ' . escapeshellarg($rotation);
+    }
+    $command .= ' 2>&1';
     
     passthru($command);
     break;

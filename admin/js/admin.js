@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isLoading = false;
 
 
+    // REEMPLAZA esta función completa en admin/js/admin.js
+
 async function showProcessedFiles() {
     const listContainer = document.getElementById('processed-files-list');
     const resultsContainer = document.getElementById('results-container');
@@ -31,7 +33,7 @@ async function showProcessedFiles() {
         const response = await fetch('../api/index.php?resource=get_processed_images');
         const data = await response.json();
 
-        listContainer.innerHTML = ''; // Limpiamos la lista anterior
+        listContainer.innerHTML = '';
         if (data.success && data.files.length > 0) {
             resultsContainer.classList.remove('hidden');
             data.files.forEach(file => {
@@ -39,23 +41,19 @@ async function showProcessedFiles() {
                 itemDiv.className = 'processed-file-item';
                 itemDiv.dataset.fileName = file.name;
 
-                // --- MEJORA: Se crea un enlace de descarga ---
-                const downloadLink = document.createElement('a');
-                downloadLink.href = file.url;
-                downloadLink.download = file.name; // Este atributo fuerza la descarga
-                downloadLink.title = `Descargar ${file.name}`;
-                downloadLink.innerHTML = `<img src="${file.url}?t=${new Date().getTime()}" alt="${file.name}">`;
-
-                // Se crea la etiqueta con el checkbox por separado
-                const label = document.createElement('label');
-                label.innerHTML = `
-                    <input type="checkbox" class="processed-file-checkbox">
-                    ${file.name}
+                // --- MEJORA: La imagen ya no es un enlace de descarga ---
+                // Ahora al hacer clic en la imagen, solo se seleccionará/deseleccionará.
+                itemDiv.innerHTML = `
+                    <img src="${file.url}?t=${new Date().getTime()}" alt="${file.name}" style="cursor: pointer;">
+                    <div class="file-info">
+                        <label>
+                            <input type="checkbox" class="processed-file-checkbox">
+                            ${file.name}
+                        </label>
+                        <a href="${file.url}" download="${file.name}" class="download-icon" title="Descargar ${file.name}">📥</a>
+                    </div>
                 `;
                 
-                // Se añaden ambos elementos al contenedor del item
-                itemDiv.appendChild(downloadLink);
-                itemDiv.appendChild(label);
                 listContainer.appendChild(itemDiv);
             });
         } else {
@@ -79,37 +77,49 @@ async function showProcessedFiles() {
 
     mainContent.addEventListener('click', async (event) => {
         // ... tu código de click existente para otros módulos ...
+// REEMPLAZA ESTE BLOQUE en tu archivo admin/js/admin.js
 
-        if (event.target.id === 'start-processing-btn') {
-            // (La lógica que ya te había proporcionado para ejecutar el script y mostrar la consola)
-            // Aquí añadimos la llamada para mostrar los archivos al finalizar
-            const button = event.target;
-            const outputConsole = document.getElementById('processor-output');
-            
-            button.disabled = true;
-            button.textContent = 'Procesando...';
-            outputConsole.textContent = 'Iniciando...\n';
-            document.getElementById('results-container').classList.add('hidden');
+if (event.target.id === 'start-processing-btn') {
+    const button = event.target;
+    const outputConsole = document.getElementById('processor-output');
+    // Se lee el valor del nuevo selector de rotación
+    const rotationOption = document.getElementById('rotation-option').value; 
+    
+    button.disabled = true;
+    button.textContent = 'Procesando...';
+    outputConsole.textContent = 'Iniciando...\n';
+    document.getElementById('results-container').classList.add('hidden');
 
-            try {
-                const response = await fetch('../api/index.php?resource=run_processor');
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    outputConsole.textContent += decoder.decode(value, { stream: true });
-                    outputConsole.scrollTop = outputConsole.scrollHeight;
-                }
-                outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
-                await showProcessedFiles(); // ¡Importante! Muestra los archivos al terminar
-            } catch (error) {
-                outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
-            } finally {
-                button.disabled = false;
-                button.textContent = 'Iniciar Proceso';
-            }
+    try {
+        // Se construye la URL de la API añadiendo el parámetro de rotación si fue seleccionado
+        let apiUrl = '../api/index.php?resource=run_processor';
+        if (rotationOption) {
+            apiUrl += `&rotate=${rotationOption}`;
         }
+
+        // Se ejecuta la llamada a la API
+        const response = await fetch(apiUrl);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            outputConsole.textContent += decoder.decode(value, { stream: true });
+            outputConsole.scrollTop = outputConsole.scrollHeight;
+        }
+        
+        outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
+        await showProcessedFiles();
+
+    } catch (error) {
+        outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Iniciar Proceso';
+    }
+}
+
 
         if (event.target.closest('.processed-file-item')) {
             const item = event.target.closest('.processed-file-item');

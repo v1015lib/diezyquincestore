@@ -249,3 +249,41 @@
     color: #856404; // Un color ámbar/amarillo oscuro
     background-color: #fff3cd; // Un fondo amarillo claro
 }
+
+/* AÑADIR ESTO AL FINAL DE TU ARCHIVO DE ESTILOS */
+
+.processed-file-item {
+    /* (El estilo existente se mantiene) */
+    
+    /* Contenedor para el nombre y el icono de descarga */
+    .file-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem; /* Espacio entre el checkbox/nombre y el icono */
+        width: 100%;
+    }
+
+    /* Estilo para la etiqueta del checkbox */
+    .file-info label {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        cursor: pointer;
+        /* Trunca el texto si es muy largo */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* Estilo para el icono de descarga */
+    .download-icon {
+        font-size: 1.1rem;
+        text-decoration: none;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .download-icon:hover {
+        opacity: 1;
+    }
+}
