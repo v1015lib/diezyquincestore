@@ -1,8 +1,8 @@
 <?php
 // Configuración de la tienda web, actualizada automáticamente.
 return [
-    'offers_carousel_title' => 'Aprovecha estas oportunidades',
-    'offers_carousel_dept' => 0,
-    'dept_carousel_title_prefix' => 'Le moejor en ',
-    'dept_carousel_dept' => 10,
+    'show_main_carousel' => true,
+    'show_offers_carousel' => true,
+    'show_department_carousel' => true,
+    'hide_products_without_image' => true,
 ];

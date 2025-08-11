@@ -330,7 +330,7 @@ case 'admin/updateCustomer':
     }
     break;
 
-case 'run_processor':
+/* case 'run_processor':
     header('Content-Type: text/plain; charset=utf-8');
     if (ob_get_level()) ob_end_clean();
     
@@ -379,7 +379,7 @@ case 'run_processor':
             }
         }
         echo json_encode(['success' => true, 'files' => $files]);
-    break;
+    break;*/
 
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
