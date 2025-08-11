@@ -96,7 +96,7 @@ ul, li, a {
   -webkit-box-align: center;
       -ms-flex-align: center;
           align-items: center;
-  height: 50px;
+  height: 70px;
   padding: 0;
   position: relative;
 }
@@ -484,9 +484,9 @@ ul, li, a {
   height: inherit;
 }
 .sidemenu ul li a {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   display: block;
-  padding: 0.2rem;
+  padding: 0.2rem 0.5rem;
   color: #D4A017;
   font-weight: 600;
   width: 100%;
@@ -734,7 +734,7 @@ ul, li, a {
 }
 .product-card .product-info h3 {
   color: black;
-  font-size: 1rem;
+  font-size: 0.8rem;
   height: 100px;
   font-weight: 600;
 }
