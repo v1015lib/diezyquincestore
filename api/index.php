@@ -31,7 +31,88 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+// PEGA ESTE NUEVO 'CASE' DENTRO DEL SWITCH EN api/index.php
 
+// REEMPLAZA este 'case' completo en api/index.php
+
+case 'admin/manageOffer':
+    // require_admin(); // Seguridad
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
+    
+    $precio_oferta_raw = $data['precio_oferta'] ?? null;
+    $precio_oferta = is_numeric($precio_oferta_raw) ? filter_var($precio_oferta_raw, FILTER_VALIDATE_FLOAT) : null;
+    
+    $oferta_exclusiva = isset($data['oferta_exclusiva']) ? (int)(bool)$data['oferta_exclusiva'] : 0;
+    
+    // --- INICIO DE LA NUEVA LÓGICA DE CADUCIDAD ---
+    $oferta_caducidad_raw = $data['oferta_caducidad'] ?? null;
+    $oferta_caducidad = null;
+    // Validamos que la fecha recibida no esté vacía y tenga un formato reconocible
+    if (!empty($oferta_caducidad_raw)) {
+        try {
+            // Creamos un objeto DateTime para asegurar que la fecha es válida
+            $date = new DateTime($oferta_caducidad_raw);
+            // Formateamos la fecha al estándar de la base de datos (YYYY-MM-DD HH:MM:SS)
+            $oferta_caducidad = $date->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            // Si el formato de fecha es inválido, lanzamos un error
+            throw new Exception('El formato de la fecha de caducidad no es válido.');
+        }
+    }
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+    if (!$productId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'ID de producto no válido.']);
+        break;
+    }
+
+    try {
+        if ($precio_oferta !== null && $precio_oferta > 0) {
+            $stmt_price = $pdo->prepare("SELECT precio_venta FROM productos WHERE id_producto = :id");
+            $stmt_price->execute([':id' => $productId]);
+            $precio_venta = $stmt_price->fetchColumn();
+
+            if ($precio_venta === false) { throw new Exception('El producto no existe.'); }
+            if ($precio_oferta >= $precio_venta) {
+                throw new Exception('El precio de oferta debe ser menor que el precio de venta actual ($' . $precio_venta . ').');
+            }
+        }
+        
+        $final_precio_oferta = ($precio_oferta > 0) ? $precio_oferta : 0.00;
+        
+        // Si el precio de oferta es cero, también limpiamos la fecha de caducidad y la exclusividad.
+        if ($final_precio_oferta <= 0) {
+            $oferta_caducidad = null;
+            $oferta_exclusiva = 0;
+        }
+
+        // Actualizamos la base de datos con los tres campos de la oferta
+        $stmt_update = $pdo->prepare(
+            "UPDATE productos SET 
+                precio_oferta = :precio_oferta, 
+                oferta_exclusiva = :oferta_exclusiva,
+                oferta_caducidad = :oferta_caducidad
+             WHERE id_producto = :id"
+        );
+        
+        $stmt_update->execute([
+            ':precio_oferta' => $final_precio_oferta,
+            ':oferta_exclusiva' => $oferta_exclusiva,
+            ':oferta_caducidad' => $oferta_caducidad, // Se añade el nuevo campo
+            ':id' => $productId
+        ]);
+
+        $message = ($final_precio_oferta > 0) ? 'Oferta guardada correctamente.' : 'Oferta eliminada correctamente.';
+        echo json_encode(['success' => true, 'message' => $message]);
+
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
 // PEGA este nuevo 'case' dentro del switch en api/index.php
 
 case 'admin/deleteCustomer':
@@ -1764,7 +1845,7 @@ function handleCheckUsernameRequest(PDO $pdo) {
     exit; // --- ¡LA CORRECCIÓN MÁS IMPORTANTE! ---
           // Detiene la ejecución para asegurar una respuesta JSON limpia.
 }
-function handleProductsRequest(PDO $pdo) {
+/*function handleProductsRequest(PDO $pdo) {
     // Parámetros de la URL para paginación, filtros y orden
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
@@ -1834,6 +1915,117 @@ function handleProductsRequest(PDO $pdo) {
     $sql = "SELECT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
     
     // Lógica de ordenamiento
+    if ($sort_by === 'random') {
+        $sql .= " ORDER BY RAND()";
+    } else {
+        $sql .= " ORDER BY " . $sort_by . " " . $order;
+    }
+    
+    $sql .= " LIMIT :limit OFFSET :offset";
+    $params[':limit'] = $limit;
+    $params[':offset'] = $offset;
+    
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $key => &$val) {
+        $type = ($key === ':limit' || $key === ':offset' || $key === ':department_id') ? PDO::PARAM_INT : PDO::PARAM_STR;
+        $stmt->bindParam($key, $val, $type);
+    }
+    
+    $stmt->execute();
+    $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode([
+        'products' => $products, 
+        'total_products' => (int)$total_products, 
+        'total_pages' => $total_pages, 
+        'current_page' => $page, 
+        'limit' => $limit, 
+        'filter_name' => $filter_name
+    ]);
+}*/
+// REEMPLAZA la función handleProductsRequest completa en api/index.php
+
+// REEMPLAZA OTRA VEZ la función handleProductsRequest completa en api/index.php
+
+function handleProductsRequest(PDO $pdo) {
+    // Parámetros de la URL (sin cambios)
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
+    $offset = ($page - 1) * $limit;
+    $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
+    $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
+    $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
+    $filter_name = '';
+    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
+    $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';
+
+    // Validación de seguridad (sin cambios)
+    $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra', 'random'];
+    if (!in_array($sort_by, $allowedSorts)) { $sort_by = 'random'; }
+    if (!in_array($order, ['ASC', 'DESC'])) { $order = 'ASC'; }
+
+    // --- LÓGICA DE OFERTAS MEJORADA CON CADUCIDAD ---
+    $is_user_logged_in = isset($_SESSION['id_cliente']);
+
+    // La consulta SQL ahora es más inteligente.
+    // Comprueba la exclusividad Y la fecha de caducidad.
+    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.departamento, p.precio_venta, p.url_imagen,
+                      p.oferta_exclusiva, p.oferta_caducidad, -- Devolvemos estos campos para depuración
+                      CASE
+                          -- Condición 1: La oferta no es válida si está caducada
+                          WHEN p.oferta_caducidad IS NOT NULL AND p.oferta_caducidad < NOW() THEN 0
+                          -- Condición 2: Si es exclusiva, solo se muestra a usuarios logueados
+                          WHEN p.oferta_exclusiva = 1 AND " . ($is_user_logged_in ? "1=1" : "1=0") . " THEN p.precio_oferta
+                          -- Condición 3: Si no es exclusiva, se muestra a todos
+                          WHEN p.oferta_exclusiva = 0 THEN p.precio_oferta
+                          -- Si no cumple ninguna condición, no hay oferta
+                          ELSE 0
+                      END AS precio_oferta";
+    // --- FIN DE LA LÓGICA MEJORADA ---
+
+    // El resto de la construcción de la consulta permanece igual
+    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento";
+    $where_clauses = ["p.estado = 1"];
+    $params = [];
+
+    if ($hide_no_image) {
+        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
+    }
+    if ($department_id !== null && $department_id > 0) {
+        $where_clauses[] = "p.departamento = :department_id";
+        $params[':department_id'] = $department_id;
+        $stmt_dept_name = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :dept_id");
+        $stmt_dept_name->execute([':dept_id' => $department_id]);
+        $filter_name = $stmt_dept_name->fetchColumn();
+    }
+    if (!empty($search_term)) {
+        $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
+        $params[':search_term'] = '%' . $search_term . '%';
+        $params[':search_term_code'] = '%' . $search_term . '%';
+        $filter_name = $search_term;
+    }
+    
+    if ($ofertas_only) {
+        $oferta_condition = "(p.precio_oferta IS NOT NULL AND p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW()))";
+        if (!$is_user_logged_in) {
+            $oferta_condition .= " AND p.oferta_exclusiva = 0";
+        }
+        $where_clauses[] = $oferta_condition;
+        $filter_name = "Productos en Oferta";
+    }
+
+    $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+    
+    // Paginación y ejecución (sin cambios)
+    $countSql = "SELECT COUNT(*) " . $base_sql . $where_sql;
+    $stmtCount = $pdo->prepare($countSql);
+    $stmtCount->execute($params);
+    $total_products = $stmtCount->fetchColumn();
+    $total_pages = ceil($total_products / $limit);
+    
+    $sql = "SELECT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
+    
     if ($sort_by === 'random') {
         $sql .= " ORDER BY RAND()";
     } else {

@@ -4,6 +4,7 @@
         <button class="action-btn active" data-action="productos/todos_los_productos">Todos los Productos</button>
         <button class="action-btn" data-action="productos/agregar_producto">Nuevo Producto</button>
         <button class="action-btn" data-action="productos/modificar_producto">Modificar Producto</button>
+        <button class="action-btn" data-action="productos/crear_oferta">Crear Oferta</button>
         <button class="action-btn" data-action="productos/eliminar_producto">Eliminar Producto</button>
     </div>
 </div>

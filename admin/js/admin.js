@@ -23,6 +23,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     let isLoading = false;
+       function initializeOfferManagement() {
+        const searchForm = document.getElementById('product-search-form-offer');
+        if (!searchForm) return;
+
+        const searchInput = document.getElementById('product-search-for-offer');
+        const feedbackDiv = document.getElementById('search-feedback-offer');
+        const offerContainer = document.getElementById('offer-form-container');
+
+        searchForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const productCode = searchInput.value.trim();
+            if (!productCode) return;
+
+            feedbackDiv.textContent = 'Buscando...';
+            feedbackDiv.style.color = 'inherit';
+            offerContainer.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    feedbackDiv.textContent = '';
+                    renderOfferForm(result.product);
+                } else {
+                    throw new Error(result.error || 'Producto no encontrado.');
+                }
+            } catch (error) {
+                feedbackDiv.textContent = error.message;
+                feedbackDiv.style.color = 'red';
+            }
+        });
+    }
+    function renderOfferForm(product) {
+        const container = document.getElementById('offer-form-container');
+        container.classList.remove('hidden');
+
+        const currentOfferPrice = parseFloat(product.precio_oferta || 0).toFixed(2);
+        const isExclusive = parseInt(product.oferta_exclusiva, 10) === 1;
+
+        // --- INICIO DE LA LÓGICA PARA MANEJAR LA FECHA ---
+        let expiryDateValue = '';
+        if (product.oferta_caducidad) {
+            // La fecha viene como 'YYYY-MM-DD HH:MM:SS'. El input necesita 'YYYY-MM-DDTHH:MM'.
+            // Reemplazamos el espacio por una 'T' y quitamos los segundos.
+            expiryDateValue = product.oferta_caducidad.slice(0, 16).replace(' ', 'T');
+        }
+        // --- FIN DE LA LÓGICA PARA MANEJAR LA FECHA ---
+
+        container.innerHTML = `
+            <h4>Oferta para: ${product.nombre_producto}</h4>
+            <p><strong>Precio de Venta Actual:</strong> $${parseFloat(product.precio_venta).toFixed(2)}</p>
+            <p><strong>Precio de Oferta Actual:</strong> $${currentOfferPrice}</p>
+            
+            <form id="offer-form">
+                <input type="hidden" name="product_id" value="${product.id_producto}">
+                
+                <div class="form-group">
+                    <label for="precio_oferta">Nuevo Precio de Oferta</label>
+                    <input type="number" id="precio_oferta" name="precio_oferta" step="0.01" min="0" placeholder="0.00 para quitar" value="${currentOfferPrice > 0 ? currentOfferPrice : ''}">
+                </div>
+
+                <div class="form-group">
+                    <label for="oferta_caducidad">Fecha de Caducidad (Opcional)</label>
+                    <input type="datetime-local" id="oferta_caducidad" name="oferta_caducidad" value="${expiryDateValue}">
+                </div>
+
+                <div class="form-group setting-toggle" style="justify-content: flex-start;">
+                    <label for="oferta_exclusiva">Oferta solo para usuarios registrados</label>
+                    <input type="checkbox" id="oferta_exclusiva" name="oferta_exclusiva" class="switch" ${isExclusive ? 'checked' : ''}>
+                </div>
+
+                <div id="offer-feedback" class="form-message" style="margin-top: 1rem;"></div>
+
+                <div class="form-navigation" style="justify-content: center; gap: 1rem;">
+                    <button type="submit" id="save-offer-btn" class="action-btn form-submit-btn">Guardar Oferta</button>
+                    <button type="button" id="remove-offer-btn" class="action-btn" style="background-color: #f8d7da;">Quitar Oferta</button>
+                </div>
+            </form>
+        `;
+
+        const offerForm = document.getElementById('offer-form');
+        offerForm.addEventListener('submit', handleOfferSave);
+        document.getElementById('remove-offer-btn').addEventListener('click', handleOfferRemove);
+    }
+
+    async function handleOfferSave(event) {
+        event.preventDefault();
+        const form = event.target;
+        const feedbackDiv = document.getElementById('offer-feedback');
+        const submitButton = form.querySelector('#save-offer-btn');
+
+        const data = {
+            product_id: parseInt(form.querySelector('input[name="product_id"]').value, 10),
+            precio_oferta: parseFloat(form.querySelector('#precio_oferta').value) || 0,
+            oferta_exclusiva: form.querySelector('#oferta_exclusiva').checked,
+            oferta_caducidad: form.querySelector('#oferta_caducidad').value // Se envía directamente el valor del input
+        };
+        
+        submitButton.disabled = true;
+        submitButton.textContent = 'Guardando...';
+        feedbackDiv.textContent = '';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/manageOffer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                feedbackDiv.className = 'form-message success';
+                feedbackDiv.textContent = result.message;
+                // Actualizar la vista después de un momento
+                setTimeout(() => {
+                    document.getElementById('product-search-form-offer').dispatchEvent(new Event('submit'));
+                }, 1500);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            feedbackDiv.className = 'form-message error';
+            feedbackDiv.textContent = error.message;
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Guardar Oferta';
+        }
+    }
+
+    function handleOfferRemove(event) {
+        document.getElementById('precio_oferta').value = 0;
+        document.getElementById('oferta_caducidad').value = ''; // Limpiamos también la fecha
+        document.getElementById('oferta_exclusiva').checked = false;
+        document.getElementById('offer-form').dispatchEvent(new Event('submit'));
+    }
+
 // PEGA ESTE BLOQUE DESPUÉS DE LA FUNCIÓN fetchAndRenderProducts()
 
 // --- LÓGICA PARA CLIENTES ---
@@ -564,7 +702,9 @@ async function loadActionContent(actionPath) {
             initializeAddCustomerForm();
         }else if (actionPath.startsWith('web_admin/')) {
             initializeWebAdminControls();
-        }
+        } else if (actionPath === 'productos/crear_oferta') { // <-- NUEVA CONDICIÓN
+                initializeOfferManagement();
+            }
 
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
