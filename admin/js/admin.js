@@ -694,7 +694,11 @@ async function loadModule(moduleName) {
             await loadActionContent('productos/todos_los_productos');
         } else if (moduleName === 'clientes') {
             await loadActionContent('clientes/todos_los_clientes');
-        } else if (moduleName === 'web_admin') {
+        }else if (moduleName === 'tarjetas') {
+            await loadActionContent('tarjetas/gestion');
+        
+        }  
+        else if (moduleName === 'web_admin') {
             // --- INICIO DE LA CORRECCIÓN ---
             // 1. Usamos el nombre de la acción correcto: 'web_admin/sliders'
             await loadActionContent('web_admin/sliders');
@@ -745,7 +749,20 @@ async function loadActionContent(actionPath) {
                 initializeOfferManagement();
         } else if (actionPath === 'productos/ofertas_activas') { // <-- NUEVA CONDICIÓN
                 await fetchAndRenderActiveOffers();
-            }
+        }else if (actionPath === 'tarjetas/gestion') {
+            initializeCardManagement();
+        } else if (actionPath === 'tarjetas/reporte_clientes') {
+            fetchAndRenderCardReport();
+
+        }else if (actionPath === 'tarjetas/reporte_clientes') {
+            fetchAndRenderCardReport();
+            
+        // --- AÑADIR ESTA NUEVA CONDICIÓN ---
+        } else if (actionPath === 'tarjetas/recargar') {
+            initializeCardRecharge();
+        // --- FIN DE LA NUEVA CONDICIÓN ---
+
+        }
 
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
@@ -1604,7 +1621,352 @@ mainContent.addEventListener('click', async (event) => {
             }
         });
     }
+// --- LÓGICA DEL MÓDULO DE TARJETAS ---
 
+function initializeCardManagement() {
+    const createForm = document.getElementById('create-cards-form');
+    if (createForm) {
+        createForm.addEventListener('submit', handleCreateCards);
+    }
+    fetchAndRenderCards();
+}
+
+async function fetchAndRenderCards() {
+    const unassignedBody = document.getElementById('unassigned-cards-tbody');
+    const assignedBody = document.getElementById('assigned-cards-tbody');
+    if (!unassignedBody || !assignedBody) return;
+
+    unassignedBody.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+    assignedBody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getCards`);
+        const result = await response.json();
+
+        if (result.success) {
+            // Renderizar tarjetas sin asignar
+            unassignedBody.innerHTML = '';
+            if (result.unassigned.length > 0) {
+                result.unassigned.forEach(card => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${card.numero_tarjeta}</td>
+                        <td>${new Date(card.fecha_emision).toLocaleDateString('es-SV')}</td>
+                        <td>
+                            <button class="action-btn assign-btn" data-card-id="${card.id_tarjeta}" data-card-number="${card.numero_tarjeta}">Asignar</button>
+                            <button class="action-btn delete-card-btn" data-card-id="${card.id_tarjeta}" style="background-color:#f8d7da;">&times;</button>
+                        </td>
+                    `;
+                    unassignedBody.appendChild(row);
+                });
+            } else {
+                unassignedBody.innerHTML = '<tr><td colspan="3">No hay tarjetas disponibles para asignar.</td></tr>';
+            }
+
+            // Renderizar tarjetas asignadas
+            assignedBody.innerHTML = '';
+             if (result.assigned.length > 0) {
+                result.assigned.forEach(card => {
+                    const row = document.createElement('tr');
+                    const statusClass = card.nombre_estado === 'Activo' ? 'status-active' : 'status-inactive';
+                    row.innerHTML = `
+                        <td>${card.numero_tarjeta}</td>
+                        <td>${card.nombre_usuario} (${card.nombre} ${card.apellido || ''})</td>
+                        <td>$${parseFloat(card.saldo).toFixed(2)}</td>
+                        <td><span class="status-badge ${statusClass}">${card.nombre_estado}</span></td>
+                        <td>
+                            </td>
+                    `;
+                    assignedBody.appendChild(row);
+                });
+            } else {
+                assignedBody.innerHTML = '<tr><td colspan="5">No hay tarjetas asignadas a clientes.</td></tr>';
+            }
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        unassignedBody.innerHTML = `<tr><td colspan="3" style="color:red;">Error al cargar tarjetas.</td></tr>`;
+        assignedBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error al cargar tarjetas.</td></tr>`;
+    }
+}
+
+async function handleCreateCards(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-cards-feedback');
+    const quantity = form.querySelector('#quantity').value;
+    const button = form.querySelector('button');
+
+    button.disabled = true;
+    button.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createCards`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: parseInt(quantity) })
+        });
+        const result = await response.json();
+        if (result.success) {
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            form.reset();
+            fetchAndRenderCards(); // Recargar listas
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Crear Tarjetas';
+    }
+}
+
+async function fetchAndRenderCardReport() {
+    const reportBody = document.getElementById('card-report-tbody');
+    if (!reportBody) return;
+    reportBody.innerHTML = '<tr><td colspan="5">Cargando reporte...</td></tr>';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getCardReport`);
+        const result = await response.json();
+        reportBody.innerHTML = '';
+        if (result.success && result.report.length > 0) {
+            result.report.forEach(row => {
+                const tr = document.createElement('tr');
+                 const statusClass = row.nombre_estado === 'Activo' ? 'status-active' : 'status-inactive';
+                tr.innerHTML = `
+                    <td>${row.nombre_usuario}</td>
+                    <td>${row.nombre} ${row.apellido || ''}</td>
+                    <td>${row.numero_tarjeta}</td>
+                    <td>$${parseFloat(row.saldo).toFixed(2)}</td>
+                    <td><span class="status-badge ${statusClass}">${row.nombre_estado}</span></td>
+                `;
+                reportBody.appendChild(tr);
+            });
+        } else {
+            reportBody.innerHTML = '<tr><td colspan="5">No hay datos para mostrar en el reporte.</td></tr>';
+        }
+    } catch (error) {
+        reportBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar el reporte.</td></tr>';
+    }
+}
+
+
+// --- Lógica para el modal de asignación ---
+let selectedCardId = null;
+
+mainContent.addEventListener('click', event => {
+    if (event.target.classList.contains('assign-btn')) {
+        selectedCardId = event.target.dataset.cardId;
+        const cardNumber = event.target.dataset.cardNumber;
+        openAssignModal(cardNumber);
+    }
+    if (event.target.classList.contains('delete-card-btn')) {
+        const cardId = event.target.dataset.cardId;
+        if (confirm('¿Seguro que quieres eliminar esta tarjeta? Esta acción es irreversible.')) {
+            deleteCard(cardId);
+        }
+    }
+});
+
+function openAssignModal(cardNumber) {
+    const modal = document.getElementById('assign-card-modal');
+    if (!modal) return;
+    modal.querySelector('#assign-modal-title').textContent = `Asignar Tarjeta: ${cardNumber}`;
+    modal.querySelector('#customer-assign-search').value = '';
+    modal.querySelector('#customer-search-results').innerHTML = '<p>Ingrese un término de búsqueda para encontrar clientes.</p>';
+    modal.style.display = 'flex';
+}
+
+function closeAssignModal() {
+    const modal = document.getElementById('assign-card-modal');
+    if (modal) modal.style.display = 'none';
+    selectedCardId = null;
+}
+
+let searchCustomerTimeout;
+document.addEventListener('input', event => {
+    if (event.target.id === 'customer-assign-search') {
+        clearTimeout(searchCustomerTimeout);
+        searchCustomerTimeout = setTimeout(() => {
+            searchCustomersToAssign(event.target.value);
+        }, 300);
+    }
+});
+
+async function searchCustomersToAssign(searchTerm) {
+    const resultsContainer = document.getElementById('customer-search-results');
+    resultsContainer.innerHTML = '<p>Buscando...</p>';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomersWithoutCard&search=${encodeURIComponent(searchTerm)}`);
+        const result = await response.json();
+        resultsContainer.innerHTML = '';
+        if (result.success && result.customers.length > 0) {
+            const list = document.createElement('ul');
+            list.className = 'customer-assign-list';
+            result.customers.forEach(customer => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${customer.nombre} ${customer.apellido || ''} (${customer.nombre_usuario})</span> <button class="action-btn select-customer-btn" data-customer-id="${customer.id_cliente}">Seleccionar</button>`;
+                list.appendChild(li);
+            });
+            resultsContainer.appendChild(list);
+        } else {
+            resultsContainer.innerHTML = '<p>No se encontraron clientes sin tarjeta para esta búsqueda.</p>';
+        }
+    } catch (error) {
+        resultsContainer.innerHTML = '<p style="color:red">Error al buscar clientes.</p>';
+    }
+}
+
+document.addEventListener('click', event => {
+    if (event.target.classList.contains('select-customer-btn')) {
+        const customerId = event.target.dataset.customerId;
+        assignCardToCustomer(selectedCardId, customerId);
+    }
+     if (event.target.matches('#assign-card-modal .modal-close-btn, #modal-cancel-btn-card')) {
+        closeAssignModal();
+    }
+});
+
+async function assignCardToCustomer(cardId, customerId) {
+    const feedbackDiv = document.getElementById('assign-modal-feedback');
+    feedbackDiv.innerHTML = '';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/assignCard`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_id: cardId, customer_id: customerId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            setTimeout(() => {
+                closeAssignModal();
+                fetchAndRenderCards();
+            }, 1500);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    }
+}
+
+async function deleteCard(cardId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteCard`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_id: cardId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            fetchAndRenderCards(); // Recargar la lista
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+    
+// --- LÓGICA PARA RECARGAR TARJETAS ---
+
+function initializeCardRecharge() {
+    const searchForm = document.getElementById('card-search-form-recharge');
+    if (searchForm) {
+        searchForm.addEventListener('submit', handleSearchCardToRecharge);
+    }
+}
+
+async function handleSearchCardToRecharge(event) {
+    event.preventDefault();
+    const searchInput = document.getElementById('card-search-input');
+    const feedbackDiv = document.getElementById('search-feedback-recharge');
+    const formContainer = document.getElementById('recharge-form-container');
+    const searchTerm = searchInput.value.trim();
+
+    if (!searchTerm) return;
+
+    feedbackDiv.textContent = 'Buscando...';
+    formContainer.classList.add('hidden');
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getCardDetails&search=${encodeURIComponent(searchTerm)}`);
+        const result = await response.json();
+        if (result.success) {
+            feedbackDiv.textContent = '';
+            renderRechargeForm(result.card);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        feedbackDiv.textContent = error.message;
+        feedbackDiv.style.color = 'red';
+    }
+}
+
+function renderRechargeForm(card) {
+    const container = document.getElementById('recharge-form-container');
+    container.classList.remove('hidden');
+    container.innerHTML = `
+        <h4>Recargar Tarjeta: ${card.numero_tarjeta}</h4>
+        <p><strong>Cliente:</strong> ${card.nombre} ${card.apellido || ''} (${card.nombre_usuario})</p>
+        <p><strong>Saldo Actual:</strong> <span style="font-weight:bold; color:green;">$${parseFloat(card.saldo).toFixed(2)}</span></p>
+        
+        <form id="recharge-form">
+            <input type="hidden" name="card_id" value="${card.id_tarjeta}">
+            <div class="form-group">
+                <label for="recharge-amount">Monto a Recargar</label>
+                <input type="number" id="recharge-amount" name="amount" step="0.01" min="0.01" required>
+            </div>
+            <div id="recharge-feedback" class="form-message" style="margin-top:1rem;"></div>
+            <button type="submit" class="action-btn form-submit-btn">Aplicar Recarga</button>
+        </form>
+    `;
+
+    document.getElementById('recharge-form').addEventListener('submit', handleRechargeSubmit);
+}
+
+async function handleRechargeSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('recharge-feedback');
+    const button = form.querySelector('button[type="submit"]');
+    const cardId = form.querySelector('input[name="card_id"]').value;
+    const amount = form.querySelector('#recharge-amount').value;
+
+    button.disabled = true;
+    button.textContent = 'Procesando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/rechargeCard`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_id: cardId, amount: amount })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            // Volver a buscar la tarjeta para mostrar el saldo actualizado
+            setTimeout(() => {
+                 document.getElementById('card-search-form-recharge').dispatchEvent(new Event('submit'));
+            }, 1500);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Aplicar Recarga';
+    }
+}
     // --- Carga Inicial de la Aplicación ---
     initializeSidemenu();
     checkSidemenuState();

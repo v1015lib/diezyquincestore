@@ -21,6 +21,10 @@
                 <span class="menu-icon">👥</span>
                 <span class="menu-text">Clientes</span>
             </a></li>
+                        <li><a href="#" class="nav-link" data-module="tarjetas">
+                <span class="menu-icon">💳</span>
+                <span class="menu-text">Tarjetas</span>
+            </a></li>
             <li><a href="#" class="nav-link" data-module="inventario">
                 <span class="menu-icon">📊</span>
                 <span class="menu-text">Inventario</span>
