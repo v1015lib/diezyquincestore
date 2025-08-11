@@ -23,6 +23,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     let isLoading = false;
+       async function fetchAndRenderActiveOffers() {
+        const tableBody = document.getElementById('active-offers-table-body');
+        if (!tableBody) return;
+        tableBody.innerHTML = '<tr><td colspan="5">Cargando ofertas...</td></tr>';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getActiveOffers`);
+            const result = await response.json();
+
+            tableBody.innerHTML = '';
+            if (result.success && result.offers.length > 0) {
+                result.offers.forEach(offer => {
+                    const row = document.createElement('tr');
+                    
+                    let expiryText = 'No caduca';
+                    if (offer.oferta_caducidad) {
+                        const expiryDate = new Date(offer.oferta_caducidad);
+                        // Formateamos la fecha para que sea más legible
+                        expiryText = expiryDate.toLocaleDateString('es-SV', {
+                            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+
+                    row.innerHTML = `
+                        <td>${offer.codigo_producto}</td>
+                        <td>${offer.nombre_producto}</td>
+                        <td>$${parseFloat(offer.precio_venta).toFixed(2)}</td>
+                        <td style="font-weight: bold; color: green;">$${parseFloat(offer.precio_oferta).toFixed(2)}</td>
+                        <td>${expiryText}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="5">No hay productos con ofertas activas en este momento.</td></tr>';
+            }
+        } catch (error) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error al cargar la lista de ofertas.</td></tr>`;
+        }
+    }
        function initializeOfferManagement() {
         const searchForm = document.getElementById('product-search-form-offer');
         if (!searchForm) return;
@@ -704,6 +743,8 @@ async function loadActionContent(actionPath) {
             initializeWebAdminControls();
         } else if (actionPath === 'productos/crear_oferta') { // <-- NUEVA CONDICIÓN
                 initializeOfferManagement();
+        } else if (actionPath === 'productos/ofertas_activas') { // <-- NUEVA CONDICIÓN
+                await fetchAndRenderActiveOffers();
             }
 
     } catch (error) {

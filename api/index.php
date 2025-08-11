@@ -31,9 +31,35 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+
 // PEGA ESTE NUEVO 'CASE' DENTRO DEL SWITCH EN api/index.php
 
-// REEMPLAZA este 'case' completo en api/index.php
+case 'admin/getActiveOffers':
+    // require_admin(); // Seguridad
+    try {
+        // Esta consulta selecciona solo los productos con un precio de oferta válido y mayor a cero.
+        $stmt = $pdo->prepare("
+            SELECT 
+                codigo_producto,
+                nombre_producto,
+                precio_venta,
+                precio_oferta,
+                oferta_caducidad
+            FROM productos 
+            WHERE precio_oferta IS NOT NULL AND precio_oferta > 0
+            ORDER BY oferta_caducidad ASC, nombre_producto ASC
+        ");
+        
+        $stmt->execute();
+        $offers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'offers' => $offers]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener la lista de ofertas: ' . $e->getMessage()]);
+    }
+    break;
 
 case 'admin/manageOffer':
     // require_admin(); // Seguridad
