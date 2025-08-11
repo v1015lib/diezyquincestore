@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const collapseBtn = document.getElementById('sidemenu-collapse-btn');
     const modal = document.getElementById('department-modal');
     const galleryModal = document.getElementById('image-gallery-modal');
+    const API_BASE_URL = 'http://localhost/diezyquincestore/api/index.php';
+    const WAPI_BASE_URL = 'https://diezyquince.store/api/index.php';
 
     // --- Estado Global de la Aplicación ---
     let currentFilters = {
@@ -32,7 +34,7 @@ async function fetchAndRenderCustomers(searchTerm = '') {
     tableBody.innerHTML = '<tr><td colspan="9">Buscando clientes...</td></tr>'; // Aumentado a 9 columnas
 
     try {
-        const response = await fetch(`../api/index.php?resource=admin/getCustomers&search=${encodeURIComponent(searchTerm)}`);
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomers&search=${encodeURIComponent(searchTerm)}`);
         const data = await response.json();
 
         tableBody.innerHTML = '';
@@ -117,7 +119,7 @@ function setupLiveValidation(form) {
                 }
                 
                 try {
-                    const apiUrl = `../api/index.php?resource=${validationConfig.resource}&${validationConfig.param}=${encodeURIComponent(currentValue)}`;
+                    const apiUrl = `${API_BASE_URL}?resource=${validationConfig.resource}&${validationConfig.param}=${encodeURIComponent(currentValue)}`;
                     
                     const response = await fetch(apiUrl);
                     const result = await response.json();
@@ -157,7 +159,7 @@ function initializeAddCustomerForm() {
         messagesDiv.innerHTML = '';
 
         try {
-            const response = await fetch('../api/index.php?resource=admin/createCustomer', { method: 'POST', body: formData });
+            const response = await fetch('${API_BASE_URL}?resource=admin/createCustomer', { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.success) {
@@ -229,7 +231,7 @@ async function renderEditCustomerForm(customer) {
         messagesDiv.innerHTML = '';
 
         try {
-            const response = await fetch('../api/index.php?resource=admin/updateCustomer', { method: 'POST', body: formData });
+            const response = await fetch('${API_BASE_URL}?resource=admin/updateCustomer', { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.success) {
@@ -256,7 +258,7 @@ async function showProcessedFiles() {
     if (!listContainer || !resultsContainer) return;
 
     try {
-        const response = await fetch('../api/index.php?resource=get_processed_images');
+        const response = await fetch('${API_BASE_URL}?resource=get_processed_images');
         const data = await response.json();
 
         listContainer.innerHTML = '';
@@ -346,7 +348,7 @@ mainContent.addEventListener('click', async (event) => {
         } else {
             if (confirm(`¿Estás seguro de que quieres ejecutar la acción sobre ${productIds.length} productos?`)) {
                 try {
-                    const response = await fetch('../api/index.php?resource=admin/batchAction', {
+                    const response = await fetch('${API_BASE_URL}?resource=admin/batchAction', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action, productIds })
@@ -371,7 +373,7 @@ mainContent.addEventListener('click', async (event) => {
         mainContent.querySelector('[data-action="clientes/modificar_cliente"]')?.classList.add('active');
         await loadActionContent('clientes/modificar_cliente');
         try {
-            const response = await fetch(`../api/index.php?resource=admin/getCustomerDetails&id=${customerId}`);
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomerDetails&id=${customerId}`);
             const result = await response.json();
             if (result.success) await renderEditCustomerForm(result.customer);
             else throw new Error(result.error);
@@ -422,7 +424,7 @@ mainContent.addEventListener('click', async (event) => {
         loadingIndicator.style.display = 'block';
 
         const { search, department, sort, page } = currentFilters;
-        const apiUrl = `../api/index.php?resource=admin/getProducts&search=${encodeURIComponent(search)}&department_id=${department}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
+        const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department_id=${department}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
 
         try {
             const response = await fetch(apiUrl);
@@ -564,7 +566,7 @@ async function loadActionContent(actionPath) {
         const filterSelect = document.getElementById(selectorId);
         if (!filterSelect) return;
         try {
-            const response = await fetch('../api/index.php?resource=departments');
+            const response = await fetch('${API_BASE_URL}?resource=departments');
             const departments = await response.json();
             if (departments && departments.length > 0) {
                 filterSelect.innerHTML = `<option value="">Selecciona un departamento</option>`;
@@ -593,7 +595,7 @@ async function loadActionContent(actionPath) {
         const originalText = cell.innerHTML;
         cell.textContent = 'Guardando...';
         try {
-            const response = await fetch('../api/index.php?resource=admin/updateProductField', {
+            const response = await fetch('${API_BASE_URL}?resource=admin/updateProductField', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: productId, field: field, value: value })
@@ -680,7 +682,7 @@ async function loadActionContent(actionPath) {
                     return;
                 }
                 try {
-                    const response = await fetch(`../api/index.php?resource=admin/checkProductCode&code=${encodeURIComponent(code)}`);
+                    const response = await fetch(`${API_BASE_URL}?resource=admin/checkProductCode&code=${encodeURIComponent(code)}`);
                     const result = await response.json();
                     feedbackDiv.textContent = result.message;
                     feedbackDiv.style.color = result.is_available ? 'green' : 'red';
@@ -704,7 +706,7 @@ async function loadActionContent(actionPath) {
             submitButton.textContent = 'Guardando...';
             messagesDiv.innerHTML = '';
             try {
-                const response = await fetch('../api/index.php?resource=admin/createProduct', { method: 'POST', body: formData });
+                const response = await fetch('${API_BASE_URL}?resource=admin/createProduct', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
                     messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
@@ -734,7 +736,7 @@ async function loadActionContent(actionPath) {
             feedbackDiv.textContent = 'Buscando...';
             feedbackDiv.style.color = 'inherit';
             try {
-                const response = await fetch(`../api/index.php?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
+                const response = await fetch(`${API_BASE_URL}?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
                 const result = await response.json();
                 if (result.success) {
                     feedbackDiv.textContent = '';
@@ -835,7 +837,7 @@ async function loadActionContent(actionPath) {
                     return;
                 }
                 try {
-                    const response = await fetch(`../api/index.php?resource=admin/checkProductCode&code=${encodeURIComponent(newCode)}&current_id=${product.id_producto}`);
+                    const response = await fetch(`${API_BASE_URL}?resource=admin/checkProductCode&code=${encodeURIComponent(newCode)}&current_id=${product.id_producto}`);
                     const result = await response.json();
                     feedbackDiv.textContent = result.message;
                     feedbackDiv.style.color = result.is_available ? 'green' : 'red';
@@ -861,7 +863,7 @@ async function loadActionContent(actionPath) {
             submitButton.textContent = 'Actualizando...';
             messagesDiv.innerHTML = '';
             try {
-                const response = await fetch('../api/index.php?resource=admin/updateProduct', { method: 'POST', body: formData });
+                const response = await fetch('${API_BASE_URL}?resource=admin/updateProduct', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
                     messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
@@ -909,7 +911,7 @@ async function loadActionContent(actionPath) {
             container.innerHTML = '';
 
             try {
-                const response = await fetch(`../api/index.php?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
+                const response = await fetch(`${API_BASE_URL}?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -979,7 +981,7 @@ async function loadActionContent(actionPath) {
         feedbackDiv.innerHTML = '';
 
         try {
-            const response = await fetch('../api/index.php?resource=admin/deleteProduct', {
+            const response = await fetch('${API_BASE_URL}?resource=admin/deleteProduct', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id_producto: productId })
@@ -1015,7 +1017,7 @@ async function loadActionContent(actionPath) {
         const grid = galleryModal.querySelector('.image-grid-container');
         grid.innerHTML = '<p>Cargando imágenes...</p>';
         try {
-            const response = await fetch('../api/index.php?resource=admin/getBucketImages');
+            const response = await fetch('${API_BASE_URL}?resource=admin/getBucketImages');
             const result = await response.json();
             grid.innerHTML = '';
             if (result.success && result.images.length > 0) {
@@ -1122,7 +1124,7 @@ mainContent.addEventListener('click', async (event) => {
         await loadActionContent('clientes/modificar_cliente');
         
         try {
-            const response = await fetch(`../api/index.php?resource=admin/getCustomerDetails&id=${customerId}`);
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomerDetails&id=${customerId}`);
             const result = await response.json();
             if (result.success) {
                 await renderEditCustomerForm(result.customer);
@@ -1156,7 +1158,7 @@ mainContent.addEventListener('click', async (event) => {
 
         if (confirm(`¿Estás seguro de que quieres eliminar al cliente "${customerName}"? Esta acción es irreversible.`)) {
             try {
-                const response = await fetch('../api/index.php?resource=admin/deleteCustomer', {
+                const response = await fetch('${API_BASE_URL}?resource=admin/deleteCustomer', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id_cliente: customerId })
@@ -1223,7 +1225,7 @@ mainContent.addEventListener('click', async (event) => {
                 event.target.textContent = 'Guardando...';
                 event.target.disabled = true;
                 try {
-                    const response = await fetch('../api/index.php?resource=admin/batchAction', {
+                    const response = await fetch('${API_BASE_URL}?resource=admin/batchAction', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'change-department', productIds, departmentId })
                     });
@@ -1264,7 +1266,7 @@ mainContent.addEventListener('click', async (event) => {
                 const imageName = itemToDelete.dataset.imageName;
                 if (confirm(`¿Seguro que quieres eliminar esta imagen PERMANENTEMENTE del bucket?`)) {
                     try {
-                        const response = await fetch('../api/index.php?resource=admin/deleteBucketImage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: imageName }) });
+                        const response = await fetch('${API_BASE_URL}?resource=admin/deleteBucketImage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: imageName }) });
                         const result = await response.json();
                         if (!result.success) throw new Error(result.error);
                         itemToDelete.remove();
@@ -1299,7 +1301,7 @@ mainContent.addEventListener('click', async (event) => {
                     target.disabled = true;
                     feedbackDiv.textContent = '';
                     try {
-                        const response = await fetch('../api/index.php?resource=admin/uploadImage', { method: 'POST', body: formData });
+                        const response = await fetch('${API_BASE_URL}?resource=admin/uploadImage', { method: 'POST', body: formData });
                         const result = await response.json();
                         if (!result.success) throw new Error(result.error);
                         feedbackDiv.textContent = '¡Imagen subida! Recargando...';
@@ -1356,7 +1358,7 @@ mainContent.addEventListener('click', async (event) => {
 
         // 1. Cargar los ajustes actuales de la API
         try {
-            const response = await fetch('../api/index.php?resource=layout-settings');
+            const response = await fetch('${API_BASE_URL}?resource=layout-settings');
             const result = await response.json();
             if (result.success && result.settings) {
                 // 2. Poblar TODOS los campos (interruptores, textos, selectores)
@@ -1393,7 +1395,7 @@ mainContent.addEventListener('click', async (event) => {
                 
                 // 4. Enviar el objeto completo a la API para que lo guarde
                 try {
-                    const response = await fetch('../api/index.php?resource=admin/saveLayoutSettings', {
+                    const response = await fetch('${API_BASE_URL}?resource=admin/saveLayoutSettings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(settingsToSave)

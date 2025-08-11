@@ -1,3 +1,6 @@
+    const API_BASE_URL = 'http://localhost/diezyquincestore/api/index.php';
+    const WAPI_BASE_URL = 'https://diezyquince.store/api/index.php';
+
 export let currentAdminProductParams = {};
 
 export async function fetchAndRenderProducts(searchTerm = '') {
@@ -7,7 +10,7 @@ export async function fetchAndRenderProducts(searchTerm = '') {
     tableBody.innerHTML = '<tr><td colspan="6">Buscando...</td></tr>';
     
     try {
-        const apiUrl = `../api/index.php?resource=admin/getProducts&search=${encodeURIComponent(searchTerm)}`;
+        const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(searchTerm)}`;
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
