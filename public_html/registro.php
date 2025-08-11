@@ -18,9 +18,12 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crear tu Cuenta</title>
+        <link rel="shortcut icon" href="img/favicon.png">    
+
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="page-register">
+
      <a class="link-back" href="index.php">Regresar a la Tienda</a>
    
 
@@ -78,7 +81,7 @@ try {
                     </div>
                     <?php if (!empty($departments)): ?>
                     <fieldset class="form-group">
-                        <legend>Mis Intereses</legend>
+                        <legend>Quiero recibir ofertas de:</legend>
                         <div class="checkbox-group">
                             <input type="checkbox" id="select_all_prefs" name="preferencias[]" value="all">
                             <label for="select_all_prefs">Seleccionar Todos</label>

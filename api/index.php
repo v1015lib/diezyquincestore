@@ -1831,15 +1831,15 @@ function handleRegisterRequest(PDO $pdo, array $data) {
             throw new Exception("El campo '$field' es obligatorio.");
         }
     }
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Validación para que nombre y apellido solo contengan letras y espacios
     if (!preg_match("/^[a-zA-Z\s]+$/", $data['nombre'])) {
         throw new Exception("El nombre solo puede contener letras y espacios.");
     }
     if (!empty($data['apellido']) && !preg_match("/^[a-zA-Z\s]+$/", $data['apellido'])) {
         throw new Exception("El apellido solo puede contener letras y espacios.");
     }
-    // --- FIN DE LA MODIFICACIÓN ---
+        if (!preg_match('/^[0-9]{8}$/', $data['telefono'])) {
+        throw new Exception("El teléfono es obligatorio y debe tener 8 dígitos.");
+    }
 
     $pdo->beginTransaction();
 
