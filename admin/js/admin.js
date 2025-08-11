@@ -517,12 +517,23 @@ async function loadModule(moduleName) {
             await loadActionContent('productos/todos_los_productos');
         } else if (moduleName === 'clientes') {
             await loadActionContent('clientes/todos_los_clientes');
+        } else if (moduleName === 'web_admin') {
+            // --- INICIO DE LA CORRECCIÓN ---
+            // 1. Usamos el nombre de la acción correcto: 'web_admin/sliders'
+            await loadActionContent('web_admin/sliders');
+            
+            // 2. Marcamos el botón correcto como activo.
+            const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+            // --- FIN DE LA CORRECCIÓN ---
         }
+        
     } catch (error) {
         mainContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
     }
 }
-
 // REEMPLAZA ESTA FUNCIÓN COMPLETA
 async function loadActionContent(actionPath) {
     const actionContent = document.getElementById('action-content');
