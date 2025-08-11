@@ -143,7 +143,7 @@ try {
                 // Estado 24 = "Sin Asignar"
                 $stmt = $pdo->prepare("INSERT INTO tarjetas_recargables (numero_tarjeta, estado_id, id_cliente) VALUES (:numero_tarjeta, 24, NULL)");
                 for ($i = 0; $i < $quantity; $i++) {
-                    $cardNumber = 'DZ-' . substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8);
+                    $cardNumber = 'v1015-' . substr(str_shuffle('0123456789'), 0, 8);
                     $stmt->execute([':numero_tarjeta' => $cardNumber]);
                 }
                 $pdo->commit();
@@ -368,17 +368,13 @@ case 'admin/deleteCustomer':
             throw new Exception('No se proporcionó el ID del cliente.');
         }
 
-        // --- LÓGICA DE SEGURIDAD ---
-        // Aquí podrías agregar comprobaciones adicionales, por ejemplo:
-        // No permitir eliminar clientes con carritos de compra históricos, etc.
-        // Por ahora, la eliminación es directa.
-
+        // Simplemente eliminamos el cliente. La base de datos se encargará del resto.
         $stmt = $pdo->prepare("DELETE FROM clientes WHERE id_cliente = :id");
         $stmt->execute([':id' => $customerId]);
 
         if ($stmt->rowCount() > 0) {
             $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Cliente eliminado correctamente.']);
+            echo json_encode(['success' => true, 'message' => 'Cliente y sus datos asociados (tarjeta, favoritos, etc.) han sido eliminados.']);
         } else {
             throw new Exception('No se encontró el cliente para eliminar o ya fue eliminado.');
         }
@@ -386,9 +382,9 @@ case 'admin/deleteCustomer':
     } catch (Exception $e) {
         if($pdo->inTransaction()) { $pdo->rollBack(); }
         http_response_code(400);
-        // Atrapa errores de llave foránea (si un cliente está vinculado a otras tablas)
+        // Atrapa otros errores, como los de clientes con pedidos históricos que no se pueden borrar.
         if ($e instanceof PDOException && $e->getCode() == '23000') {
-             echo json_encode(['success' => false, 'error' => 'No se puede eliminar este cliente porque tiene registros asociados (como pedidos o tarjetas).']);
+             echo json_encode(['success' => false, 'error' => 'No se puede eliminar este cliente porque tiene registros históricos importantes (como pedidos) asociados.']);
         } else {
              echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
