@@ -38,9 +38,45 @@ try {
     switch ($resource) {
 
 
-// PEGA ESTOS NUEVOS 'CASE' DENTRO DEL SWITCH EN api/index.php
+// PEGA este nuevo 'case' dentro del switch en api/index.php
 
-// REEMPLAZA este 'case' completo en tu archivo api/index.php
+case 'admin/deleteCustomer':
+    // require_admin(); // Seguridad
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $customerId = $data['id_cliente'] ?? 0;
+
+        if (!$customerId) {
+            throw new Exception('No se proporcionó el ID del cliente.');
+        }
+
+        // --- LÓGICA DE SEGURIDAD ---
+        // Aquí podrías agregar comprobaciones adicionales, por ejemplo:
+        // No permitir eliminar clientes con carritos de compra históricos, etc.
+        // Por ahora, la eliminación es directa.
+
+        $stmt = $pdo->prepare("DELETE FROM clientes WHERE id_cliente = :id");
+        $stmt->execute([':id' => $customerId]);
+
+        if ($stmt->rowCount() > 0) {
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Cliente eliminado correctamente.']);
+        } else {
+            throw new Exception('No se encontró el cliente para eliminar o ya fue eliminado.');
+        }
+
+    } catch (Exception $e) {
+        if($pdo->inTransaction()) { $pdo->rollBack(); }
+        http_response_code(400);
+        // Atrapa errores de llave foránea (si un cliente está vinculado a otras tablas)
+        if ($e instanceof PDOException && $e->getCode() == '23000') {
+             echo json_encode(['success' => false, 'error' => 'No se puede eliminar este cliente porque tiene registros asociados (como pedidos o tarjetas).']);
+        } else {
+             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+    break;
 
 case 'admin/getCustomers':
     // require_admin(); // Seguridad

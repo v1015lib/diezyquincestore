@@ -15,8 +15,8 @@
                 <th>Tipo</th>
                 <th>N° Tarjeta</th>
                 <th>Estado Tarjeta</th>
-                <th>Acción</th>
-            </tr>
+                <th>Editar</th>
+                <th>Eliminar</th> </tr>
         </thead>
         <tbody id="customer-table-body">
             </tbody>

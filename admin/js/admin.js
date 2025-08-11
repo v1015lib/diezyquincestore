@@ -24,10 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- LÓGICA PARA CLIENTES ---
 
+// REEMPLAZA esta función completa en admin/js/admin.js
+
 async function fetchAndRenderCustomers(searchTerm = '') {
     const tableBody = document.getElementById('customer-table-body');
     if (!tableBody) return;
-    tableBody.innerHTML = '<tr><td colspan="8">Buscando clientes...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9">Buscando clientes...</td></tr>'; // Aumentado a 9 columnas
 
     try {
         const response = await fetch(`../api/index.php?resource=admin/getCustomers&search=${encodeURIComponent(searchTerm)}`);
@@ -39,10 +41,11 @@ async function fetchAndRenderCustomers(searchTerm = '') {
                 const row = document.createElement('tr');
                 row.dataset.customerId = customer.id_cliente;
                 
-                let statusClass = 'status-inactive'; // Por defecto
+                let statusClass = 'status-inactive';
                 if (customer.estado_tarjeta_id === 1) statusClass = 'status-active';
                 if (customer.estado_tarjeta_id === 24) statusClass = 'status-unassigned';
                 
+                // Se añade la nueva celda <td> con el botón de eliminar
                 row.innerHTML = `
                     <td>${customer.nombre_usuario}</td>
                     <td>${customer.nombre} ${customer.apellido || ''}</td>
@@ -52,14 +55,15 @@ async function fetchAndRenderCustomers(searchTerm = '') {
                     <td>${customer.numero_tarjeta}</td>
                     <td><span class="status-badge ${statusClass}">${customer.estado_tarjeta}</span></td>
                     <td><button class="action-btn edit-customer-btn">Editar</button></td>
+                    <td><button class="action-btn delete-customer-btn">&times;</button></td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="8">No se encontraron clientes.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9">No se encontraron clientes.</td></tr>'; // Aumentado a 9
         }
     } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="8" style="color:red;">Error al cargar clientes: ${error.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9" style="color:red;">Error al cargar clientes: ${error.message}</td></tr>`; // Aumentado a 9
     }
 }
 
@@ -1058,6 +1062,7 @@ mainContent.addEventListener('input', (event) => {
             await fetchAndRenderCustomers(event.target.value);
         }
     }, 300);
+    
 });
 
 // REEMPLAZA este event listener completo en admin/js/admin.js
@@ -1142,7 +1147,34 @@ mainContent.addEventListener('click', async (event) => {
         }
         return;
     }
+       if (target.classList.contains('delete-customer-btn')) {
+        const row = target.closest('tr');
+        const customerId = row.dataset.customerId;
+        const customerName = row.querySelector('td:nth-child(2)').textContent;
 
+        if (confirm(`¿Estás seguro de que quieres eliminar al cliente "${customerName}"? Esta acción es irreversible.`)) {
+            try {
+                const response = await fetch('../api/index.php?resource=admin/deleteCustomer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_cliente: customerId })
+                });
+                
+                const result = await response.json();
+
+                if (result.success) {
+                    // Elimina la fila de la tabla para una respuesta visual inmediata
+                    row.remove();
+                    alert(result.message); // O muestra una notificación más sutil
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                alert(`Error al eliminar: ${error.message}`);
+            }
+        }
+        return;
+    }
     // --- Lógica general para los botones de la cinta de opciones ---
     const actionButton = target.closest('.action-btn[data-action]');
     if (actionButton && !actionButton.id.startsWith('batch-action')) {

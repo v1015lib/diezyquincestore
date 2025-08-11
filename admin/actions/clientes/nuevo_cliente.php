@@ -35,7 +35,7 @@ $tipos_cliente = $pdo->query("SELECT id_tipo, nombre_tipo FROM tipos_cliente ORD
             <input type="tel" id="telefono" name="telefono" required pattern="[0-9]{8}" title="Debe contener 8 dígitos.">
              <div class="validation-feedback"></div>
         </div>
-        <div class="form-group">
+        <div class="form-group">	
             <label for="id_tipo_cliente">Tipo de Cliente</label>
             <select id="id_tipo_cliente" name="id_tipo_cliente" required>
                 <?php foreach ($tipos_cliente as $tipo): ?>
@@ -82,4 +82,4 @@ $tipos_cliente = $pdo->query("SELECT id_tipo, nombre_tipo FROM tipos_cliente ORD
 
         <button type="submit" class="action-btn form-submit-btn">Guardar Cliente</button>
     </form>
-</div>
+</div>	
