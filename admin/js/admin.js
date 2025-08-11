@@ -20,7 +20,229 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     let isLoading = false;
+// PEGA ESTE BLOQUE DESPUÉS DE LA FUNCIÓN fetchAndRenderProducts()
 
+// --- LÓGICA PARA CLIENTES ---
+
+async function fetchAndRenderCustomers(searchTerm = '') {
+    const tableBody = document.getElementById('customer-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="8">Buscando clientes...</td></tr>';
+
+    try {
+        const response = await fetch(`../api/index.php?resource=admin/getCustomers&search=${encodeURIComponent(searchTerm)}`);
+        const data = await response.json();
+
+        tableBody.innerHTML = '';
+        if (data.success && data.customers.length > 0) {
+            data.customers.forEach(customer => {
+                const row = document.createElement('tr');
+                row.dataset.customerId = customer.id_cliente;
+                
+                let statusClass = 'status-inactive'; // Por defecto
+                if (customer.estado_tarjeta_id === 1) statusClass = 'status-active';
+                if (customer.estado_tarjeta_id === 24) statusClass = 'status-unassigned';
+                
+                row.innerHTML = `
+                    <td>${customer.nombre_usuario}</td>
+                    <td>${customer.nombre} ${customer.apellido || ''}</td>
+                    <td>${customer.email}</td>
+                    <td>${customer.telefono}</td>
+                    <td>${customer.tipo_cliente}</td>
+                    <td>${customer.numero_tarjeta}</td>
+                    <td><span class="status-badge ${statusClass}">${customer.estado_tarjeta}</span></td>
+                    <td><button class="action-btn edit-customer-btn">Editar</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="8">No se encontraron clientes.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="8" style="color:red;">Error al cargar clientes: ${error.message}</td></tr>`;
+    }
+}
+
+function handleCustomerTypeChange() {
+    const typeSelector = document.getElementById('id_tipo_cliente');
+    if (!typeSelector) return;
+    
+    const studentFields = document.getElementById('student-fields');
+    const taxpayerFields = document.getElementById('taxpayer-fields');
+    const selectedType = parseInt(typeSelector.value);
+
+    studentFields.classList.toggle('hidden', selectedType !== 2);
+    taxpayerFields.classList.toggle('hidden', selectedType !== 3);
+    
+    studentFields.querySelectorAll('input').forEach(input => input.required = selectedType === 2);
+    taxpayerFields.querySelectorAll('input').forEach(input => input.required = selectedType === 3);
+}
+
+function setupLiveValidation(form) {
+    let typingTimer;
+    const fieldsToValidate = {
+        'nombre_usuario': { resource: 'check-username', param: 'username' },
+        'email': { resource: 'check-email', param: 'email' },
+        'telefono': { resource: 'check-phone', param: 'phone' }
+    };
+
+    form.querySelectorAll('input[id="nombre_usuario"], input[id="email"], input[id="telefono"]').forEach(input => {
+        input.addEventListener('keyup', () => {
+            clearTimeout(typingTimer);
+            const feedbackDiv = input.closest('.form-group').querySelector('.validation-feedback');
+            const validationConfig = fieldsToValidate[input.id];
+            const submitButton = form.querySelector('.form-submit-btn');
+            if (!validationConfig || !feedbackDiv) return;
+            
+            const originalValue = input.dataset.originalValue || '';
+            const currentValue = input.value.trim();
+
+            if (currentValue === originalValue) {
+                feedbackDiv.textContent = '';
+                submitButton.disabled = false;
+                return;
+            }
+
+            feedbackDiv.textContent = 'Verificando...';
+            feedbackDiv.style.color = 'inherit';
+
+            typingTimer = setTimeout(async () => {
+                if (currentValue.length < 4) {
+                    feedbackDiv.textContent = '';
+                    return;
+                }
+                
+                try {
+                    const apiUrl = `../api/index.php?resource=${validationConfig.resource}&${validationConfig.param}=${encodeURIComponent(currentValue)}`;
+                    
+                    const response = await fetch(apiUrl);
+                    const result = await response.json();
+                    
+                    feedbackDiv.textContent = result.is_available ? 'Disponible' : 'Ya en uso';
+                    feedbackDiv.style.color = result.is_available ? 'green' : 'red';
+                    submitButton.disabled = !result.is_available;
+
+                } catch (error) {
+                    feedbackDiv.textContent = 'Error al verificar.';
+                    feedbackDiv.style.color = 'red';
+                }
+            }, 500);
+        });
+    });
+}
+
+// REEMPLAZA esta función completa en admin/js/admin.js
+
+function initializeAddCustomerForm() {
+    const form = document.getElementById('add-customer-form');
+    if (!form) return;
+    
+    const typeSelector = document.getElementById('id_tipo_cliente');
+    typeSelector.addEventListener('change', handleCustomerTypeChange);
+    handleCustomerTypeChange();
+    setupLiveValidation(form);
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = form.querySelector('.form-submit-btn');
+        const messagesDiv = form.querySelector('#form-messages');
+        const formData = new FormData(form);
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Guardando...';
+        messagesDiv.innerHTML = '';
+
+        try {
+            const response = await fetch('../api/index.php?resource=admin/createCustomer', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                
+                // Redirigir a la lista de clientes después de un breve momento
+                setTimeout(() => {
+                    document.querySelector('.action-btn[data-action="clientes/todos_los_clientes"]').click();
+                }, 1500); // 1.5 segundos para que el usuario lea el mensaje
+
+            } else {
+                throw new Error(result.error || 'Ocurrió un error desconocido.');
+            }
+        } catch (error) {
+             messagesDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+             // Solo reactivar el botón si hubo un error
+             submitButton.disabled = false;
+             submitButton.textContent = 'Guardar Cliente';
+        }
+    });
+}
+
+async function renderEditCustomerForm(customer) {
+    const container = document.getElementById('edit-customer-container');
+    const searchContainer = document.getElementById('customer-search-container');
+    if (!container || !searchContainer) return;
+
+    searchContainer.style.display = 'none';
+    container.classList.remove('hidden');
+
+    const response = await fetch('actions/clientes/nuevo_cliente.php');
+    container.innerHTML = await response.text();
+
+    const form = container.querySelector('#add-customer-form');
+    form.id = 'edit-customer-form';
+    
+    form.querySelector('.form-submit-btn').textContent = 'Actualizar Cliente';
+    const passwordInput = form.querySelector('#password');
+    passwordInput.placeholder = "Dejar en blanco para no cambiar";
+    passwordInput.required = false;
+
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'id_cliente';
+    idInput.value = customer.id_cliente;
+    form.prepend(idInput);
+
+    Object.keys(customer).forEach(key => {
+        const input = form.querySelector(`#${key}`);
+        if (input) {
+            input.value = customer[key] || '';
+            input.dataset.originalValue = customer[key] || '';
+        }
+    });
+
+    const typeSelector = document.getElementById('id_tipo_cliente');
+    typeSelector.addEventListener('change', handleCustomerTypeChange);
+    handleCustomerTypeChange();
+    setupLiveValidation(form);
+    
+    form.addEventListener('submit', async (event) => {
+         event.preventDefault();
+        const submitButton = form.querySelector('.form-submit-btn');
+        const messagesDiv = form.querySelector('#form-messages');
+        const formData = new FormData(form);
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Actualizando...';
+        messagesDiv.innerHTML = '';
+
+        try {
+            const response = await fetch('../api/index.php?resource=admin/updateCustomer', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                setTimeout(async () => {
+                     document.querySelector('.action-btn[data-action="clientes/todos_los_clientes"]').click();
+                }, 1500);
+            } else {
+                throw new Error(result.error || 'Ocurrió un error desconocido.');
+            }
+        } catch (error) {
+             messagesDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+             submitButton.disabled = false;
+             submitButton.textContent = 'Actualizar Cliente';
+        }
+    });
+}
 
     // REEMPLAZA esta función completa en admin/js/admin.js
 
@@ -75,136 +297,107 @@ async function showProcessedFiles() {
 
     // --- MANEJADORES DE EVENTOS EXISTENTES (MODIFICADOS) ---
 
-    mainContent.addEventListener('click', async (event) => {
-        // ... tu código de click existente para otros módulos ...
-// REEMPLAZA ESTE BLOQUE en tu archivo admin/js/admin.js
+ // REEMPLAZA este event listener completo en admin/js/admin.js
 
-if (event.target.id === 'start-processing-btn') {
-    const button = event.target;
-    const outputConsole = document.getElementById('processor-output');
-    // Se lee el valor del nuevo selector de rotación
-    const rotationOption = document.getElementById('rotation-option').value; 
-    
-    button.disabled = true;
-    button.textContent = 'Procesando...';
-    outputConsole.textContent = 'Iniciando...\n';
-    document.getElementById('results-container').classList.add('hidden');
+mainContent.addEventListener('click', async (event) => {
+    const target = event.target;
 
-    try {
-        // Se construye la URL de la API añadiendo el parámetro de rotación si fue seleccionado
-        let apiUrl = '../api/index.php?resource=run_processor';
-        if (rotationOption) {
-            apiUrl += `&rotate=${rotationOption}`;
+    // --- Lógica de la cinta de opciones (Ribbon) ---
+    const actionButton = target.closest('.action-btn[data-action]');
+    if (actionButton && !actionButton.id.startsWith('batch-action')) {
+        const currentModule = document.querySelector('.nav-link.active')?.dataset.module;
+        const actionToLoad = actionButton.dataset.action;
+        if (actionToLoad && actionToLoad.startsWith(currentModule)) {
+            mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+            actionButton.classList.add('active');
+            await loadActionContent(actionToLoad);
         }
-
-        // Se ejecuta la llamada a la API
-        const response = await fetch(apiUrl);
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            outputConsole.textContent += decoder.decode(value, { stream: true });
-            outputConsole.scrollTop = outputConsole.scrollHeight;
-        }
-        
-        outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
-        await showProcessedFiles();
-
-    } catch (error) {
-        outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
-    } finally {
-        button.disabled = false;
-        button.textContent = 'Iniciar Proceso';
+        return; 
     }
-}
 
-
-        if (event.target.closest('.processed-file-item')) {
-            const item = event.target.closest('.processed-file-item');
-            const checkbox = item.querySelector('.processed-file-checkbox');
-            if (event.target.tagName !== 'INPUT') {
-                checkbox.checked = !checkbox.checked;
-            }
-            item.classList.toggle('selected', checkbox.checked);
-            updateProcessorButtons();
+    // --- Lógica para la tabla de Productos ---
+    if (target.matches('.product-table th.sortable')) {
+        const newSortBy = target.dataset.sort;
+        if (newSortBy === currentFilters.sort.by) {
+            currentFilters.sort.order = currentFilters.sort.order === 'ASC' ? 'DESC' : 'ASC';
+        } else {
+            currentFilters.sort.by = newSortBy;
+            currentFilters.sort.order = 'ASC';
         }
+        currentFilters.page = 1;
+        await fetchAndRenderProducts();
+        return;
+    }
 
-        if (event.target.id === 'upload-to-gallery-btn') {
-            const selectedFiles = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
-                .map(cb => cb.closest('.processed-file-item').dataset.fileName);
-            const feedbackDiv = document.getElementById('results-feedback');
-            const button = event.target;
-            
-            if (selectedFiles.length === 0) return;
+    if (target.id === 'batch-action-execute') {
+        const selector = document.getElementById('batch-action-selector');
+        const action = selector.value;
+        const productIds = Array.from(document.querySelectorAll('.product-checkbox:checked'))
+            .map(cb => cb.closest('tr').dataset.productId);
 
-            feedbackDiv.textContent = `Subiendo ${selectedFiles.length} archivo(s) a la galería...`;
-            feedbackDiv.style.color = 'inherit';
-            button.disabled = true;
+        if (!action || productIds.length === 0) return;
 
-            try {
-                // --- MEJORA: LLAMADA REAL A LA API ---
-                const response = await fetch('../api/index.php?resource=admin/uploadProcessedToBucket', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: selectedFiles })
-                });
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || 'Error desconocido del servidor.');
+        if (action === 'change-department') {
+            await openDepartmentModal();
+        } else {
+            if (confirm(`¿Estás seguro de que quieres ejecutar la acción sobre ${productIds.length} productos?`)) {
+                try {
+                    const response = await fetch('../api/index.php?resource=admin/batchAction', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action, productIds })
+                    });
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+                    alert(result.message);
+                    currentFilters.page = 1; 
+                    await fetchAndRenderProducts();
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
                 }
-
-                feedbackDiv.textContent = result.message;
-                feedbackDiv.style.color = 'green';
-
-            } catch (error) {
-                feedbackDiv.textContent = `Error al subir: ${error.message}`;
-                feedbackDiv.style.color = 'red';
-            } finally {
-                // Aunque no lo reactivamos, es buena práctica dejarlo.
-                // Podrías decidir reactivarlo si quieres que el usuario reintente.
-                // button.disabled = false; 
             }
         }
-
-
-        if (event.target.id === 'download-zip-btn') {
-            const files = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
-                .map(cb => cb.closest('.processed-file-item').dataset.fileName);
-                
-            const response = await fetch('../api/index.php?resource=download_processed_images', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ files })
-            });
-
-            if(response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                // Extrae el nombre del archivo de la cabecera
-                const disposition = response.headers.get('Content-Disposition');
-                const fileNameMatch = disposition.match(/filename="(.+?)"/);
-                a.download = fileNameMatch ? fileNameMatch[1] : 'imagenes.zip';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-            } else {
-                alert('Error al crear el archivo ZIP.');
-            }
+        return;
+    }
+    
+    // --- Lógica para el botón de editar Cliente ---
+    if (target.classList.contains('edit-customer-btn')) {
+        const customerId = target.closest('tr').dataset.customerId;
+        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+        mainContent.querySelector('[data-action="clientes/modificar_cliente"]')?.classList.add('active');
+        await loadActionContent('clientes/modificar_cliente');
+        try {
+            const response = await fetch(`../api/index.php?resource=admin/getCustomerDetails&id=${customerId}`);
+            const result = await response.json();
+            if (result.success) await renderEditCustomerForm(result.customer);
+            else throw new Error(result.error);
+        } catch (error) {
+            document.getElementById('edit-customer-container').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
         }
-
-        if (event.target.id === 'clear-results-btn') {
-            document.getElementById('processed-files-list').innerHTML = '';
-            document.getElementById('results-container').classList.add('hidden');
-            // Aquí podrías añadir una llamada a la API para borrar los archivos del servidor si lo deseas.
+        return;
+    }
+    
+    // --- Lógica para el botón de editar Producto ---
+    if (target.classList.contains('edit-product-btn')) {
+        const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
+        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+        mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
+        await loadActionContent('productos/modificar_producto');
+        const searchInput = document.getElementById('product-search-to-edit');
+        const searchForm = document.getElementById('product-search-form');
+        if (searchInput && searchForm) {
+            searchInput.value = productCode;
+            searchForm.dispatchEvent(new Event('submit'));
         }
-    });
+        return;
+    }
+    
+    // --- Lógica para abrir la galería de imágenes ---
+    if (target.id === 'open-gallery-btn') {
+        openImageGallery();
+        return;
+    }
+});
 
 
     // --- LÓGICA DE CARGA Y RENDERIZADO DE PRODUCTOS (SCROLL INFINITO) ---
@@ -305,45 +498,58 @@ if (event.target.id === 'start-processing-btn') {
         }
     }
 
-    async function loadModule(moduleName) {
-        mainContent.innerHTML = '<h2>Cargando...</h2>';
-        try {
-            const response = await fetch(`modules/${moduleName}.php`);
-            if (!response.ok) throw new Error('Módulo no encontrado.');
-            mainContent.innerHTML = await response.text();
-            if (moduleName === 'productos') {
-                await loadActionContent('productos/todos_los_productos');
-            }
-        } catch (error) {
-            mainContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
-        }
-    }
+// REEMPLAZA ESTA FUNCIÓN COMPLETA
+async function loadModule(moduleName) {
+    mainContent.innerHTML = '<h2>Cargando...</h2>';
+    try {
+        const response = await fetch(`modules/${moduleName}.php`);
+        if (!response.ok) throw new Error('Módulo no encontrado.');
+        mainContent.innerHTML = await response.text();
 
-    async function loadActionContent(actionPath) {
-        const actionContent = document.getElementById('action-content');
-        if (!actionContent) return;
-        actionContent.innerHTML = '<p>Cargando...</p>';
-        try {
-            const response = await fetch(`actions/${actionPath}.php`);
-            if (!response.ok) throw new Error('Acción no encontrada.');
-            actionContent.innerHTML = await response.text();
-
-            if (actionPath === 'productos/todos_los_productos') {
-                currentFilters.page = 1;
-                await populateDepartmentFilter();
-                await fetchAndRenderProducts();
-                document.getElementById('product-list-container')?.addEventListener('scroll', handleScroll);
-            } else if (actionPath === 'productos/agregar_producto') {
-                initializeAddProductForm();
-            } else if (actionPath === 'productos/modificar_producto') {
-                initializeProductSearchForEdit();
-            } else if (actionPath === 'productos/eliminar_producto') {
-                initializeProductSearchForDelete();
-            }
-        } catch (error) {
-            actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
+        if (moduleName === 'productos') {
+            await loadActionContent('productos/todos_los_productos');
+        } else if (moduleName === 'clientes') {
+            await loadActionContent('clientes/todos_los_clientes');
         }
+    } catch (error) {
+        mainContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
     }
+}
+
+// REEMPLAZA ESTA FUNCIÓN COMPLETA
+async function loadActionContent(actionPath) {
+    const actionContent = document.getElementById('action-content');
+    if (!actionContent) return;
+    actionContent.innerHTML = '<p>Cargando...</p>';
+    try {
+        const response = await fetch(`actions/${actionPath}.php`);
+        if (!response.ok) throw new Error('Acción no encontrada.');
+        actionContent.innerHTML = await response.text();
+
+        // Lógica post-carga para PRODUCTOS
+        if (actionPath === 'productos/todos_los_productos') {
+            currentFilters.page = 1;
+            await populateDepartmentFilter();
+            await fetchAndRenderProducts();
+            document.getElementById('product-list-container')?.addEventListener('scroll', handleScroll);
+        } else if (actionPath === 'productos/agregar_producto') {
+            initializeAddProductForm();
+        } else if (actionPath === 'productos/modificar_producto') {
+            initializeProductSearchForEdit();
+        } else if (actionPath === 'productos/eliminar_producto') {
+            initializeProductSearchForDelete();
+        }
+        // Lógica post-carga para CLIENTES
+        else if (actionPath === 'clientes/todos_los_clientes') {
+            await fetchAndRenderCustomers();
+        } else if (actionPath === 'clientes/nuevo_cliente') {
+            initializeAddCustomerForm();
+        }
+
+    } catch (error) {
+        actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
+    }
+}
     // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 
     // --- FUNCIONES AUXILIARES Y DE FORMULARIOS ---
@@ -839,37 +1045,47 @@ if (event.target.id === 'start-processing-btn') {
     });
 
     let searchTimeout;
-    mainContent.addEventListener('input', (event) => {
+// REEMPLAZA ESTE EVENT LISTENER
+mainContent.addEventListener('input', (event) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
         if (event.target.id === 'product-search-input') {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(async () => {
-                currentFilters.search = event.target.value;
-                currentFilters.page = 1;
-                await fetchAndRenderProducts();
-            }, 300);
-        }
-    });
-
-    mainContent.addEventListener('change', async (event) => {
-        const target = event.target;
-        if (target.id === 'select-all-products' || target.classList.contains('product-checkbox')) {
-            if (target.id === 'select-all-products') {
-                mainContent.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = target.checked);
-            }
-            updateBatchActionsState();
-        }
-        
-        if (target.id === 'batch-action-selector') {
-            const batchButton = mainContent.querySelector('#batch-action-execute');
-            if(batchButton) batchButton.disabled = !target.value;
-        }
-
-        if (target.id === 'department-filter') {
-            currentFilters.department = target.value;
+            currentFilters.search = event.target.value;
             currentFilters.page = 1;
             await fetchAndRenderProducts();
         }
-    });
+        if (event.target.id === 'customer-search-input') {
+            await fetchAndRenderCustomers(event.target.value);
+        }
+    }, 300);
+});
+
+// REEMPLAZA este event listener completo en admin/js/admin.js
+
+mainContent.addEventListener('change', async (event) => {
+    const target = event.target;
+    
+    // Lógica para seleccionar todos los productos y actualizar acciones en lote
+    if (target.id === 'select-all-products' || target.classList.contains('product-checkbox')) {
+        if (target.id === 'select-all-products') {
+            mainContent.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = target.checked);
+        }
+        updateBatchActionsState();
+    }
+    
+    // Lógica para habilitar el botón de ejecutar al cambiar la acción
+    if (target.id === 'batch-action-selector') {
+        const batchButton = mainContent.querySelector('#batch-action-execute');
+        if(batchButton) batchButton.disabled = !target.value;
+    }
+
+    // Lógica para el filtro de departamento
+    if (target.id === 'department-filter') {
+        currentFilters.department = target.value;
+        currentFilters.page = 1;
+        await fetchAndRenderProducts();
+    }
+});
 
     const handleScroll = async () => {
         const container = document.getElementById('product-list-container');
@@ -883,80 +1099,66 @@ if (event.target.id === 'start-processing-btn') {
         }
     };
 
-    mainContent.addEventListener('click', async (event) => {
-        const target = event.target;
+// REEMPLAZA ESTE EVENT LISTENER
+mainContent.addEventListener('click', async (event) => {
+    const target = event.target;
 
-        if (target.id === 'batch-action-execute') {
-            const selector = mainContent.querySelector('#batch-action-selector');
-            const action = selector.value;
-            const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
-            if (!action || productIds.length === 0) return;
-            if (action === 'change-department') { 
-                await openDepartmentModal(); 
-                return; 
-            }
-            if (!confirm(`¿Estás seguro de ejecutar la acción en ${productIds.length} productos?`)) return;
-            target.textContent = 'Procesando...';
-            target.disabled = true;
-            try {
-                const response = await fetch('../api/index.php?resource=admin/batchAction', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, productIds })
-                });
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error);
-                alert(result.message);
-                currentFilters.page = 1;
-                await fetchAndRenderProducts();
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-            } finally {
-                target.textContent = 'Ejecutar';
-                updateBatchActionsState();
-            }
-        }
-
-        if (target.classList.contains('edit-product-btn')) {
-            const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
-            document.querySelector('.action-btn.active')?.classList.remove('active');
-            document.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
-            await loadActionContent('productos/modificar_producto');
-            const searchInput = document.getElementById('product-search-to-edit');
-            const searchForm = document.getElementById('product-search-form');
-            if (searchInput && searchForm) {
-                searchInput.value = productCode;
-                searchForm.dispatchEvent(new Event('submit'));
-            }
-            return;
-        }
-
-        if (target.id === 'open-gallery-btn') {
-            openImageGallery();
-        }
-
-        if (target.matches('.product-table th.sortable')) {
-            const newSortBy = target.dataset.sort;
-            if (newSortBy === currentFilters.sort.by) {
-                currentFilters.sort.order = currentFilters.sort.order === 'ASC' ? 'DESC' : 'ASC';
+    // --- Lógica para el botón de editar cliente ---
+    if (target.classList.contains('edit-customer-btn')) {
+        const customerId = target.closest('tr').dataset.customerId;
+        
+        // Cambia visualmente la pestaña activa en la cinta de opciones
+        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+        mainContent.querySelector('[data-action="clientes/modificar_cliente"]')?.classList.add('active');
+        
+        // Carga el módulo de modificación y luego los datos del cliente
+        await loadActionContent('clientes/modificar_cliente');
+        
+        try {
+            const response = await fetch(`../api/index.php?resource=admin/getCustomerDetails&id=${customerId}`);
+            const result = await response.json();
+            if (result.success) {
+                await renderEditCustomerForm(result.customer);
             } else {
-                currentFilters.sort.by = newSortBy;
-                currentFilters.sort.order = 'ASC';
+                throw new Error(result.error);
             }
-            currentFilters.page = 1;
-            await fetchAndRenderProducts();
-            return;
+        } catch (error) {
+             document.getElementById('edit-customer-container').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
         }
+        return; // Detiene la ejecución para no interferir con otros listeners
+    }
 
-        const actionButton = target.closest('.action-btn');
-        if (actionButton && actionButton.id !== 'batch-action-execute') {
-            const actionToLoad = actionButton.dataset.action;
-            if (actionToLoad) {
-                document.querySelector('.action-btn.active')?.classList.remove('active');
-                actionButton.classList.add('active');
-                loadActionContent(actionToLoad);
-            }
+    // --- Lógica para el botón de editar producto (y otros existentes) ---
+    if (target.classList.contains('edit-product-btn')) {
+        const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
+        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+        mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
+        await loadActionContent('productos/modificar_producto');
+        const searchInput = document.getElementById('product-search-to-edit');
+        const searchForm = document.getElementById('product-search-form');
+        if (searchInput && searchForm) {
+            searchInput.value = productCode;
+            searchForm.dispatchEvent(new Event('submit'));
         }
-    });
+        return;
+    }
+
+    // --- Lógica general para los botones de la cinta de opciones ---
+    const actionButton = target.closest('.action-btn[data-action]');
+    if (actionButton && !actionButton.id.startsWith('batch-action')) {
+        const currentModule = document.querySelector('.nav-link.active')?.dataset.module;
+        const actionToLoad = actionButton.dataset.action;
+
+        // Solo procesa si el botón pertenece al módulo activo
+        if (actionToLoad.startsWith(currentModule)) {
+            mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+            actionButton.classList.add('active');
+            loadActionContent(actionToLoad);
+        }
+    }
+    
+    // Aquí iría el resto de tu lógica de 'click' para (procesador de imágenes, acciones en lote, etc.)
+});
     
     async function openDepartmentModal() {
         if (!modal) return;

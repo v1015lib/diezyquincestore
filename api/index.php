@@ -37,7 +37,270 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
-        case 'run_processor':
+
+// PEGA ESTOS NUEVOS 'CASE' DENTRO DEL SWITCH EN api/index.php
+
+// REEMPLAZA este 'case' completo en tu archivo api/index.php
+
+case 'admin/getCustomers':
+    // require_admin(); // Seguridad
+    try {
+        // Añade comodines al término de búsqueda
+        $searchTerm = '%' . ($_GET['search'] ?? '') . '%';
+
+        // Prepara la consulta SQL con placeholders distintos para cada campo de búsqueda
+        $stmt = $pdo->prepare("
+            SELECT 
+                c.id_cliente,
+                c.nombre_usuario,
+                c.nombre,
+                c.apellido,
+                c.email,
+                c.telefono,
+                tc.nombre_tipo as tipo_cliente,
+                COALESCE(tr.numero_tarjeta, 'No disponible') as numero_tarjeta,
+                (CASE WHEN tr.id_tarjeta IS NULL THEN 24 ELSE tr.estado_id END) as estado_tarjeta_id,
+                e.nombre_estado as estado_tarjeta
+            FROM clientes c
+            JOIN tipos_cliente tc ON c.id_tipo_cliente = tc.id_tipo
+            LEFT JOIN tarjetas_recargables tr ON c.id_cliente = tr.id_cliente
+            LEFT JOIN estados e ON (CASE WHEN tr.id_tarjeta IS NULL THEN 24 ELSE tr.estado_id END) = e.id_estado
+            WHERE c.nombre_usuario LIKE :search_user 
+               OR c.nombre LIKE :search_name 
+               OR c.apellido LIKE :search_lastname
+               OR c.email LIKE :search_email
+               OR c.telefono LIKE :search_phone
+            ORDER BY c.nombre, c.apellido
+        ");
+        
+        // Asigna el mismo término de búsqueda a cada placeholder
+        $stmt->execute([
+            ':search_user' => $searchTerm,
+            ':search_name' => $searchTerm,
+            ':search_lastname' => $searchTerm,
+            ':search_email' => $searchTerm,
+            ':search_phone' => $searchTerm
+        ]);
+        
+        $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'customers' => $customers]);
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener la lista de clientes: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/getCustomerDetails':
+    // require_admin(); // Seguridad
+    $customerId = $_GET['id'] ?? 0;
+    if (!$customerId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'No se proporcionó el ID del cliente.']);
+        break;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM clientes WHERE id_cliente = :id");
+        $stmt->execute([':id' => $customerId]);
+        $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($customer) {
+            echo json_encode(['success' => true, 'customer' => $customer]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Cliente no encontrado.']);
+        }
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
+    }
+    break;
+
+// REEMPLAZA este 'case' completo en api/index.php
+
+// REEMPLAZA este 'case' completo en api/index.php
+
+case 'admin/createCustomer':
+    // require_admin(); // Seguridad
+    $pdo->beginTransaction();
+    try {
+        $data = $_POST;
+        
+        // --- VALIDACIONES GENERALES ---
+        if (empty($data['nombre']) || !preg_match('/^[a-zA-Z\s]+$/', $data['nombre'])) throw new Exception("El nombre es obligatorio y solo puede contener letras y espacios.");
+        if (empty($data['nombre_usuario']) || !preg_match('/^[a-zA-Z0-9]+$/', $data['nombre_usuario'])) throw new Exception("El nombre de usuario es obligatorio y solo puede contener letras y números.");
+        if (empty($data['password'])) throw new Exception("La contraseña es obligatoria.");
+        if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) throw new Exception("El formato del correo electrónico no es válido.");
+        if (empty($data['telefono']) || !preg_match('/^[0-9]{8}$/', $data['telefono'])) throw new Exception("El teléfono es obligatorio y debe tener 8 dígitos.");
+
+        // Verificar unicidad general
+        $stmt_check = $pdo->prepare("SELECT 1 FROM clientes WHERE nombre_usuario = :user OR email = :email OR telefono = :phone");
+        $stmt_check->execute([':user' => $data['nombre_usuario'], ':email' => $data['email'], ':phone' => $data['telefono']]);
+        if ($stmt_check->fetch()) {
+            throw new Exception("El nombre de usuario, email o teléfono ya están en uso.");
+        }
+
+        $id_tipo_cliente = (int)$data['id_tipo_cliente'];
+        
+        // --- VALIDACIONES CONDICIONALES ---
+        if ($id_tipo_cliente === 2) { // Estudiante
+            if (empty($data['institucion']) || empty($data['grado_actual'])) {
+                throw new Exception("Para estudiantes, la institución y el grado son obligatorios.");
+            }
+        } elseif ($id_tipo_cliente === 3) { // Contribuyente
+            // Validaciones de formato
+            if (empty($data['razon_social']) || !preg_match('/^[a-zA-Z0-9\s\.]+$/', $data['razon_social'])) throw new Exception("Razón Social es obligatoria y solo debe contener letras, números, espacios y puntos.");
+            if (empty($data['direccion'])) throw new Exception("La dirección es obligatoria.");
+            if (empty($data['dui']) || !preg_match('/^[0-9]{8}$/', $data['dui'])) throw new Exception("El DUI es obligatorio y debe tener 8 dígitos.");
+            if (empty($data['nit']) || !preg_match('/^[0-9]{14}$/', $data['nit'])) throw new Exception("El NIT es obligatorio y debe tener 14 dígitos.");
+            if (empty($data['n_registro']) || !preg_match('/^[0-9]{1,14}$/', $data['n_registro'])) throw new Exception("El N° de Registro es obligatorio y debe tener hasta 14 dígitos.");
+            
+            // Verificación de unicidad para campos de contribuyente
+            $stmt_contribuyente = $pdo->prepare("SELECT 1 FROM clientes WHERE dui = :dui OR nit = :nit OR n_registro = :n_registro OR razon_social = :razon_social");
+            $stmt_contribuyente->execute([
+                ':dui' => $data['dui'],
+                ':nit' => $data['nit'],
+                ':n_registro' => $data['n_registro'],
+                ':razon_social' => $data['razon_social']
+            ]);
+            if ($stmt_contribuyente->fetch()) {
+                throw new Exception("El DUI, NIT, N° de Registro o Razón Social ya están registrados por otro contribuyente.");
+            }
+        }
+        
+        $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
+        $sql = "INSERT INTO clientes (nombre, apellido, nombre_usuario, telefono, email, password_hash, id_tipo_cliente, institucion, grado_actual, direccion, dui, nit, n_registro, razon_social) 
+                VALUES (:nombre, :apellido, :nombre_usuario, :telefono, :email, :password_hash, :id_tipo_cliente, :institucion, :grado_actual, :direccion, :dui, :nit, :n_registro, :razon_social)";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':nombre' => $data['nombre'],
+            ':apellido' => $data['apellido'] ?? null,
+            ':nombre_usuario' => $data['nombre_usuario'],
+            ':telefono' => $data['telefono'],
+            ':email' => $data['email'],
+            ':password_hash' => $password_hash,
+            ':id_tipo_cliente' => $id_tipo_cliente,
+            ':institucion' => ($id_tipo_cliente === 2) ? $data['institucion'] : null,
+            ':grado_actual' => ($id_tipo_cliente === 2) ? $data['grado_actual'] : null,
+            ':direccion' => ($id_tipo_cliente === 3) ? $data['direccion'] : null,
+            ':dui' => ($id_tipo_cliente === 3) ? $data['dui'] : null,
+            ':nit' => ($id_tipo_cliente === 3) ? $data['nit'] : null,
+            ':n_registro' => ($id_tipo_cliente === 3) ? $data['n_registro'] : null,
+            ':razon_social' => ($id_tipo_cliente === 3) ? $data['razon_social'] : null,
+        ]);
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Cliente creado exitosamente.']);
+
+    } catch (Exception $e) {
+        if($pdo->inTransaction()) { $pdo->rollBack(); }
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+// REEMPLAZA este 'case' completo en api/index.php
+
+case 'admin/updateCustomer':
+    // require_admin(); // Seguridad
+    $pdo->beginTransaction();
+    try {
+        $data = $_POST;
+        $customerId = $data['id_cliente'] ?? 0;
+        if (!$customerId) throw new Exception('ID de cliente no válido.');
+
+        // --- VALIDACIONES GENERALES ---
+        if (empty($data['nombre']) || !preg_match('/^[a-zA-Z\s]+$/', $data['nombre'])) throw new Exception("El nombre es obligatorio y solo puede contener letras y espacios.");
+        if (empty($data['nombre_usuario']) || !preg_match('/^[a-zA-Z0-9]+$/', $data['nombre_usuario'])) throw new Exception("El nombre de usuario es obligatorio y solo puede contener letras y números.");
+        if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) throw new Exception("El formato del correo electrónico no es válido.");
+        if (empty($data['telefono']) || !preg_match('/^[0-9]{8}$/', $data['telefono'])) throw new Exception("El teléfono es obligatorio y debe tener 8 dígitos.");
+        
+        // Unicidad general (excluyendo al propio cliente)
+        $stmt_check = $pdo->prepare("SELECT 1 FROM clientes WHERE (nombre_usuario = :user OR email = :email OR telefono = :phone) AND id_cliente != :id");
+        $stmt_check->execute([':user' => $data['nombre_usuario'], ':email' => $data['email'], ':phone' => $data['telefono'], ':id' => $customerId]);
+        if ($stmt_check->fetch()) {
+            throw new Exception("El nombre de usuario, email o teléfono ya están en uso por otro cliente.");
+        }
+        
+        $id_tipo_cliente = (int)$data['id_tipo_cliente'];
+
+        // --- VALIDACIONES Y LÓGICA CONDICIONAL ---
+        if ($id_tipo_cliente === 2 && (empty($data['institucion']) || empty($data['grado_actual']))) {
+            $id_tipo_cliente = 1; // Cambiar a Común si faltan datos de estudiante
+        }
+        
+        if ($id_tipo_cliente === 3) {
+            // Validaciones de formato para Contribuyente
+            if (empty($data['razon_social']) || !preg_match('/^[a-zA-Z0-9\s\.]+$/', $data['razon_social'])) throw new Exception("Razón Social es obligatoria y solo debe contener letras, números, espacios y puntos.");
+            if (empty($data['direccion'])) throw new Exception("La dirección es obligatoria.");
+            if (empty($data['dui']) || !preg_match('/^[0-9]{8}$/', $data['dui'])) throw new Exception("El DUI es obligatorio y debe tener 8 dígitos.");
+            if (empty($data['nit']) || !preg_match('/^[0-9]{14}$/', $data['nit'])) throw new Exception("El NIT es obligatorio y debe tener 14 dígitos.");
+            if (empty($data['n_registro']) || !preg_match('/^[0-9]{1,14}$/', $data['n_registro'])) throw new Exception("El N° de Registro es obligatorio y debe tener hasta 14 dígitos.");
+            
+            // Unicidad para campos de contribuyente (excluyendo al propio cliente)
+            $stmt_contribuyente = $pdo->prepare("SELECT 1 FROM clientes WHERE (dui = :dui OR nit = :nit OR n_registro = :n_registro OR razon_social = :razon_social) AND id_cliente != :id");
+            $stmt_contribuyente->execute([
+                ':dui' => $data['dui'],
+                ':nit' => $data['nit'],
+                ':n_registro' => $data['n_registro'],
+                ':razon_social' => $data['razon_social'],
+                ':id' => $customerId
+            ]);
+            if ($stmt_contribuyente->fetch()) {
+                throw new Exception("El DUI, NIT, N° de Registro o Razón Social ya están registrados por otro contribuyente.");
+            }
+        }
+        
+        // Si al editar un contribuyente, se le borran datos, se convierte en cliente común
+        if ($id_tipo_cliente === 3 && (empty($data['dui']) || empty($data['nit']) || empty($data['n_registro']) || empty($data['razon_social']) || empty($data['direccion']))) {
+            $id_tipo_cliente = 1;
+        }
+
+        $sql = "UPDATE clientes SET 
+                    nombre = :nombre, apellido = :apellido, nombre_usuario = :nombre_usuario, 
+                    telefono = :telefono, email = :email, id_tipo_cliente = :id_tipo_cliente, 
+                    institucion = :institucion, grado_actual = :grado_actual, direccion = :direccion, 
+                    dui = :dui, nit = :nit, n_registro = :n_registro, razon_social = :razon_social";
+        
+        $params = [
+            ':nombre' => $data['nombre'],
+            ':apellido' => $data['apellido'] ?? null,
+            ':nombre_usuario' => $data['nombre_usuario'],
+            ':telefono' => $data['telefono'],
+            ':email' => $data['email'],
+            ':id_tipo_cliente' => $id_tipo_cliente,
+            ':institucion' => ($id_tipo_cliente === 2) ? $data['institucion'] : null,
+            ':grado_actual' => ($id_tipo_cliente === 2) ? $data['grado_actual'] : null,
+            ':direccion' => ($id_tipo_cliente === 3) ? $data['direccion'] : null,
+            ':dui' => ($id_tipo_cliente === 3) ? $data['dui'] : null,
+            ':nit' => ($id_tipo_cliente === 3) ? $data['nit'] : null,
+            ':n_registro' => ($id_tipo_cliente === 3) ? $data['n_registro'] : null,
+            ':razon_social' => ($id_tipo_cliente === 3) ? $data['razon_social'] : null,
+            ':id_cliente' => $customerId
+        ];
+
+        if (!empty($data['password'])) {
+            $sql .= ", password_hash = :password_hash";
+            $params[':password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        }
+
+        $sql .= " WHERE id_cliente = :id_cliente";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Cliente actualizado correctamente.']);
+
+    } catch (Exception $e) {
+        if($pdo->inTransaction()) { $pdo->rollBack(); }
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'run_processor':
     header('Content-Type: text/plain; charset=utf-8');
     if (ob_get_level()) ob_end_clean();
     

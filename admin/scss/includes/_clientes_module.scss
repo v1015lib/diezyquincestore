@@ -1,0 +1,41 @@
+/* Pega esto al final de tu archivo de estilos principal o en _clientes_module.scss */
+
+#client-list-container {
+    max-height: 70vh; 
+    overflow-y: auto;
+}
+
+/* Reutilizando la clase status-badge para el estado de la tarjeta */
+.product-table .status-badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Estado para "No Asignada" */
+.product-table .status-badge.status-unassigned {
+    background-color: #e2e3e5; // Un gris neutro
+    color: #495057;
+}
+
+.conditional-fields {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 2px dashed #e9ecef;
+
+    &.hidden {
+        display: none;
+    }
+}
+
+.form-section-header {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    color: #0C0A4E;
+    padding-left: 1rem;
+    border-left: 3px solid #D4A017;
+}
+
+// Para el feedback de validación
