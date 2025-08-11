@@ -30,33 +30,31 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('search-input').value = searchTermFromUrl;
         loadProducts('product-list', 'pagination-controls', {
             apiBaseUrl: API_BASE_URL,
-            search: searchTermFromUrl
+            search: searchTermFromUrl,
+            // CORRECCIÓN: Se asegura de aplicar el filtro de imagen también en las búsquedas desde URL
+            hide_no_image: layoutSettings.hide_products_without_image
         });
     } else {
+        // Esta parte ya estaba correcta
         loadProducts('product-list', 'pagination-controls', {
             sortBy: 'random',
             apiBaseUrl: API_BASE_URL,
             hide_no_image: layoutSettings.hide_products_without_image
-            //hide_no_image: false 
-            // Lo dejamos fijo en FALSE para mostrar todos los productos con y sin imagen ya que ahora se manejaran desde el
-            //amin panel
         });
     }
 
     initializeSearch('search-input', 'search-button', 'product-list', 'pagination-controls', API_BASE_URL);
 
-    // --- LÓGICA DE ORDENAMIENTO CORREGIDA ---
     const sortBySelect = document.getElementById('sort-by');
     if (sortBySelect) {
         sortBySelect.addEventListener('change', () => {
             const [sortBy, order] = sortBySelect.value.split('-');
             
-            // Usamos la variable importada para recordar los filtros activos
             const paramsToPreserve = {
                 search: currentProductParams.search || null,
                 department_id: currentProductParams.department_id || null,
                 ofertas: currentProductParams.ofertas || null,
-                hide_no_image: currentProductParams.hide_no_image || null
+                hide_no_image: layoutSettings.hide_products_without_image 
             };
 
             loadProducts('product-list', 'pagination-controls', {
@@ -69,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     document.getElementById('sidemenu').addEventListener('click', (event) => {
         const target = event.target;
@@ -80,7 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let params = { 
                 page: 1, 
                 apiBaseUrl: API_BASE_URL, 
-                shouldScroll: true
+                shouldScroll: true,
+                // --- INICIO DE LA CORRECCIÓN CLAVE ---
+                // Aquí es donde faltaba añadir el parámetro.
+                // Ahora, cada vez que filtres por departamento, también se respetará
+                // la configuración de visibilidad de imágenes que pusiste en el panel.
+                hide_no_image: layoutSettings.hide_products_without_image
+                // --- FIN DE LA CORRECCIÓN CLAVE ---
             };
 
             if (departmentId !== 'all') {

@@ -546,8 +546,10 @@ async function loadActionContent(actionPath) {
         // Lógica post-carga para CLIENTES
         else if (actionPath === 'clientes/todos_los_clientes') {
             await fetchAndRenderCustomers();
-        } else if (actionPath === 'clientes/nuevo_cliente') {
+        }else if (actionPath === 'clientes/nuevo_cliente') {
             initializeAddCustomerForm();
+        }else if (actionPath.startsWith('web_admin/')) {
+            initializeWebAdminControls();
         }
 
     } catch (error) {
@@ -1348,9 +1350,69 @@ mainContent.addEventListener('click', async (event) => {
             }
         }
     });
+        async function initializeWebAdminControls() {
+        const container = document.getElementById('action-content');
+        if (!container) return;
+
+        // 1. Cargar los ajustes actuales de la API
+        try {
+            const response = await fetch('../api/index.php?resource=layout-settings');
+            const result = await response.json();
+            if (result.success && result.settings) {
+                // 2. Poblar TODOS los campos (interruptores, textos, selectores)
+                for (const key in result.settings) {
+                    const input = document.getElementById(key);
+                    if (input) {
+                        if (input.type === 'checkbox') {
+                            input.checked = result.settings[key];
+                        } else {
+                            input.value = result.settings[key];
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error al cargar la configuración de la web:', error);
+        }
+        
+        // 3. Crear un único listener para guardar cualquier cambio
+        container.addEventListener('change', async (event) => {
+            // Se activa si se toca un interruptor o cualquier campo de configuración
+            if (event.target.matches('.switch, .admin-config-input')) {
+                const settingsToSave = {};
+                
+                // Recolectar datos de interruptores de la vista actual
+                container.querySelectorAll('.switch').forEach(s => {
+                    settingsToSave[s.id] = s.checked;
+                });
+                // Recolectar datos de otros inputs y selects de la vista actual
+                container.querySelectorAll('.admin-config-input').forEach(i => {
+                    const value = i.tagName === 'SELECT' ? parseInt(i.value, 10) : i.value;
+                    settingsToSave[i.id] = value;
+                });
+                
+                // 4. Enviar el objeto completo a la API para que lo guarde
+                try {
+                    const response = await fetch('../api/index.php?resource=admin/saveLayoutSettings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settingsToSave)
+                    });
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+                    
+                    console.log('Configuración guardada:', result.message);
+
+                } catch (error) {
+                    console.error('Error al guardar la configuración:', error);
+                }
+            }
+        });
+    }
 
     // --- Carga Inicial de la Aplicación ---
     initializeSidemenu();
     checkSidemenuState();
     loadModule('dashboard');
 });
+

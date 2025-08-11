@@ -143,8 +143,11 @@ export async function initializeProductCarousels() {
         }
 
         const filters = { ...carousel.dataset };
-        const products = await fetchCarouselProducts(filters);
+
+        filters.hide_no_image = layoutSettings.hide_products_without_image;
         
+        const products = await fetchCarouselProducts(filters);
+
         if (products && products.length > 0) {
             await renderProducts(carousel, products, cartState, userFavorites);
         } else if (carousel.parentElement) {
