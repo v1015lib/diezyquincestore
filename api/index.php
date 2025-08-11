@@ -1,4 +1,8 @@
 <?php
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 //header('Access-Control-Allow-Origin: https://diezyquince.store'); 
@@ -331,7 +335,8 @@ case 'run_processor':
     if (ob_get_level()) ob_end_clean();
     
     // Ruta a tu ejecutable de Python
-    $python_executable = 'C:\Users\LibreriaPc\AppData\Local\Programs\Python\Python313\python.exe';
+    //$python_executable = 'C:\Users\LibreriaPc\AppData\Local\Programs\Python\Python313\python.exe';
+    $python_executable = 'python'; 
     
     // Ruta al script de Python
     $python_script_path = realpath(__DIR__ . '/../admin/scripts/procesador.py');
