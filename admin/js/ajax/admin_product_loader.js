@@ -1,5 +1,4 @@
-    const API_BASE_URL = 'http://localhost/diezyquincestore/api/index.php';
-    const WAPI_BASE_URL = 'https://diezyquince.store/api/index.php';
+    const API_BASE_URL = '../api/index.php';
 
 export let currentAdminProductParams = {};
 

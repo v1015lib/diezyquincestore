@@ -1,37 +1,27 @@
 <?php
-// api/index.php
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+//header('Access-Control-Allow-Origin: https://diezyquince.store'); 
 
-// Iniciar la sesión al principio de cualquier script que la necesite
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
+require_once __DIR__ . '/../config/config.php';
+
+// =================== INICIO DEL NUEVO BLOQUE ===================
+// Este bloque intercepta las peticiones de "pre-vuelo" (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    // Le dice al navegador qué métodos están permitidos
+    header('Access-Control-Allow-Methods: POST, GET, DELETE, PUT, OPTIONS');
+    // Le dice al navegador qué cabeceras están permitidas (importante para el JSON)
+    header('Access-Control-Allow-Headers: Content-Type');
+    // Responde con un "OK" para dar permiso
+    http_response_code(200);
+    // Detiene el script para que no continúe al switch
+    exit();
 }
+// ==================== FIN DEL NUEVO BLOQUE =====================
 
-// LÓGICA DE CIERRE DE SESIÓN AUTOMÁTICO POR INACTIVIDAD
-        $timeout_duration = 3600; // 30 minutos
-        if (isset($_SESSION['id_cliente']) && isset($_SESSION['last_activity'])) {
-            if ((time() - $_SESSION['last_activity']) > $timeout_duration) {
-                session_unset();
-                session_destroy();
-                http_response_code(401);
-                echo json_encode(['error' => 'Tu sesión ha expirado por inactividad.']);
-                exit;
-            }
-        }
-        if (isset($_SESSION['id_cliente'])) {
-            $_SESSION['last_activity'] = time();
-        }
-
-            // --- CONFIGURACIÓN Y CABECERAS ---
-            ini_set('display_errors', 1);
-            error_reporting(E_ALL);
-            header('Content-Type: application/json');
-            header('Access-Control-Allow-Origin: *');
-            require_once __DIR__ . '/../config/config.php';
-            //die('La conexión SÍ fue incluida correctamente.');
-
-            $resource = $_GET['resource'] ?? '';
-            $method = $_SERVER['REQUEST_METHOD'];
-            $inputData = json_decode(file_get_contents('php://input'), true);
+$resource = $_GET['resource'] ?? '';
+$method = $_SERVER['REQUEST_METHOD'];
+$inputData = json_decode(file_get_contents('php://input'), true);
 
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
