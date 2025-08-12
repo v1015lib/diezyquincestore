@@ -2704,6 +2704,12 @@ body.page-checkout {
   font-size: 0.7rem;
 }
 
+.contact-info a {
+  font-weight: 900;
+  font-size: 1.2rem;
+  color: #37EA37;
+}
+
 @media (max-width: 768px) {
   .sidemenu-user-section {
     display: block;

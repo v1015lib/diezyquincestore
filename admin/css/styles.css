@@ -328,13 +328,14 @@ body {
 }
 .dashboard-sidemenu nav ul li a {
   display: block;
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem;
   color: #D4A017;
   text-decoration: none;
   font-weight: 600;
   border-left: 4px solid transparent;
   -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
+  font-size: 0.8rem;
 }
 .dashboard-sidemenu nav ul li a .menu-icon, .dashboard-sidemenu nav ul li a .menu-text {
   color: inherit;
@@ -1084,4 +1085,20 @@ body {
 }
 .processed-file-item .download-icon:hover {
   opacity: 1;
+}
+
+#departments-manager-container .product-table th,
+#departments-manager-container .product-table td {
+  padding: 0.1rem 0.4rem; /* Reduce el espacio interno de las celdas */
+  font-size: 0.8rem; /* Hace la letra un poco más pequeña */
+}
+
+/* Reduce el tamaño del botón de eliminar en cada fila */
+#departments-manager-container .product-table .action-btn {
+  padding: 0.5rem; /* Menos espacio interno en el botón */
+  font-size: 0.9rem;
+  border: none;
+  background: red;
+  color: white;
+  margin: auto; /* Reduce el tamaño del ícono (×) */
 }

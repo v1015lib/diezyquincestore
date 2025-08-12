@@ -55,13 +55,13 @@ body {
   // --- ESTA ES LA SECCIÓN CORREGIDA ---
     nav ul li a {
         display: block;
-        padding: .5rem 1.5rem;
+        padding: .5rem;
         color: $tcolor2; // Variable aplicada al contenedor del enlace
         text-decoration: none;
         font-weight: 600;
         border-left: 4px solid transparent;
         transition: all 0.2s ease;
-
+        font-size: .8rem;
         // Aseguramos que los spans internos también hereden el color correcto
         .menu-icon, .menu-text {
             color: inherit; // 'inherit' toma el color del padre (el <a>)

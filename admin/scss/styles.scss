@@ -288,3 +288,22 @@
         opacity: 1;
     }
 }
+
+
+
+
+#departments-manager-container .product-table th,
+#departments-manager-container .product-table td {
+    padding: .1rem .4rem; /* Reduce el espacio interno de las celdas */
+    font-size: 0.8rem;      /* Hace la letra un poco más pequeña */
+}
+
+/* Reduce el tamaño del botón de eliminar en cada fila */
+#departments-manager-container .product-table .action-btn {
+    padding:  0.5rem; /* Menos espacio interno en el botón */
+    font-size: 0.9rem;
+    border: none;
+    background: red;
+    color: white;   
+    margin: auto;   /* Reduce el tamaño del ícono (×) */
+}
