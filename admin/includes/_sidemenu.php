@@ -42,11 +42,12 @@
                 <span class="menu-icon">🌐</span>
                 <span class="menu-text">Web Admin</span>
             </a></li>
-                  <!---Se implementara despues --><!---      <li><a href="#" class="nav-link" data-module="procesador_imagenes">
-                <span class="menu-icon">✨</span>
+
+            <li><a href="#" class="nav-link" data-module="utilidades">
+                <span class="menu-icon">🛠️</span>
                 <span class="menu-text">Utilidades</span>
             </a></li>   
-            <li class="separator"></li> ----->
+            <li class="separator"></li> 
             <li><a href="#">
                 <span class="menu-icon">🚪</span>
                 <span class="menu-text">Cerrar Sesión</span>

@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/config.php'; 
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -30,6 +32,137 @@ $inputData = json_decode(file_get_contents('php://input'), true);
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
+
+
+case 'admin/createBackup':
+    // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
+    set_time_limit(120);
+    error_reporting(0);
+    ini_set('display_errors', 0);
+
+    $mysqldump_command = ''; // Inicializamos la variable
+
+    try {
+        $mysqldump_executable = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
+        $backup_dir = __DIR__ . '/../admin/backups/';
+
+        if (!is_dir($backup_dir)) {
+            if (!mkdir($backup_dir, 0777, true)) {
+                 throw new Exception("Error de permisos: No se pudo crear la carpeta 'admin/backups'. Asegúrate de que la carpeta 'admin' tenga permisos de escritura.");
+            }
+        }
+
+        $backup_file = 'db_backup_' . DB_NAME . '_' . date("Y-m-d_H-i-s") . '.sql';
+        $backup_path = $backup_dir . $backup_file;
+
+        // Construcción del comando, ahora sin escapeshellarg en la contraseña para probar
+        // y con comillas dobles para proteger las rutas.
+        $mysqldump_command = sprintf(
+            '"%s" --user="%s" --password="%s" --host="%s" --port=%s %s > "%s"',
+            $mysqldump_executable,
+            DB_USER,
+            DB_PASS, // Se pasa directamente. Asegúrate de que no tenga caracteres especiales de la consola.
+            DB_HOST,
+            DB_PORT,
+            DB_NAME,
+            $backup_path
+        );
+        
+        $output = [];
+        $return_var = null;
+        
+        exec($mysqldump_command . ' 2>&1', $output, $return_var);
+
+        if ($return_var !== 0) {
+            $error_details = !empty($output) ? implode("\n", $output) : "No se recibió salida del comando.";
+            throw new Exception("Falló la ejecución de mysqldump (código de error: $return_var).<br><br><b>Detalles:</b><br>" . htmlspecialchars($error_details));
+        }
+        
+        if (!file_exists($backup_path) || filesize($backup_path) === 0) {
+            throw new Exception("El comando parece haberse ejecutado, pero el archivo de backup no se creó o está vacío. Revisa los permisos de escritura.");
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => '¡Copia de seguridad creada con éxito!',
+            'download_url' => 'index.php?resource=admin/downloadBackup&file=' . urlencode($backup_file),
+            'file_name' => $backup_file
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        // Ahora el mensaje de error incluirá el comando exacto que se intentó ejecutar.
+        echo json_encode([
+            'success' => false,
+            'message' => 'Ocurrió un error al intentar crear el backup.',
+            'details' => $e->getMessage() . "<br><br><b>Comando ejecutado:</b><br>" . htmlspecialchars($mysqldump_command)
+        ]);
+    } finally {
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+    }
+    break;
+
+
+
+
+
+
+
+
+    // Pega o verifica que este bloque esté en tu api/index.php
+
+case 'admin/downloadBackup':
+    // require_admin(); // Seguridad de sesión
+
+    $backup_dir = __DIR__ . '/../admin/backups/';
+    $file_name = $_GET['file'] ?? '';
+
+    // Validación de seguridad para evitar que accedan a otros directorios
+    if (basename($file_name) !== $file_name) {
+        http_response_code(400);
+        die('Nombre de archivo no válido.');
+    }
+
+    $file_path = $backup_dir . $file_name;
+
+    if (file_exists($file_path)) {
+        header('Content-Description: File Transfer');
+        
+        // --- Lógica para determinar el Content-Type ---
+        // Si el archivo termina en .gz, es un archivo comprimido.
+        if (str_ends_with($file_name, '.gz')) {
+            header('Content-Type: application/gzip');
+        } else {
+            // Si no, es un archivo SQL de texto plano.
+            header('Content-Type: application/sql');
+        }
+        
+        header('Content-Disposition: attachment; filename="' . basename($file_path) . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($file_path));
+        
+        // Limpia cualquier salida anterior para evitar corrupción del archivo
+        ob_clean();
+        flush();
+        
+        // Lee el archivo y lo envía directamente al navegador
+        readfile($file_path);
+        
+        // Detiene el script para asegurar que no se envíe nada más.
+        exit;
+    } else {
+        http_response_code(404);
+        die('Archivo de backup no encontrado.');
+    }
+    break; // Aunque exit; detiene el script, es buena práctica mantener el break.
+
+
+
+
+
 
 
         case 'admin/getDepartments':

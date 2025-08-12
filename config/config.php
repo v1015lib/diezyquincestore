@@ -1,22 +1,25 @@
+
 <?php
-$host = 'localhost';      
-$db   = 'diezqpys_data_lib';   
-$user = 'diezqpys_diezqpys_cpanel';        
-$pass = 'Masterbeta89@1998';     
-$charset = 'utf8mb4';    
 
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Modo de errores
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Retornar como array asociativo
-    PDO::ATTR_EMULATE_PREPARES   => false,                  // Desactiva emulación de consultas preparadas
-];
+define('DB_HOST', 'localhost');
+define('DB_PORT', '3306'); 
+
+
+define('DB_NAME', 'diezqpys_data_lib'); 
+
+define('DB_USER', 'diezqpys_diezqpys_cpanel');
+define('DB_PASS', 'Masterbeta89@1998');
+
+
 
 try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-
+    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+    $pdo = new PDO($dsn, DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    echo "Error de conexion: " . $e->getMessage();
+    die("Error de conexión a la base de datos: " . $e->getMessage());
 }
+
 ?>

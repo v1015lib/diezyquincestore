@@ -696,6 +696,8 @@ async function loadModule(moduleName) {
             await loadActionContent('clientes/todos_los_clientes');
         } else if (moduleName === 'departamentos') { // <-- AÑADIR ESTE BLOQUE
             await loadActionContent('departamentos/gestion');
+        }    if (moduleName === 'utilidades') {
+        await loadActionContent('utilidades/copia_seguridad');
         }
         else if (moduleName === 'tarjetas') {
             await loadActionContent('tarjetas/gestion');
@@ -767,7 +769,9 @@ async function loadActionContent(actionPath) {
 
         }else if (actionPath === 'departamentos/gestion') { // <-- AÑADIR ESTE BLOQUE
             initializeDepartmentManagement();
-        }
+        }if (actionPath === 'utilidades/copia_seguridad') {
+        initializeBackupControls();
+    }
 
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
@@ -2173,6 +2177,59 @@ mainContent.addEventListener('focusout', (event) => {
 
 
 
+function initializeBackupControls() {
+    const startBtn = document.getElementById('start-backup-btn');
+    const resultsDiv = document.getElementById('backup-results');
+
+    if (!startBtn) return;
+
+    startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        startBtn.textContent = 'Generando...';
+        resultsDiv.innerHTML = '<p>Creando la copia de seguridad, por favor espera...</p>';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/createBackup`);
+            
+            // --- INICIO DE LA CORRECCIÓN CLAVE ---
+            // 1. Leemos la respuesta como texto, sin asumir que es JSON.
+            const responseText = await response.text();
+            let result;
+
+            // 2. Intentamos convertir el texto a JSON.
+            try {
+                result = JSON.parse(responseText);
+            } catch (e) {
+                // Si falla, el problema es que el servidor envió HTML.
+                // Mostramos ese HTML para ver el error de PHP.
+                console.error("La respuesta del servidor no es un JSON válido:", responseText);
+                throw new Error("El servidor devolvió un error inesperado. Revisa la consola del navegador (F12) para ver la respuesta HTML completa.");
+            }
+            // --- FIN DE LA CORRECCIÓN CLAVE ---
+
+            if (result.success) {
+                resultsDiv.innerHTML = `
+                    <div class="message success">${result.message}</div>
+                    <p><strong>Archivo:</strong> ${result.file_name}</p>
+                    <a href="../api/${result.download_url}" class="action-btn modal-btn-primary" download>Descargar Copia de Seguridad</a>
+                `;
+            } else {
+                // Si es un JSON de error, mostramos los detalles que envía PHP.
+                let errorMessage = result.message || 'Ocurrió un error desconocido.';
+                if (result.details) {
+                    errorMessage += `<br><strong style='margin-top:1rem;display:block;'>Detalles del error:</strong><pre style='background-color:#f8d7da;padding:0.5rem;border-radius:4px;white-space:pre-wrap;text-align:left;'>${result.details}</pre>`;
+                }
+                throw new Error(errorMessage);
+            }
+
+        } catch (error) {
+            resultsDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+        } finally {
+            startBtn.disabled = false;
+            startBtn.textContent = 'Iniciar Creación de Copia de Seguridad';
+        }
+    });
+}
 
 
     
