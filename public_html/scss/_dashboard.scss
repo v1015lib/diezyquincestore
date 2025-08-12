@@ -142,11 +142,12 @@
     flex-shrink: 0;
     transition: margin-left 0.3s ease;
     z-index: 1001;
-
+    width: fit-content;
     .dashboard-sidemenu-header {
         padding: .5rem;
 
         h3 {
+            text-align: center;
             margin: 0;
             font-size: 1.2rem;
             color: $tcolor2;
@@ -161,12 +162,13 @@
         margin: 0;
         li a {
             display: block;
-            padding: 1rem 1.5rem;
+            padding: 1rem;
             color: $tcolor2;
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 900;
             border-left: 3px solid transparent;
             transition: all 0.2s ease;
+            font-size: .8rem;
             &:hover, &.active {
                 background-color: #f8f9fa;
                 border-left-color: $tcolor2;

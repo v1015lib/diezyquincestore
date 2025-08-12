@@ -148,7 +148,7 @@ ul, li, a {
   margin: auto;
   -webkit-box-shadow: 0 0 0.2rem white;
           box-shadow: 0 0 0.2rem white;
-  border-radius: 1rem;
+  border-radius: 0.2rem;
   overflow: hidden;
   background: white;
   margin: 0.5rem auto;
@@ -1938,11 +1938,15 @@ body.page-checkout {
   -webkit-transition: margin-left 0.3s ease;
   transition: margin-left 0.3s ease;
   z-index: 1001;
+  width: -webkit-fit-content;
+  width: -moz-fit-content;
+  width: fit-content;
 }
 .dashboard-sidemenu .dashboard-sidemenu-header {
   padding: 0.5rem;
 }
 .dashboard-sidemenu .dashboard-sidemenu-header h3 {
+  text-align: center;
   margin: 0;
   font-size: 1.2rem;
   color: #D4A017;
@@ -1956,13 +1960,14 @@ body.page-checkout {
 }
 .dashboard-sidemenu nav ul li a {
   display: block;
-  padding: 1rem 1.5rem;
+  padding: 1rem;
   color: #D4A017;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 900;
   border-left: 3px solid transparent;
   -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
+  font-size: 0.8rem;
 }
 .dashboard-sidemenu nav ul li a:hover, .dashboard-sidemenu nav ul li a.active {
   background-color: #f8f9fa;
