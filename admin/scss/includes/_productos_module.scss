@@ -44,6 +44,20 @@
 
 .product-list-container {
     overflow-x: auto; // Permite scroll horizontal en tablas grandes
+
+
+    &::-webkit-scrollbar {
+        width: 3px; /* Ancho para scrollbars verticales */
+        height: 10px; /* Alto para scrollbars horizontales */
+    }
+
+    &::-webkit-scrollbar-thumb {
+
+        background: darken($primary-color, 5%)
+
+    }
+
+
 }
 
 // Reemplaza el bloque .product-table en admin/scss/includes/_productos_module.scss con esto

@@ -67,7 +67,7 @@
     .grid-inner{
         overflow-y: auto;
 
-            &::-webkit-scrollbar {
+    &::-webkit-scrollbar {
         width: 5px; /* Ancho para scrollbars verticales */
         height: 10px; /* Alto para scrollbars horizontales */
     }

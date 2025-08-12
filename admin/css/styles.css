@@ -173,6 +173,13 @@
 .product-list-container {
   overflow-x: auto;
 }
+.product-list-container::-webkit-scrollbar {
+  width: 3px; /* Ancho para scrollbars verticales */
+  height: 10px; /* Alto para scrollbars horizontales */
+}
+.product-list-container::-webkit-scrollbar-thumb {
+  background: #090737;
+}
 
 .product-table {
   width: 100%;
