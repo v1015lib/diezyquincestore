@@ -694,7 +694,10 @@ async function loadModule(moduleName) {
             await loadActionContent('productos/todos_los_productos');
         } else if (moduleName === 'clientes') {
             await loadActionContent('clientes/todos_los_clientes');
-        }else if (moduleName === 'tarjetas') {
+        } else if (moduleName === 'departamentos') { // <-- AÑADIR ESTE BLOQUE
+            await loadActionContent('departamentos/gestion');
+        }
+        else if (moduleName === 'tarjetas') {
             await loadActionContent('tarjetas/gestion');
         
         }  
@@ -762,6 +765,8 @@ async function loadActionContent(actionPath) {
             initializeCardRecharge();
         // --- FIN DE LA NUEVA CONDICIÓN ---
 
+        }else if (actionPath === 'departamentos/gestion') { // <-- AÑADIR ESTE BLOQUE
+            initializeDepartmentManagement();
         }
 
     } catch (error) {
@@ -1547,21 +1552,65 @@ mainContent.addEventListener('click', async (event) => {
         }
     });
     
-    mainContent.addEventListener('focusout', (event) => {
-        if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
-            const input = event.target;
-            const cell = input.parentElement;
-            const originalValue = input.dataset.originalValue;
-            const newValue = input.value.trim();
-            if (newValue !== originalValue && newValue !== '') {
+mainContent.addEventListener('dblclick', (event) => {
+    const cell = event.target.closest('td.editable');
+    // Se asegura de que la celda sea editable y no tenga ya un input dentro
+    if (cell && !cell.querySelector('input')) {
+        const originalValue = cell.textContent.trim();
+        // Reemplaza el texto por un campo de input
+        cell.innerHTML = `<input type="text" value="${originalValue}" data-original-value="${originalValue}">`;
+        const input = cell.querySelector('input');
+        input.focus(); // Pone el cursor dentro del input
+        input.select(); // Selecciona todo el texto
+    }
+});
+
+// 2. Detecta cuando se hace clic fuera del input para guardar
+mainContent.addEventListener('focusout', (event) => {
+    const input = event.target;
+    if (input.tagName === 'INPUT' && input.parentElement.classList.contains('editable')) {
+        const cell = input.parentElement;
+        const originalValue = input.dataset.originalValue;
+        const newValue = input.value.trim();
+        const row = cell.closest('tr');
+
+        // Solo guarda si el valor es nuevo y no está vacío
+        if (newValue !== originalValue && newValue !== '') {
+            // Verifica si es una fila de departamento
+            if (row.dataset.departmentId) {
+                const departmentId = row.dataset.departmentId;
                 const field = cell.dataset.field;
-                const productId = cell.closest('tr').dataset.productId;
-                saveFieldUpdate(productId, field, newValue, cell);
-            } else {
-                cell.textContent = cell.dataset.field === 'precio_venta' ? `$${parseFloat(originalValue).toFixed(2)}` : originalValue;
+                // Llama a la función que se comunica con la API
+                saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
             }
+            // Aquí podrías añadir un 'else if (row.dataset.productId)' para editar productos
+        } else {
+            // Si no hay cambios, restaura el valor original
+            cell.textContent = originalValue;
         }
-    });
+    }
+});
+
+// 3. Función que envía los datos a la API para guardar en la base de datos
+async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
+    const originalText = cell.textContent;
+    cell.textContent = 'Guardando...'; // Feedback visual para el usuario
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateDepartment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: departmentId, name: value })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        // Si la API confirma, actualiza la celda con el nuevo valor
+        cell.textContent = value;
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.textContent = originalText; // Si falla, revierte el cambio
+        alert("Error al guardar el cambio.");
+    }
+}
         async function initializeWebAdminControls() {
         const container = document.getElementById('action-content');
         if (!container) return;
@@ -1967,7 +2016,166 @@ async function handleRechargeSubmit(event) {
         button.textContent = 'Aplicar Recarga';
     }
 }
-    // --- Carga Inicial de la Aplicación ---
+    
+    // --- LÓGICA DEL MÓDULO DE DEPARTAMENTOS ---
+
+// --- LÓGICA DEL MÓDULO DE DEPARTAMENTOS (CORREGIDA) ---
+
+function initializeDepartmentManagement() {
+    fetchAndRenderDepartments();
+
+    const createForm = document.getElementById('create-department-form');
+    if (createForm) {
+        createForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const feedbackDiv = document.getElementById('create-department-feedback');
+            // CORRECCIÓN: Se busca el id "departamento"
+            const nameInput = document.getElementById('departamento'); 
+            const codeInput = document.getElementById('codigo_departamento');
+            
+            const data = {
+                // CORRECCIÓN: La propiedad enviada a la API es "departamento"
+                departamento: nameInput.value.trim(), 
+                codigo_departamento: codeInput.value.trim()
+            };
+
+            feedbackDiv.textContent = 'Guardando...';
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/createDepartment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                nameInput.value = '';
+                codeInput.value = '';
+                fetchAndRenderDepartments();
+                setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+            } catch (error) {
+                feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
+            }
+        });
+    }
+}
+
+async function fetchAndRenderDepartments() {
+    const tableBody = document.getElementById('departments-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getDepartments`);
+        const result = await response.json();
+        
+        tableBody.innerHTML = '';
+        if (result.success && result.departments.length > 0) {
+            result.departments.forEach(dept => {
+                const row = document.createElement('tr');
+                row.dataset.departmentId = dept.id_departamento;
+                
+                // CORRECCIÓN: Se accede a la propiedad "departamento" del objeto que viene de la API.
+                row.innerHTML = `
+                    <td>${dept.id_departamento}</td>
+                    <td class="editable" data-field="departamento">${dept.departamento}</td>
+                    <td>${dept.codigo_departamento}</td>
+                    <td><button class="action-btn delete-department-btn">&times;</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="4">No hay departamentos creados.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = '<tr><td colspan="4" style="color:red;">Error al cargar los departamentos.</td></tr>';
+    }
+}
+// Delegación de eventos para los botones de eliminar
+mainContent.addEventListener('click', async (event) => {
+    if (event.target.classList.contains('delete-department-btn')) {
+        const row = event.target.closest('tr');
+        const departmentId = row.dataset.departmentId;
+        const departmentName = row.querySelector('.editable').textContent;
+
+        if (confirm(`¿Estás seguro de que quieres eliminar el departamento "${departmentName}"?`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/deleteDepartment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: departmentId })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                row.remove(); // Elimina la fila visualmente
+                alert(result.message);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+    }
+    // ... (El resto de tu listener de click puede continuar aquí)
+});
+
+// Listener para guardar cambios al editar en línea
+async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
+    const originalText = cell.innerHTML;
+    cell.textContent = 'Guardando...';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateDepartment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: departmentId, name: value }) // El único campo editable es el nombre
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        cell.textContent = value;
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.innerHTML = originalText;
+        alert("Error al guardar el cambio.");
+    }
+}
+
+// Sobrescribimos el listener de focusout para que también maneje la tabla de departamentos
+mainContent.addEventListener('focusout', (event) => {
+    if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
+        const input = event.target;
+        const cell = input.parentElement;
+        const originalValue = input.dataset.originalValue;
+        const newValue = input.value.trim();
+        
+        // Determinar si es un producto o un departamento
+        const productRow = cell.closest('tr[data-product-id]');
+        const departmentRow = cell.closest('tr[data-department-id]');
+
+        if (newValue !== originalValue && newValue !== '') {
+             if (productRow) {
+                const field = cell.dataset.field;
+                const productId = productRow.dataset.productId;
+                saveFieldUpdate(productId, field, newValue, cell);
+             } else if (departmentRow) {
+                const field = cell.dataset.field;
+                const departmentId = departmentRow.dataset.departmentId;
+                saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
+             }
+        } else {
+             if (productRow) {
+                cell.textContent = cell.dataset.field === 'precio_venta' ? `$${parseFloat(originalValue).toFixed(2)}` : originalValue;
+             } else if(departmentRow) {
+                cell.textContent = originalValue;
+             }
+        }
+    }
+});
+
+
+
+
+
+    
     initializeSidemenu();
     checkSidemenuState();
     loadModule('dashboard');

@@ -15,7 +15,11 @@
                 <span class="menu-icon">📦</span>
                 <span class="menu-text">Productos</span>
             </a></li>
-
+            <li><a href="#" class="nav-link" data-module="departamentos">
+                <span class="menu-icon">📁</span>
+                <span class="menu-text">Departamentos</span>
+            </a></li>
+            <li class="separator"></li>
             <li class="separator"></li>
             <li><a href="#" class="nav-link" data-module="clientes">
                 <span class="menu-icon">👥</span>

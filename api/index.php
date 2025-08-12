@@ -32,6 +32,98 @@ try {
     switch ($resource) {
 
 
+        case 'admin/getDepartments':
+            // require_admin();
+            try {
+                // CORRECCIÓN: Se usa "departamento" para coincidir con la base de datos.
+                $stmt = $pdo->query("SELECT id_departamento, departamento, codigo_departamento FROM departamentos ORDER BY departamento ASC");
+                $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['success' => true, 'departments' => $departments]);
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al obtener los departamentos.']);
+            }
+            break;
+
+        case 'admin/createDepartment':
+            // require_admin();
+            // CORRECCIÓN: Se espera "departamento" desde el JavaScript.
+            $data = json_decode(file_get_contents('php://input'), true);
+            $name = trim($data['departamento'] ?? ''); 
+            $code = trim($data['codigo_departamento'] ?? '');
+
+            if (empty($name) || empty($code)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El nombre y el código del departamento son obligatorios.']);
+                break;
+            }
+            try {
+                // CORRECCIÓN: Se inserta en la columna "departamento".
+                $stmt = $pdo->prepare("INSERT INTO departamentos (departamento, codigo_departamento) VALUES (:name, :code)");
+                $stmt->execute([':name' => $name, ':code' => $code]);
+                echo json_encode(['success' => true, 'message' => 'Departamento creado con éxito.']);
+            } catch (PDOException $e) {
+                http_response_code(409); 
+                echo json_encode(['success' => false, 'error' => 'Ya existe un departamento con ese nombre o código.']);
+            }
+            break;
+
+        case 'admin/updateDepartment':
+            // require_admin();
+            $data = json_decode(file_get_contents('php://input'), true);
+            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
+            $name = trim($data['name'] ?? '');
+
+            if (!$id || empty($name)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
+                break;
+            }
+            try {
+                // CORRECCIÓN: Se actualiza la columna "departamento".
+                $stmt = $pdo->prepare("UPDATE departamentos SET departamento = :name WHERE id_departamento = :id");
+                $stmt->execute([':name' => $name, ':id' => $id]);
+                echo json_encode(['success' => true, 'message' => 'Departamento actualizado.']);
+            } catch (PDOException $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al actualizar el departamento.']);
+            }
+            break;
+
+
+  case 'admin/deleteDepartment':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'ID de departamento no válido.']);
+                break;
+            }
+            try {
+                $stmt = $pdo->prepare("DELETE FROM departamentos WHERE id_departamento = :id");
+                $stmt->execute([':id' => $id]);
+                echo json_encode(['success' => true, 'message' => 'Departamento eliminado con éxito.']);
+            } catch (PDOException $e) {
+                if ($e->getCode() == '23000') {
+                    http_response_code(409);
+                    echo json_encode(['success' => false, 'error' => 'No se puede eliminar. Este departamento tiene productos asociados.']);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
+                }
+            }
+            break;
+
+
+
+
+
+
+
+
+
+
+
  case 'admin/getCardDetails':
     // require_admin();
     $searchTerm = $_GET['search'] ?? '';
