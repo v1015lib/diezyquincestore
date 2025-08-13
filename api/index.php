@@ -33,8 +33,8 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
-// Reemplaza este case en tu archivo api/index.php
 
+//Backup de base de datoa
 case 'admin/createBackup':
     // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
     set_time_limit(120);
@@ -45,6 +45,7 @@ case 'admin/createBackup':
 
     try {
         $mysqldump_executable = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
+        //$mysqldump_executable = 'mysqldump.exe';
         $backup_dir = __DIR__ . '/../admin/backups/';
 
         if (!is_dir($backup_dir)) {
@@ -104,8 +105,52 @@ case 'admin/createBackup':
     }
     break;
 
+case 'admin/downloadBackup':
+    // require_admin(); // Seguridad de sesión
 
+    $backup_dir = __DIR__ . '/../admin/backups/';
+    $file_name = $_GET['file'] ?? '';
+
+    // Validación de seguridad para evitar que accedan a otros directorios
+    if (basename($file_name) !== $file_name) {
+        http_response_code(400);
+        die('Nombre de archivo no válido.');
+    }
+
+    $file_path = $backup_dir . $file_name;
+
+    if (file_exists($file_path)) {
+        header('Content-Description: File Transfer');
         
+        // --- Lógica para determinar el Content-Type ---
+        // Si el archivo termina en .gz, es un archivo comprimido.
+        if (str_ends_with($file_name, '.gz')) {
+            header('Content-Type: application/gzip');
+        } else {
+            // Si no, es un archivo SQL de texto plano.
+            header('Content-Type: application/sql');
+        }
+        
+        header('Content-Disposition: attachment; filename="' . basename($file_path) . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($file_path));
+        
+        // Limpia cualquier salida anterior para evitar corrupción del archivo
+        ob_clean();
+        flush();
+        
+        // Lee el archivo y lo envía directamente al navegador
+        readfile($file_path);
+        
+        // Detiene el script para asegurar que no se envíe nada más.
+        exit;
+    } else {
+        http_response_code(404);
+        die('Archivo de backup no encontrado.');
+    }
+    break; // Aunque exit; detiene el script, es buena práctica mantener el break.
 
 //Tarjetas
 
@@ -221,7 +266,7 @@ case 'admin/createCards':
                 // Estado 24 = "Sin Asignar"
                 $stmt = $pdo->prepare("INSERT INTO tarjetas_recargables (numero_tarjeta, estado_id, id_cliente) VALUES (:numero_tarjeta, 24, NULL)");
                 for ($i = 0; $i < $quantity; $i++) {
-                    $cardNumber = 'v1015-' . substr(str_shuffle('0123456789'), 0, 8);
+                    $cardNumber = '221015' . substr(str_shuffle('0123456789'), 0, 7);
                     $stmt->execute([':numero_tarjeta' => $cardNumber]);
                 }
                 $pdo->commit();
