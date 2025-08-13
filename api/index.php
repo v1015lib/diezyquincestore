@@ -34,6 +34,187 @@ try {
     switch ($resource) {
 
 
+// Pega este case junto con los otros de estadísticas ('getSummary', 'getSalesReport')
+
+case 'getMonthlyBreakdown':
+    header('Content-Type: application/json');
+    try {
+        // Obtenemos el primer y último día del mes actual
+        $primerDiaMes = date('Y-m-01 00:00:00');
+        $ultimoDiaMes = date('Y-m-t 23:59:59');
+
+        // Consulta que combina ventas del POS y de la WEB, agrupadas por día
+        $sql = "
+            SELECT 
+                fecha, 
+                SUM(total_diario) as total_diario
+            FROM (
+                -- Ventas del POS
+                SELECT
+                    DATE(v.fecha_venta) AS fecha,
+                    SUM(v.monto_total) AS total_diario
+                FROM ventas v
+                WHERE v.fecha_venta BETWEEN :primerDia AND :ultimoDia
+                GROUP BY DATE(v.fecha_venta)
+
+                UNION ALL
+
+                -- Ventas de la WEB
+                SELECT
+                    DATE(cc.fecha_creacion) AS fecha,
+                    SUM(dc.cantidad * dc.precio_unitario) AS total_diario
+                FROM carritos_compra cc
+                JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                WHERE cc.fecha_creacion BETWEEN :primerDia AND :ultimoDia
+                AND cc.estado_id NOT IN (3, 11) -- Asume que estos no son ventas finales
+                GROUP BY DATE(cc.fecha_creacion)
+            ) as ventas_combinadas
+            WHERE fecha IS NOT NULL
+            GROUP BY fecha
+            ORDER BY fecha ASC;
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['primerDia' => $primerDiaMes, 'ultimoDia' => $ultimoDiaMes]);
+        $response = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        $response = ['error' => 'Error de Base de Datos: ' . $e->getMessage()];
+    }
+    echo json_encode($response);
+    break;
+
+
+
+
+
+// Reemplaza estos dos cases en tu archivo admin/api/index.php
+
+case 'getSummary':
+    header('Content-Type: application/json');
+    $response = [];
+    try {
+        // 1. Total de Clientes (esto no cambia)
+        $stmt_clientes = $pdo->query("SELECT COUNT(id_cliente) as total_clientes FROM clientes");
+        $response['total_clientes'] = $stmt_clientes->fetch(PDO::FETCH_ASSOC)['total_clientes'];
+
+        // 2. Función para obtener ventas combinadas (POS + WEB)
+        $fetchCombinedTotal = function($interval) use ($pdo) {
+            // Ventas del POS (desde la tabla 'ventas')
+            $query_pos = "SELECT SUM(monto_total) as total FROM ventas WHERE fecha_venta >= NOW() - INTERVAL $interval";
+            $stmt_pos = $pdo->query($query_pos);
+            $total_pos = $stmt_pos->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+            // Ventas de la WEB (desde la tabla 'carritos_compra' y 'detalle_carrito')
+            // Se asume que un carrito con estado diferente a 'Pendiente' (3) o 'Cancelado' (11) es una venta completada.
+            $query_web = "
+                SELECT SUM(dc.cantidad * dc.precio_unitario) as total 
+                FROM carritos_compra cc
+                JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                WHERE cc.fecha_creacion >= NOW() - INTERVAL $interval
+                AND cc.estado_id NOT IN (3, 11)
+            ";
+            $stmt_web = $pdo->query($query_web);
+            $total_web = $stmt_web->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+            return $total_pos + $total_web;
+        };
+
+        // 3. Calcular totales para cada período
+        $response['ventas_diarias']     = $fetchCombinedTotal('1 DAY');
+        $response['ventas_semanales']   = $fetchCombinedTotal('1 WEEK');
+        $response['ventas_mensuales']   = $fetchCombinedTotal('1 MONTH');
+        $response['ventas_trimestrales'] = $fetchCombinedTotal('3 MONTH');
+        $response['ventas_anuales']     = $fetchCombinedTotal('1 YEAR');
+        
+    } catch (PDOException $e) {
+        http_response_code(500);
+        $response = ['error' => 'Error de Base de Datos: ' . $e->getMessage()];
+    }
+    echo json_encode($response);
+    break;
+
+case 'getSalesReport':
+    header('Content-Type: application/json');
+    try {
+        $period = $_GET['period'] ?? 'daily';
+        $interval = '1 DAY';
+        switch ($period) {
+            case 'weekly': $interval = '1 WEEK'; break;
+            case 'monthly': $interval = '1 MONTH'; break;
+            case 'quarterly': $interval = '3 MONTH'; break;
+            case 'yearly': $interval = '1 YEAR'; break;
+        }
+
+        // Usamos UNION ALL para combinar los resultados de ambas fuentes (POS y WEB)
+        // y luego los agrupamos.
+        $sql = "
+            SELECT 
+                departamento, 
+                SUM(total_por_departamento) as total_por_departamento
+            FROM (
+                -- Parte 1: Ventas del POS
+                SELECT
+                    d.departamento,
+                    SUM(dv.subtotal) AS total_por_departamento
+                FROM detalle_ventas dv
+                JOIN productos p ON dv.id_producto = p.id_producto
+                JOIN departamentos d ON p.departamento = d.id_departamento
+                JOIN ventas v ON dv.id_venta = v.id_venta
+                WHERE v.fecha_venta >= NOW() - INTERVAL $interval
+                GROUP BY d.departamento
+
+                UNION ALL
+
+                -- Parte 2: Ventas de la WEB
+                SELECT
+                    d.departamento,
+                    SUM(dc.cantidad * dc.precio_unitario) AS total_por_departamento
+                FROM detalle_carrito dc
+                JOIN productos p ON dc.id_producto = p.id_producto
+                JOIN departamentos d ON p.departamento = d.id_departamento
+                JOIN carritos_compra cc ON dc.id_carrito = cc.id_carrito
+                WHERE cc.fecha_creacion >= NOW() - INTERVAL $interval
+                AND cc.estado_id NOT IN (3, 11) -- Asume que estos estados no son ventas finales
+                GROUP BY d.departamento
+            ) as combined_sales
+            GROUP BY departamento
+            ORDER BY total_por_departamento DESC;
+        ";
+        $stmt = $pdo->query($sql);
+        $response = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        $response = ['error' => 'Error de Base de Datos: ' . $e->getMessage()];
+    }
+    echo json_encode($response);
+    break;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //Backup de base de datoa
 case 'admin/createBackup':
     // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
