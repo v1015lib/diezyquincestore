@@ -702,7 +702,9 @@ async function loadModule(moduleName) {
         else if (moduleName === 'tarjetas') {
             await loadActionContent('tarjetas/gestion');
         
-        }  
+        }else if (moduleName === 'inventario') {
+            await loadActionContent('inventario/agregar_stock');
+        } 
         else if (moduleName === 'web_admin') {
             // --- INICIO DE LA CORRECCIÓN ---
             // 1. Usamos el nombre de la acción correcto: 'web_admin/sliders'
@@ -742,9 +744,10 @@ async function loadActionContent(actionPath) {
             initializeProductSearchForEdit();
         } else if (actionPath === 'productos/eliminar_producto') {
             initializeProductSearchForDelete();
-        }
-        // Lógica post-carga para CLIENTES
-        else if (actionPath === 'clientes/todos_los_clientes') {
+        }else if (actionPath === 'inventario/historial_movimientos') {
+            await populateMovementTypeFilter(); // <-- AÑADE ESTA LÍNEA
+            fetchAndRenderInventoryHistory();
+        }else if (actionPath === 'clientes/todos_los_clientes') {
             await fetchAndRenderCustomers();
         }else if (actionPath === 'clientes/nuevo_cliente') {
             initializeAddCustomerForm();
@@ -771,7 +774,13 @@ async function loadActionContent(actionPath) {
             initializeDepartmentManagement();
         }if (actionPath === 'utilidades/copia_seguridad') {
         initializeBackupControls();
-    }
+        }else if (actionPath === 'inventario/agregar_stock') {
+    initializeInventoryForm('stock');
+} else if (actionPath === 'inventario/ajuste_inventario') {
+    initializeInventoryForm('adjust');
+} else if (actionPath === 'inventario/historial_movimientos') {
+    fetchAndRenderInventoryHistory();
+}
 
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
@@ -2230,9 +2239,280 @@ function initializeBackupControls() {
         }
     });
 }
+function initializeInventoryForm(type) {
+    const searchForm = document.getElementById(`product-search-form-${type}`);
+    if (!searchForm) return;
+
+    searchForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const searchInput = document.getElementById(`product-search-for-${type}`);
+        const feedbackDiv = document.getElementById(`search-feedback-${type}`);
+        const formContainer = document.getElementById(`${type}-form-container`);
+        const productCode = searchInput.value.trim();
+
+        if (!productCode) return;
+
+        feedbackDiv.textContent = 'Buscando producto...';
+        feedbackDiv.style.color = 'inherit';
+        formContainer.classList.add('hidden');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
+            const result = await response.json();
+
+            if (result.success) {
+                if (result.product.usa_inventario != 1) {
+                    throw new Error('Este producto no tiene activada la gestión de inventario.');
+                }
+                feedbackDiv.textContent = '';
+                renderInventoryActionForm(result.product, type);
+            } else {
+                throw new Error(result.error || 'Producto no encontrado.');
+            }
+        } catch (error) {
+            feedbackDiv.textContent = error.message;
+            feedbackDiv.style.color = 'red';
+        }
+    });
+}
+
+function renderInventoryActionForm(product, type) {
+    const container = document.getElementById(`${type}-form-container`);
+    container.classList.remove('hidden');
+
+    let title, label, inputName, buttonText, placeholder, minVal;
+
+    switch(type) {
+        case 'stock':
+            title = 'Agregar Stock';
+            label = 'Cantidad a Agregar';
+            inputName = 'quantity';
+            buttonText = 'Agregar';
+            placeholder = 'Ej: 50';
+            minVal = '1';
+            break;
+        case 'adjust':
+            title = 'Ajustar Inventario';
+            label = 'Valor del Ajuste (+/-)';
+            inputName = 'adjustment_value';
+            buttonText = 'Ajustar';
+            placeholder = 'Ej: 10 (sumar) o -10 (restar)';
+            minVal = ''; // Permite negativos
+            break;
+    }
+
+    container.innerHTML = `
+        <h4>${title}: ${product.nombre_producto}</h4>
+        <p><strong>Código:</strong> ${product.codigo_producto}</p>
+        <p><strong>Stock Actual:</strong> <span style="font-weight:bold; color:green;">${product.stock_actual}</span></p>
+        
+        <form id="${type}-action-form">
+            <input type="hidden" name="product_id" value="${product.id_producto}">
+            <div class="form-group">
+                <label for="${inputName}">${label}</label>
+                <input type="number" id="${inputName}" name="${inputName}" ${minVal ? `min="${minVal}"` : ''} required placeholder="${placeholder}">
+            </div>
+            <div class="form-group">
+                <label for="notes">Notas (Opcional)</label>
+                <input type="text" id="notes" name="notes" placeholder="Ej: Conteo físico / Merma">
+            </div>
+            <div id="${type}-feedback" class="form-message" style="margin-top:1rem;"></div>
+            <button type="submit" class="action-btn form-submit-btn">${buttonText}</button>
+        </form>
+    `;
+
+    document.getElementById(`${type}-action-form`).addEventListener('submit', handleInventoryActionSubmit);
+}
 
 
+async function handleInventoryActionSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const type = form.id.replace('-action-form', '');
     
+    let resource;
+    let data;
+
+    const formData = new FormData(form);
+    const rawData = Object.fromEntries(formData.entries());
+
+    switch(type) {
+        case 'stock': 
+            resource = 'addStock'; 
+            data = rawData;
+            break;
+        case 'adjust': 
+            resource = 'adjustInventory'; 
+            data = { 
+                product_id: rawData.product_id,
+                adjustment_value: rawData.adjustment_value,
+                notes: rawData.notes
+            };
+            break;
+    }
+
+    const feedbackDiv = document.getElementById(`${type}-feedback`);
+    const button = form.querySelector('button[type="submit"]');
+
+    button.disabled = true;
+    button.textContent = 'Procesando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/${resource}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok) {
+             throw new Error(result.error || 'Ocurrió un error en el servidor.');
+        }
+
+        if (result.success) {
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            setTimeout(() => {
+                document.getElementById(`product-search-form-${type}`).dispatchEvent(new Event('submit'));
+            }, 1500);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        if (!feedbackDiv.querySelector('.success')) {
+            button.disabled = false;
+            let originalButtonText = '';
+            switch(type) {
+                case 'stock': originalButtonText = 'Agregar'; break;
+                case 'adjust': originalButtonText = 'Ajustar'; break;
+            }
+            button.textContent = originalButtonText;
+        }
+    }
+}
+
+
+async function populateMovementTypeFilter() {
+    const filterSelect = document.getElementById('movement-type-filter');
+    if (!filterSelect) return;
+
+    try {
+        // 1. Llama al nuevo endpoint que creamos en la API
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getMovementStates`);
+        const result = await response.json();
+
+        if (result.success && result.states) {
+            filterSelect.innerHTML = '<option value="">Todos los Movimientos</option>';
+
+            // 2. Crea las opciones dinámicamente con los datos de la base de datos
+            result.states.forEach(state => {
+                // Mapeamos los nombres a etiquetas más amigables
+                let label = state.nombre_estado;
+                if (state.nombre_estado === 'Entrada de Inventario') label = 'Ingresos';
+                if (state.nombre_estado === 'Salida de Inventario') label = 'Salidas';
+                if (state.nombre_estado === 'Ajuste de Inventario') label = 'Ajustes';
+
+                const option = document.createElement('option');
+                option.value = state.id_estado; // El valor es el ID real de la tabla
+                option.textContent = label;
+                filterSelect.appendChild(option);
+            });
+        } else {
+            throw new Error(result.error || 'No se pudieron cargar los filtros.');
+        }
+    } catch(e) {
+        filterSelect.innerHTML = `<option value="">Error al cargar</option>`;
+    }
+}
+
+
+
+
+
+
+async function fetchAndRenderInventoryHistory() {
+    const tableBody = document.getElementById('inventory-history-tbody');
+    if (!tableBody) return;
+
+    const searchTerm = document.getElementById('inventory-history-search').value;
+    const startDate = document.getElementById('start-date-filter').value;
+    const endDate = document.getElementById('end-date-filter').value;
+    const movementTypeId = document.getElementById('movement-type-filter').value;
+
+    tableBody.innerHTML = '<tr><td colspan="8">Cargando historial...</td></tr>';
+
+    try {
+        // CORRECCIÓN: Se eliminó el parámetro 'movementType' que ya no se usa.
+        const params = new URLSearchParams({
+            search: searchTerm,
+            startDate: startDate,
+            endDate: endDate,
+            movementTypeId: movementTypeId 
+        });
+        
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getInventoryHistory&${params.toString()}`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.history.length > 0) {
+            result.history.forEach(mov => {
+                const row = document.createElement('tr');
+                let cantidadClass = '';
+                if (mov.cantidad > 0) cantidadClass = 'stock-add';
+                if (mov.cantidad < 0) cantidadClass = 'stock-remove';
+                
+                row.innerHTML = `
+                    <td>${new Date(mov.fecha).toLocaleString('es-SV')}</td>
+                    <td>${mov.nombre_producto} (${mov.codigo_producto})</td>
+                    <td>${mov.tipo_movimiento}</td>
+                    <td class="${cantidadClass}">${mov.cantidad}</td>
+                    <td>${mov.stock_anterior}</td>
+                    <td>${mov.stock_nuevo}</td>
+                    <td>${mov.nombre_usuario || 'Sistema'}</td>
+                    <td>${mov.notas || ''}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="8">No se encontraron movimientos para los filtros seleccionados.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<td colspan="8" style="color:red;">Error: ${error.message}</td>`;
+    }
+}
+
+// Agrega el listener para la búsqueda en el historial
+mainContent.addEventListener('input', (event) => {
+    // ... (tu código existente de input listener)
+    if (event.target.id === 'inventory-history-search') {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            fetchAndRenderInventoryHistory(event.target.value);
+        }, 300);
+    }
+       if (event.target.classList.contains('inventory-history-filter')) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            fetchAndRenderInventoryHistory();
+        }, 400);
+    }
+});
+
+    mainContent.addEventListener('change', (event) => {
+    // ... tu código existente
+    if (event.target.classList.contains('inventory-history-filter')) {
+       fetchAndRenderInventoryHistory();
+    }
+});
+
+
+
+
+
+
     initializeSidemenu();
     checkSidemenuState();
     loadModule('dashboard');

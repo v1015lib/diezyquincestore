@@ -34,445 +34,250 @@ try {
     switch ($resource) {
 
 
-case 'admin/createBackup':
-    // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
-    set_time_limit(120);
-    error_reporting(0);
-    ini_set('display_errors', 0);
 
-    $mysqldump_command = ''; // Inicializamos la variable
+// REEMPLAZA TODOS LOS CASE DE INVENTARIO EN api/index.php CON ESTE BLOQUE
 
-    try {
-        $mysqldump_executable = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
-        $backup_dir = __DIR__ . '/../admin/backups/';
-
-        if (!is_dir($backup_dir)) {
-            if (!mkdir($backup_dir, 0777, true)) {
-                 throw new Exception("Error de permisos: No se pudo crear la carpeta 'admin/backups'. Asegúrate de que la carpeta 'admin' tenga permisos de escritura.");
-            }
-        }
-
-        $backup_file = 'db_backup_' . DB_NAME . '_' . date("Y-m-d_H-i-s") . '.sql';
-        $backup_path = $backup_dir . $backup_file;
-
-        // Construcción del comando, ahora sin escapeshellarg en la contraseña para probar
-        // y con comillas dobles para proteger las rutas.
-        $mysqldump_command = sprintf(
-            '"%s" --user="%s" --password="%s" --host="%s" --port=%s %s > "%s"',
-            $mysqldump_executable,
-            DB_USER,
-            DB_PASS, // Se pasa directamente. Asegúrate de que no tenga caracteres especiales de la consola.
-            DB_HOST,
-            DB_PORT,
-            DB_NAME,
-            $backup_path
-        );
-        
-        $output = [];
-        $return_var = null;
-        
-        exec($mysqldump_command . ' 2>&1', $output, $return_var);
-
-        if ($return_var !== 0) {
-            $error_details = !empty($output) ? implode("\n", $output) : "No se recibió salida del comando.";
-            throw new Exception("Falló la ejecución de mysqldump (código de error: $return_var).<br><br><b>Detalles:</b><br>" . htmlspecialchars($error_details));
-        }
-        
-        if (!file_exists($backup_path) || filesize($backup_path) === 0) {
-            throw new Exception("El comando parece haberse ejecutado, pero el archivo de backup no se creó o está vacío. Revisa los permisos de escritura.");
-        }
-
-        echo json_encode([
-            'success' => true,
-            'message' => '¡Copia de seguridad creada con éxito!',
-            'download_url' => 'index.php?resource=admin/downloadBackup&file=' . urlencode($backup_file),
-            'file_name' => $backup_file
-        ]);
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        // Ahora el mensaje de error incluirá el comando exacto que se intentó ejecutar.
-        echo json_encode([
-            'success' => false,
-            'message' => 'Ocurrió un error al intentar crear el backup.',
-            'details' => $e->getMessage() . "<br><br><b>Comando ejecutado:</b><br>" . htmlspecialchars($mysqldump_command)
-        ]);
-    } finally {
-        error_reporting(E_ALL);
-        ini_set('display_errors', 1);
-    }
-    break;
-
-
-
-
-
-
-
-
-    // Pega o verifica que este bloque esté en tu api/index.php
-
-case 'admin/downloadBackup':
-    // require_admin(); // Seguridad de sesión
-
-    $backup_dir = __DIR__ . '/../admin/backups/';
-    $file_name = $_GET['file'] ?? '';
-
-    // Validación de seguridad para evitar que accedan a otros directorios
-    if (basename($file_name) !== $file_name) {
-        http_response_code(400);
-        die('Nombre de archivo no válido.');
-    }
-
-    $file_path = $backup_dir . $file_name;
-
-    if (file_exists($file_path)) {
-        header('Content-Description: File Transfer');
-        
-        // --- Lógica para determinar el Content-Type ---
-        // Si el archivo termina en .gz, es un archivo comprimido.
-        if (str_ends_with($file_name, '.gz')) {
-            header('Content-Type: application/gzip');
-        } else {
-            // Si no, es un archivo SQL de texto plano.
-            header('Content-Type: application/sql');
-        }
-        
-        header('Content-Disposition: attachment; filename="' . basename($file_path) . '"');
-        header('Expires: 0');
-        header('Cache-Control: must-revalidate');
-        header('Pragma: public');
-        header('Content-Length: ' . filesize($file_path));
-        
-        // Limpia cualquier salida anterior para evitar corrupción del archivo
-        ob_clean();
-        flush();
-        
-        // Lee el archivo y lo envía directamente al navegador
-        readfile($file_path);
-        
-        // Detiene el script para asegurar que no se envíe nada más.
-        exit;
-    } else {
-        http_response_code(404);
-        die('Archivo de backup no encontrado.');
-    }
-    break; // Aunque exit; detiene el script, es buena práctica mantener el break.
-
-
-
-
-
-
-
-        case 'admin/getDepartments':
-            // require_admin();
-            try {
-                // CORRECCIÓN: Se usa "departamento" para coincidir con la base de datos.
-                $stmt = $pdo->query("SELECT id_departamento, departamento, codigo_departamento FROM departamentos ORDER BY departamento ASC");
-                $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                echo json_encode(['success' => true, 'departments' => $departments]);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al obtener los departamentos.']);
-            }
-            break;
-
-        case 'admin/createDepartment':
-            // require_admin();
-            // CORRECCIÓN: Se espera "departamento" desde el JavaScript.
-            $data = json_decode(file_get_contents('php://input'), true);
-            $name = trim($data['departamento'] ?? ''); 
-            $code = trim($data['codigo_departamento'] ?? '');
-
-            if (empty($name) || empty($code)) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'El nombre y el código del departamento son obligatorios.']);
-                break;
-            }
-            try {
-                // CORRECCIÓN: Se inserta en la columna "departamento".
-                $stmt = $pdo->prepare("INSERT INTO departamentos (departamento, codigo_departamento) VALUES (:name, :code)");
-                $stmt->execute([':name' => $name, ':code' => $code]);
-                echo json_encode(['success' => true, 'message' => 'Departamento creado con éxito.']);
-            } catch (PDOException $e) {
-                http_response_code(409); 
-                echo json_encode(['success' => false, 'error' => 'Ya existe un departamento con ese nombre o código.']);
-            }
-            break;
-
-        case 'admin/updateDepartment':
-            // require_admin();
-            $data = json_decode(file_get_contents('php://input'), true);
-            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
-            $name = trim($data['name'] ?? '');
-
-            if (!$id || empty($name)) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
-                break;
-            }
-            try {
-                // CORRECCIÓN: Se actualiza la columna "departamento".
-                $stmt = $pdo->prepare("UPDATE departamentos SET departamento = :name WHERE id_departamento = :id");
-                $stmt->execute([':name' => $name, ':id' => $id]);
-                echo json_encode(['success' => true, 'message' => 'Departamento actualizado.']);
-            } catch (PDOException $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al actualizar el departamento.']);
-            }
-            break;
-
-
-  case 'admin/deleteDepartment':
-            $data = json_decode(file_get_contents('php://input'), true);
-            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
-            if (!$id) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'ID de departamento no válido.']);
-                break;
-            }
-            try {
-                $stmt = $pdo->prepare("DELETE FROM departamentos WHERE id_departamento = :id");
-                $stmt->execute([':id' => $id]);
-                echo json_encode(['success' => true, 'message' => 'Departamento eliminado con éxito.']);
-            } catch (PDOException $e) {
-                if ($e->getCode() == '23000') {
-                    http_response_code(409);
-                    echo json_encode(['success' => false, 'error' => 'No se puede eliminar. Este departamento tiene productos asociados.']);
-                } else {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
-                }
-            }
-            break;
-
-
-
-
-
-
-
-
-
-
-
- case 'admin/getCardDetails':
+case 'admin/addStock':
     // require_admin();
-    $searchTerm = $_GET['search'] ?? '';
-    if (empty($searchTerm)) {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
+    $quantityToAdd = filter_var($data['quantity'] ?? 0, FILTER_VALIDATE_INT);
+    $notes = trim($data['notes'] ?? '');
+    $userId = $_SESSION['id_usuario'] ?? 1;
+
+    if (!$productId || $quantityToAdd <= 0) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Término de búsqueda no proporcionado.']);
+        echo json_encode(['success' => false, 'error' => 'La cantidad a agregar debe ser mayor a cero.']);
         break;
     }
+
+    $pdo->beginTransaction();
     try {
-        // CORRECCIÓN: Se usan dos placeholders diferentes para la búsqueda.
-        $stmt = $pdo->prepare("
-            SELECT tr.id_tarjeta, tr.numero_tarjeta, tr.saldo, c.nombre_usuario, c.nombre, c.apellido, e.nombre_estado
-            FROM tarjetas_recargables tr
-            JOIN clientes c ON tr.id_cliente = c.id_cliente
-            JOIN estados e ON tr.estado_id = e.id_estado
-            WHERE tr.numero_tarjeta = :search_card OR c.nombre_usuario = :search_user
-        ");
+        $stmt_current = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id FOR UPDATE");
+        $stmt_current->execute([':id' => $productId]);
+        $stock_anterior = $stmt_current->fetchColumn();
+
+        if ($stock_anterior === false) throw new Exception("El producto no fue encontrado.");
         
-        // CORRECCIÓN: Se asigna el mismo valor a los dos placeholders.
-        $stmt->execute([
-            ':search_card' => $searchTerm,
-            ':search_user' => $searchTerm
+        $stock_nuevo = $stock_anterior + $quantityToAdd;
+
+        $stmt_update = $pdo->prepare("UPDATE productos SET stock_actual = :new_stock WHERE id_producto = :id");
+        $stmt_update->execute([':new_stock' => $stock_nuevo, ':id' => $productId]);
+
+        $stmt_estado = $pdo->prepare("SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada'");
+        $stmt_estado->execute();
+        $id_estado = $stmt_estado->fetchColumn();
+        if (!$id_estado) throw new Exception("Error de Configuración: No se encontró el estado 'Entrada de Inventario'.");
+
+        $stmt_log = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+             VALUES (:product_id, :id_estado, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notes)"
+        );
+        $stmt_log->execute([
+            ':product_id' => $productId,
+            ':id_estado' => $id_estado,
+            ':cantidad' => $quantityToAdd,
+            ':stock_anterior' => $stock_anterior,
+            ':stock_nuevo' => $stock_nuevo,
+            ':user_id' => $userId,
+            ':notes' => $notes
         ]);
         
-        $card_details = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($card_details) {
-            echo json_encode(['success' => true, 'card' => $card_details]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'No se encontró ninguna tarjeta asignada con ese número o usuario.']);
-        }
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => "$quantityToAdd unidad(es) agregadas al stock."]);
     } catch (Exception $e) {
+        $pdo->rollBack();
         http_response_code(500);
-        // Para depuración, podrías mostrar $e->getMessage()
-        echo json_encode(['success' => false, 'error' => 'Error en la base de datos.']);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
 
-        case 'admin/rechargeCard':
-            // require_admin();
-            $data = json_decode(file_get_contents('php://input'), true);
-            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
-            $amount = filter_var($data['amount'] ?? 0, FILTER_VALIDATE_FLOAT);
+case 'admin/adjustInventory':
+    // require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
+    $adjustmentValue = filter_var($data['adjustment_value'] ?? null, FILTER_VALIDATE_INT);
+    $notes = trim($data['notes'] ?? '');
+    $userId = $_SESSION['id_usuario'] ?? 1;
 
-            if (!$card_id || $amount <= 0) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Datos de recarga inválidos.']);
-                break;
-            }
+    if (!$productId || $adjustmentValue === null || $adjustmentValue === 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'El valor de ajuste es inválido o es cero.']);
+        break;
+    }
 
-            $pdo->beginTransaction();
-            try {
-                // Sumar el monto al saldo actual
-                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = saldo + :amount WHERE id_tarjeta = :card_id");
-                $stmt->execute([':amount' => $amount, ':card_id' => $card_id]);
-                
-                // Aquí podrías agregar lógica para registrar la transacción en otra tabla si lo necesitas
-                
-                $pdo->commit();
-                echo json_encode(['success' => true, 'message' => 'Recarga de $' . number_format($amount, 2) . ' aplicada correctamente.']);
+    $pdo->beginTransaction();
+    try {
+        $stmt_current = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id FOR UPDATE");
+        $stmt_current->execute([':id' => $productId]);
+        $stock_anterior = $stmt_current->fetchColumn();
 
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'No se pudo completar la recarga.']);
-            }
-            break;
+        if ($stock_anterior === false) throw new Exception("El producto no fue encontrado.");
 
+        $stock_nuevo = $stock_anterior + $adjustmentValue;
 
-        case 'admin/getCards':
-            // require_admin();
-            try {
-                $stmt_unassigned = $pdo->prepare("SELECT id_tarjeta, numero_tarjeta, fecha_emision FROM tarjetas_recargables WHERE id_cliente IS NULL AND estado_id = 24 ORDER BY fecha_emision DESC");
-                $stmt_unassigned->execute();
-                $unassigned_cards = $stmt_unassigned->fetchAll(PDO::FETCH_ASSOC);
+        if ($stock_nuevo < 0) {
+            throw new Exception("La operación no es válida. El stock no puede ser negativo.");
+        }
+
+        $stmt_update = $pdo->prepare("UPDATE productos SET stock_actual = :new_stock WHERE id_producto = :id");
+        $stmt_update->execute([':new_stock' => $stock_nuevo, ':id' => $productId]);
         
-                $stmt_assigned = $pdo->prepare("
-                    SELECT tr.id_tarjeta, tr.numero_tarjeta, tr.saldo, e.nombre_estado, c.nombre_usuario, c.nombre, c.apellido
-                    FROM tarjetas_recargables tr
-                    JOIN clientes c ON tr.id_cliente = c.id_cliente
-                    JOIN estados e ON tr.estado_id = e.id_estado
-                    WHERE tr.id_cliente IS NOT NULL
-                    ORDER BY c.nombre_usuario
-                ");
-                $stmt_assigned->execute();
-                $assigned_cards = $stmt_assigned->fetchAll(PDO::FETCH_ASSOC);
+        $stmt_estado = $pdo->prepare("SELECT id_estado FROM estados WHERE nombre_estado = 'Ajuste'");
+        $stmt_estado->execute();
+        $id_estado = $stmt_estado->fetchColumn();
+        if (!$id_estado) throw new Exception("Error de Configuración: No se encontró el estado 'Ajuste de Inventario'.");
+
+        $stmt_log = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+             VALUES (:product_id, :id_estado, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notes)"
+        );
+        $stmt_log->execute([
+            ':product_id'     => $productId,
+            ':id_estado'      => $id_estado,
+            ':cantidad'       => $adjustmentValue,
+            ':stock_anterior' => $stock_anterior,
+            ':stock_nuevo'    => $stock_nuevo,
+            ':user_id'        => $userId,
+            ':notes'          => $notes
+        ]);
+
+        $pdo->commit();
+        $message = $adjustmentValue > 0 ? "Se sumaron $adjustmentValue unidad(es)." : "Se restaron " . abs($adjustmentValue) . " unidad(es).";
+        echo json_encode(['success' => true, 'message' => "Ajuste realizado: $message"]);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+case 'admin/getInventoryHistory':
+    // require_admin();
+    try {
+        $params = [];
+        $where_clauses = ["1=1"];
+
+        if (!empty($_GET['search'])) {
+            $where_clauses[] = "(p.nombre_producto LIKE :search_name OR p.codigo_producto LIKE :search_code)";
+            $params[':search_name'] = '%' . $_GET['search'] . '%';
+            $params[':search_code'] = '%' . $_GET['search'] . '%';
+        }
         
-                echo json_encode(['success' => true, 'unassigned' => $unassigned_cards, 'assigned' => $assigned_cards]);
+        if (!empty($_GET['startDate'])) {
+            $where_clauses[] = "mi.fecha >= :startDate";
+            $params[':startDate'] = $_GET['startDate'] . ' 00:00:00';
+        }
+        if (!empty($_GET['endDate'])) {
+            $where_clauses[] = "mi.fecha <= :endDate";
+            $params[':endDate'] = $_GET['endDate'] . ' 23:59:59';
+        }
+
+        if (!empty($_GET['movementTypeId'])) {
+            $where_clauses[] = "mi.id_estado = :movementTypeId";
+            $params[':movementTypeId'] = $_GET['movementTypeId'];
+        }
+
+        $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+
+        $stmt = $pdo->prepare("
+            SELECT 
+                mi.fecha, p.nombre_producto, p.codigo_producto, e.nombre_estado AS tipo_movimiento,
+                mi.cantidad, mi.stock_anterior, mi.stock_nuevo, u.nombre_usuario, mi.notas
+            FROM movimientos_inventario mi
+            JOIN productos p ON mi.id_producto = p.id_producto
+            LEFT JOIN estados e ON mi.id_estado = e.id_estado
+            LEFT JOIN usuarios u ON mi.id_usuario = u.id_usuario
+            $where_sql
+            ORDER BY mi.fecha DESC
+            LIMIT 200
+        ");
+        $stmt->execute($params);
+        $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'history' => $history]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener el historial: ' . $e->getMessage()]);
+    }
+    break;
+
+
+case 'admin/deleteProduct':
+    // require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = $data['id_producto'] ?? 0;
+    $userId = $_SESSION['id_usuario'] ?? 1;
+
+    if (!$productId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'No se proporcionó el ID del producto.']);
+        break;
+    }
+    
+    $pdo->beginTransaction();
+    try {
+        $stmt_check = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id");
+        $stmt_check->execute([':id' => $productId]);
+        $stock_actual = $stmt_check->fetchColumn();
+
+        if ($stock_actual === false) throw new Exception('El producto que intentas eliminar no existe.');
+        if ($stock_actual > 0) {
+            http_response_code(409);
+            throw new Exception('No se puede eliminar un producto con stock. Realiza un ajuste a cero primero.');
+        }
+
+        $stmt_estado = $pdo->prepare("SELECT id_estado FROM estados WHERE nombre_estado = 'Eliminado'");
+        $stmt_estado->execute();
+        $id_estado_eliminado = $stmt_estado->fetchColumn();
+
+        $stmt_log = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+             VALUES (:product_id, :id_estado, 0, :stock_anterior, 0, :user_id, 'Registro eliminado del sistema')"
+        );
+        $stmt_log->execute([
+            ':product_id' => $productId,
+            ':id_estado' => $id_estado_eliminado,
+            ':stock_anterior' => $stock_actual,
+            ':user_id' => $userId
+        ]);
         
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
+        $stmt_delete = $pdo->prepare("DELETE FROM productos WHERE id_producto = :id");
+        $stmt_delete->execute([':id' => $productId]);
 
-        case 'admin/createCards':
-            // require_admin();
-            $data = json_decode(file_get_contents('php://input'), true);
-            $quantity = filter_var($data['quantity'] ?? 0, FILTER_VALIDATE_INT);
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Producto eliminado y movimiento registrado.']);
 
-            if (!$quantity || $quantity <= 0 || $quantity > 500) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Cantidad no válida. Debe ser entre 1 y 500.']);
-                break;
-            }
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $errorCode = http_response_code() >= 400 ? http_response_code() : 400;
+        http_response_code($errorCode);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
 
-            $pdo->beginTransaction();
-            try {
-                // Estado 24 = "Sin Asignar"
-                $stmt = $pdo->prepare("INSERT INTO tarjetas_recargables (numero_tarjeta, estado_id, id_cliente) VALUES (:numero_tarjeta, 24, NULL)");
-                for ($i = 0; $i < $quantity; $i++) {
-                    $cardNumber = 'v1015-' . substr(str_shuffle('0123456789'), 0, 8);
-                    $stmt->execute([':numero_tarjeta' => $cardNumber]);
-                }
-                $pdo->commit();
-                echo json_encode(['success' => true, 'message' => "$quantity tarjetas creadas y listas para asignar."]);
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al crear tarjetas: ' . $e->getMessage()]);
-            }
-            break;
 
-        case 'admin/getCustomersWithoutCard':
-            // require_admin();
-            $searchTerm = '%' . ($_GET['search'] ?? '') . '%';
-            $stmt = $pdo->prepare("
-                SELECT c.id_cliente, c.nombre, c.apellido, c.nombre_usuario
-                FROM clientes c
-                LEFT JOIN tarjetas_recargables tr ON c.id_cliente = tr.id_cliente
-                WHERE tr.id_tarjeta IS NULL AND (c.nombre LIKE :search1 OR c.apellido LIKE :search2 OR c.nombre_usuario LIKE :search3)
-                ORDER BY c.nombre ASC
-                LIMIT 20
-            ");
-            $stmt->execute([':search1' => $searchTerm, ':search2' => $searchTerm, ':search3' => $searchTerm]);
-            $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            echo json_encode(['success' => true, 'customers' => $customers]);
-            break;
+case 'admin/getMovementStates':
+    // require_admin();
+    try {
+        $movement_names = [
+            'Entrada', 
+            'Salida', 
+            'Ajuste ', 
+            'Eliminado'
+        ];
+        $placeholders = implode(',', array_fill(0, count($movement_names), '?'));
 
-        case 'admin/assignCard':
-             // require_admin();
-            $data = json_decode(file_get_contents('php://input'), true);
-            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
-            $customer_id = filter_var($data['customer_id'] ?? 0, FILTER_VALIDATE_INT);
-            
-            if (!$card_id || !$customer_id) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
-                break;
-            }
-            
-            try {
-                // Estado 1 = "Activo"
-                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET id_cliente = :customer_id, estado_id = 1, fecha_activacion = NOW() WHERE id_tarjeta = :card_id AND id_cliente IS NULL");
-                $stmt->execute([':customer_id' => $customer_id, ':card_id' => $card_id]);
-                
-                if ($stmt->rowCount() > 0) {
-                    echo json_encode(['success' => true, 'message' => 'Tarjeta asignada correctamente.']);
-                } else {
-                    throw new Exception('La tarjeta no pudo ser asignada (posiblemente ya está en uso).');
-                }
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
-            
-        case 'admin/deleteCard':
-            // require_admin();
-            $data = json_decode(file_get_contents('php://input'), true);
-            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
-
-            if (!$card_id) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'ID de tarjeta no válido.']);
-                break;
-            }
-
-            try {
-                $stmt = $pdo->prepare("DELETE FROM tarjetas_recargables WHERE id_tarjeta = :card_id AND id_cliente IS NULL AND saldo = 0.00");
-                $stmt->execute([':card_id' => $card_id]);
-
-                if ($stmt->rowCount() > 0) {
-                    echo json_encode(['success' => true, 'message' => 'Tarjeta eliminada con éxito.']);
-                } else {
-                    throw new Exception('No se puede eliminar. La tarjeta está asignada o tiene saldo.');
-                }
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
-
-        case 'admin/getCardReport':
-             // require_admin();
-            try {
-                $stmt = $pdo->prepare("
-                    SELECT c.nombre_usuario, c.nombre, c.apellido, tr.numero_tarjeta, tr.saldo, e.nombre_estado
-                    FROM tarjetas_recargables tr
-                    JOIN clientes c ON tr.id_cliente = c.id_cliente
-                    JOIN estados e ON tr.estado_id = e.id_estado
-                    ORDER BY c.nombre_usuario
-                ");
-                $stmt->execute();
-                $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                echo json_encode(['success' => true, 'report' => $report_data]);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
-
-        // --- FIN DEL BLOQUE A AÑADIR ---
-
-// ... (el resto de los cases de tu API)
-
+        $stmt = $pdo->prepare("SELECT id_estado, nombre_estado FROM estados WHERE nombre_estado IN ($placeholders)");
+        $stmt->execute($movement_names);
+        $states = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'states' => $states]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los estados de movimiento.']);
+    }
+    break;
 // PEGA ESTE NUEVO 'CASE' DENTRO DEL SWITCH EN api/index.php
 
 case 'admin/getActiveOffers':
@@ -1011,48 +816,59 @@ case 'download_processed_images':
     unlink($zipFilePath); // Limpia el archivo temporal
     break;
 
-     case 'admin/deleteProduct':
-            // require_admin(); // Seguridad
-            
-            $data = json_decode(file_get_contents('php://input'), true);
-            $productId = $data['id_producto'] ?? 0;
+case 'admin/deleteProduct':
+    // require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = $data['id_producto'] ?? 0;
+    $userId = $_SESSION['id_usuario'] ?? 1;
 
-            if (!$productId) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'No se proporcionó el ID del producto.']);
-                break;
-            }
+    if (!$productId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'No se proporcionó el ID del producto.']);
+        break;
+    }
+    
+    $pdo->beginTransaction();
+    try {
+        $stmt_check = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id");
+        $stmt_check->execute([':id' => $productId]);
+        $stock_actual = $stmt_check->fetchColumn();
 
-            try {
-                // Verificación de seguridad: no eliminar si hay stock
-                $stmt_check = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = :id");
-                $stmt_check->execute([':id' => $productId]);
-                $stock = $stmt_check->fetchColumn();
+        if ($stock_actual === false) {
+             throw new Exception('El producto que intentas eliminar no existe.');
+        }
 
-                if ($stock > 0) {
-                    http_response_code(409); // 409 Conflict: El estado actual del recurso impide la acción.
-                    echo json_encode(['success' => false, 'error' => 'Este producto no se puede eliminar porque tiene stock disponible.']);
-                    break;
-                }
+        if ($stock_actual > 0) {
+            http_response_code(409);
+            throw new Exception('No se puede eliminar un producto con stock. Realiza un ajuste a cero primero.');
+        }
 
-                // Si el stock es 0, procedemos a eliminar
-                $stmt_delete = $pdo->prepare("DELETE FROM productos WHERE id_producto = :id");
-                $stmt_delete->execute([':id' => $productId]);
+        // Registrar el movimiento de eliminación
+        $stmt_log = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+             VALUES (:product_id, 'Producto Eliminado', 0, :stock_anterior, 0, :user_id, 'Registro eliminado del sistema')"
+        );
+        $stmt_log->execute([
+            ':product_id' => $productId,
+            ':stock_anterior' => $stock_actual, // Será 0
+            ':user_id' => $userId
+        ]);
+        
+        // Proceder con la eliminación
+        $stmt_delete = $pdo->prepare("DELETE FROM productos WHERE id_producto = :id");
+        $stmt_delete->execute([':id' => $productId]);
 
-                if ($stmt_delete->rowCount() > 0) {
-                    echo json_encode(['success' => true, 'message' => 'Producto eliminado correctamente.']);
-                } else {
-                    throw new Exception('No se encontró el producto para eliminar o ya fue eliminado.');
-                }
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Producto eliminado y movimiento registrado.']);
 
-            } catch (PDOException $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error de base de datos al intentar eliminar el producto.']);
-            } catch (Exception $e) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        // Si el código de error no fue establecido previamente, usar 400
+        $errorCode = http_response_code() >= 400 ? http_response_code() : 400;
+        http_response_code($errorCode);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
 
         case 'admin/uploadImage':
     // Endpoint dedicado exclusivamente a subir una imagen al bucket.
