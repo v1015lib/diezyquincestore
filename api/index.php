@@ -34,6 +34,77 @@ try {
     switch ($resource) {
 
 //Tarjetas
+
+
+case 'admin/getCardDetails':
+    // require_admin();
+    $searchTerm = $_GET['search'] ?? '';
+    if (empty($searchTerm)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Término de búsqueda no proporcionado.']);
+        break;
+    }
+    try {
+        // CORRECCIÓN: Se usan dos placeholders diferentes para la búsqueda.
+        $stmt = $pdo->prepare("
+            SELECT tr.id_tarjeta, tr.numero_tarjeta, tr.saldo, c.nombre_usuario, c.nombre, c.apellido, e.nombre_estado
+            FROM tarjetas_recargables tr
+            JOIN clientes c ON tr.id_cliente = c.id_cliente
+            JOIN estados e ON tr.estado_id = e.id_estado
+            WHERE tr.numero_tarjeta = :search_card OR c.nombre_usuario = :search_user
+        ");
+        
+        // CORRECCIÓN: Se asigna el mismo valor a los dos placeholders.
+        $stmt->execute([
+            ':search_card' => $searchTerm,
+            ':search_user' => $searchTerm
+        ]);
+        
+        $card_details = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($card_details) {
+            echo json_encode(['success' => true, 'card' => $card_details]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'No se encontró ninguna tarjeta asignada con ese número o usuario.']);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        // Para depuración, podrías mostrar $e->getMessage()
+        echo json_encode(['success' => false, 'error' => 'Error en la base de datos.']);
+    }
+    break;
+
+case 'admin/rechargeCard':
+            // require_admin();
+            $data = json_decode(file_get_contents('php://input'), true);
+            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
+            $amount = filter_var($data['amount'] ?? 0, FILTER_VALIDATE_FLOAT);
+
+            if (!$card_id || $amount <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Datos de recarga inválidos.']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Sumar el monto al saldo actual
+                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = saldo + :amount WHERE id_tarjeta = :card_id");
+                $stmt->execute([':amount' => $amount, ':card_id' => $card_id]);
+                
+                // Aquí podrías agregar lógica para registrar la transacción en otra tabla si lo necesitas
+                
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Recarga de $' . number_format($amount, 2) . ' aplicada correctamente.']);
+
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'No se pudo completar la recarga.']);
+            }
+            break;
+
+
 case 'admin/getCards':
             // require_admin();
             try {
@@ -175,7 +246,7 @@ case 'admin/getCardReport':
                 http_response_code(500);
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
-            break;      
+            break;
 
 
 
