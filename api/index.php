@@ -54,7 +54,7 @@ case 'admin/createBackup':
             }
         }
 
-        $backup_file = 'db_backup_' . DB_NAME . '_' . date("Y-m-d_H-i-s") . '.sql';
+        $backup_file = 'DBBACKUP' . DB_NAME . '_' . date("Y-m-d_H-i-s") . '.sql';
         $backup_path = $backup_dir . $backup_file;
 
         // Construcción del comando, ahora sin escapeshellarg en la contraseña para probar
