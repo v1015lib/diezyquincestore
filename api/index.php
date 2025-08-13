@@ -1090,13 +1090,14 @@ case 'admin/updateCustomer':
     }
     break;
 
-/* case 'run_processor':
+//Procesador de imagenes con python
+    
+case 'run_processor':
     header('Content-Type: text/plain; charset=utf-8');
     if (ob_get_level()) ob_end_clean();
     
     // Ruta a tu ejecutable de Python
-    //$python_executable = 'C:\Users\LibreriaPc\AppData\Local\Programs\Python\Python313\python.exe';
-    $python_executable = 'python'; 
+    $python_executable = 'C:\Users\LibreriaPc\AppData\Local\Programs\Python\Python313\python.exe';
     
     // Ruta al script de Python
     $python_script_path = realpath(__DIR__ . '/../admin/scripts/procesador.py');
@@ -1122,7 +1123,7 @@ case 'admin/updateCustomer':
     passthru($command);
     break;
 
-    case 'get_processed_images':
+case 'get_processed_images':
         header('Content-Type: application/json');
         $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
         $baseUrl = '../admin/scripts/salida_ia/'; // Ruta relativa para el src de la imagen
@@ -1139,12 +1140,10 @@ case 'admin/updateCustomer':
             }
         }
         echo json_encode(['success' => true, 'files' => $files]);
-    break;*/
+    break;
 
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
-
-//Bucket e Google para imagenes
 case 'admin/uploadProcessedToBucket':
     // Lógica para subir los archivos procesados al bucket
     try {
@@ -1193,6 +1192,7 @@ case 'admin/uploadProcessedToBucket':
     }
     break;
 
+
 case 'download_processed_images':
     $input = json_decode(file_get_contents('php://input'), true);
     $filesToZip = $input['files'] ?? [];
@@ -1226,6 +1226,7 @@ case 'download_processed_images':
     readfile($zipFilePath);
     unlink($zipFilePath); // Limpia el archivo temporal
     break;
+
 
 
 

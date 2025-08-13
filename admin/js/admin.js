@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const collapseBtn = document.getElementById('sidemenu-collapse-btn');
     const modal = document.getElementById('department-modal');
     const galleryModal = document.getElementById('image-gallery-modal');
+    const inputSelector = document.getElementById('selector-imagen');
+    const btnProcesar = document.getElementById('btn-procesar-imagen');
+    const vistaPreviaContainer = document.getElementById('vista-previa-container');
+
     const API_BASE_URL = '../api/index.php';
 
 
@@ -692,30 +696,23 @@ async function loadModule(moduleName) {
 
         if (moduleName === 'productos') {
             await loadActionContent('productos/todos_los_productos');
-        } else if (moduleName === 'clientes') {
+        }else if (moduleName === 'clientes') {
             await loadActionContent('clientes/todos_los_clientes');
-        } else if (moduleName === 'departamentos') { // <-- AÑADIR ESTE BLOQUE
+        }else if (moduleName === 'departamentos') { 
             await loadActionContent('departamentos/gestion');
-        }    if (moduleName === 'utilidades') {
-        await loadActionContent('utilidades/copia_seguridad');
-        }
-        else if (moduleName === 'tarjetas') {
+        }else if (moduleName === 'utilidades') {
+            await loadActionContent('utilidades/copia_seguridad');
+            await loadActionContent('utilidades/procesador_imagenes');
+        }else if (moduleName === 'tarjetas') {
             await loadActionContent('tarjetas/gestion');
-        
         }else if (moduleName === 'inventario') {
             await loadActionContent('inventario/agregar_stock');
-        } 
-        else if (moduleName === 'web_admin') {
-            // --- INICIO DE LA CORRECCIÓN ---
-            // 1. Usamos el nombre de la acción correcto: 'web_admin/sliders'
+        }else if (moduleName === 'web_admin') {
             await loadActionContent('web_admin/sliders');
-            
-            // 2. Marcamos el botón correcto como activo.
-            const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
+        const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
             if (activeButton) {
                 activeButton.classList.add('active');
             }
-            // --- FIN DE LA CORRECCIÓN ---
         }
         
     } catch (error) {
@@ -773,14 +770,14 @@ async function loadActionContent(actionPath) {
         }else if (actionPath === 'departamentos/gestion') { // <-- AÑADIR ESTE BLOQUE
             initializeDepartmentManagement();
         }if (actionPath === 'utilidades/copia_seguridad') {
-        initializeBackupControls();
+            initializeBackupControls();
         }else if (actionPath === 'inventario/agregar_stock') {
-    initializeInventoryForm('stock');
-} else if (actionPath === 'inventario/ajuste_inventario') {
-    initializeInventoryForm('adjust');
-} else if (actionPath === 'inventario/historial_movimientos') {
-    fetchAndRenderInventoryHistory();
-}
+            initializeInventoryForm('stock');
+        } else if (actionPath === 'inventario/ajuste_inventario') {
+            initializeInventoryForm('adjust');
+        } else if (actionPath === 'inventario/historial_movimientos') {
+            fetchAndRenderInventoryHistory();
+        }
 
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
@@ -1395,7 +1392,7 @@ mainContent.addEventListener('click', async (event) => {
                 const result = await response.json();
 
                 if (result.success) {
-                    // Elimina la fila de la tabla para una respuesta visual inmediata
+
                     row.remove();
                     alert(result.message); // O muestra una notificación más sutil
                 } else {
@@ -1421,7 +1418,7 @@ mainContent.addEventListener('click', async (event) => {
         }
     }
     
-    // Aquí iría el resto de tu lógica de 'click' para (procesador de imágenes, acciones en lote, etc.)
+
 });
     
     async function openDepartmentModal() {
