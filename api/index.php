@@ -33,6 +33,80 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+// Reemplaza este case en tu archivo api/index.php
+
+case 'admin/createBackup':
+    // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
+    set_time_limit(120);
+    error_reporting(0);
+    ini_set('display_errors', 0);
+
+    $mysqldump_command = ''; // Inicializamos la variable
+
+    try {
+        $mysqldump_executable = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
+        $backup_dir = __DIR__ . '/../admin/backups/';
+
+        if (!is_dir($backup_dir)) {
+            if (!mkdir($backup_dir, 0777, true)) {
+                 throw new Exception("Error de permisos: No se pudo crear la carpeta 'admin/backups'. Asegúrate de que la carpeta 'admin' tenga permisos de escritura.");
+            }
+        }
+
+        $backup_file = 'db_backup_' . DB_NAME . '_' . date("Y-m-d_H-i-s") . '.sql';
+        $backup_path = $backup_dir . $backup_file;
+
+        // Construcción del comando, ahora sin escapeshellarg en la contraseña para probar
+        // y con comillas dobles para proteger las rutas.
+        $mysqldump_command = sprintf(
+            '"%s" --user="%s" --password="%s" --host="%s" --port=%s %s > "%s"',
+            $mysqldump_executable,
+            DB_USER,
+            DB_PASS, // Se pasa directamente. Asegúrate de que no tenga caracteres especiales de la consola.
+            DB_HOST,
+            DB_PORT,
+            DB_NAME,
+            $backup_path
+        );
+        
+        $output = [];
+        $return_var = null;
+        
+        exec($mysqldump_command . ' 2>&1', $output, $return_var);
+
+        if ($return_var !== 0) {
+            $error_details = !empty($output) ? implode("\n", $output) : "No se recibió salida del comando.";
+            throw new Exception("Falló la ejecución de mysqldump (código de error: $return_var).<br><br><b>Detalles:</b><br>" . htmlspecialchars($error_details));
+        }
+        
+        if (!file_exists($backup_path) || filesize($backup_path) === 0) {
+            throw new Exception("El comando parece haberse ejecutado, pero el archivo de backup no se creó o está vacío. Revisa los permisos de escritura.");
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => '¡Copia de seguridad creada con éxito!',
+            'download_url' => 'index.php?resource=admin/downloadBackup&file=' . urlencode($backup_file),
+            'file_name' => $backup_file
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        // Ahora el mensaje de error incluirá el comando exacto que se intentó ejecutar.
+        echo json_encode([
+            'success' => false,
+            'message' => 'Ocurrió un error al intentar crear el backup.',
+            'details' => $e->getMessage() . "<br><br><b>Comando ejecutado:</b><br>" . htmlspecialchars($mysqldump_command)
+        ]);
+    } finally {
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+    }
+    break;
+
+
+        
+
 //Tarjetas
 
 
