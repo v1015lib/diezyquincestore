@@ -33,10 +33,238 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+//Tarjetas
+case 'admin/getCards':
+            // require_admin();
+            try {
+                $stmt_unassigned = $pdo->prepare("SELECT id_tarjeta, numero_tarjeta, fecha_emision FROM tarjetas_recargables WHERE id_cliente IS NULL AND estado_id = 24 ORDER BY fecha_emision DESC");
+                $stmt_unassigned->execute();
+                $unassigned_cards = $stmt_unassigned->fetchAll(PDO::FETCH_ASSOC);
+        
+                $stmt_assigned = $pdo->prepare("
+                    SELECT tr.id_tarjeta, tr.numero_tarjeta, tr.saldo, e.nombre_estado, c.nombre_usuario, c.nombre, c.apellido
+                    FROM tarjetas_recargables tr
+                    JOIN clientes c ON tr.id_cliente = c.id_cliente
+                    JOIN estados e ON tr.estado_id = e.id_estado
+                    WHERE tr.id_cliente IS NOT NULL
+                    ORDER BY c.nombre_usuario
+                ");
+                $stmt_assigned->execute();
+                $assigned_cards = $stmt_assigned->fetchAll(PDO::FETCH_ASSOC);
+        
+                echo json_encode(['success' => true, 'unassigned' => $unassigned_cards, 'assigned' => $assigned_cards]);
+        
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+case 'admin/createCards':
+            // require_admin();
+            $data = json_decode(file_get_contents('php://input'), true);
+            $quantity = filter_var($data['quantity'] ?? 0, FILTER_VALIDATE_INT);
+
+            if (!$quantity || $quantity <= 0 || $quantity > 500) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Cantidad no válida. Debe ser entre 1 y 500.']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Estado 24 = "Sin Asignar"
+                $stmt = $pdo->prepare("INSERT INTO tarjetas_recargables (numero_tarjeta, estado_id, id_cliente) VALUES (:numero_tarjeta, 24, NULL)");
+                for ($i = 0; $i < $quantity; $i++) {
+                    $cardNumber = 'v1015-' . substr(str_shuffle('0123456789'), 0, 8);
+                    $stmt->execute([':numero_tarjeta' => $cardNumber]);
+                }
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => "$quantity tarjetas creadas y listas para asignar."]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al crear tarjetas: ' . $e->getMessage()]);
+            }
+            break;
+
+case 'admin/getCustomersWithoutCard':
+            // require_admin();
+            $searchTerm = '%' . ($_GET['search'] ?? '') . '%';
+            $stmt = $pdo->prepare("
+                SELECT c.id_cliente, c.nombre, c.apellido, c.nombre_usuario
+                FROM clientes c
+                LEFT JOIN tarjetas_recargables tr ON c.id_cliente = tr.id_cliente
+                WHERE tr.id_tarjeta IS NULL AND (c.nombre LIKE :search1 OR c.apellido LIKE :search2 OR c.nombre_usuario LIKE :search3)
+                ORDER BY c.nombre ASC
+                LIMIT 20
+            ");
+            $stmt->execute([':search1' => $searchTerm, ':search2' => $searchTerm, ':search3' => $searchTerm]);
+            $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'customers' => $customers]);
+            break;
+
+case 'admin/assignCard':
+             // require_admin();
+            $data = json_decode(file_get_contents('php://input'), true);
+            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
+            $customer_id = filter_var($data['customer_id'] ?? 0, FILTER_VALIDATE_INT);
+            
+            if (!$card_id || !$customer_id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
+                break;
+            }
+            
+            try {
+                // Estado 1 = "Activo"
+                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET id_cliente = :customer_id, estado_id = 1, fecha_activacion = NOW() WHERE id_tarjeta = :card_id AND id_cliente IS NULL");
+                $stmt->execute([':customer_id' => $customer_id, ':card_id' => $card_id]);
+                
+                if ($stmt->rowCount() > 0) {
+                    echo json_encode(['success' => true, 'message' => 'Tarjeta asignada correctamente.']);
+                } else {
+                    throw new Exception('La tarjeta no pudo ser asignada (posiblemente ya está en uso).');
+                }
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+            
+case 'admin/deleteCard':
+            // require_admin();
+            $data = json_decode(file_get_contents('php://input'), true);
+            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
+
+            if (!$card_id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'ID de tarjeta no válido.']);
+                break;
+            }
+
+            try {
+                $stmt = $pdo->prepare("DELETE FROM tarjetas_recargables WHERE id_tarjeta = :card_id AND id_cliente IS NULL AND saldo = 0.00");
+                $stmt->execute([':card_id' => $card_id]);
+
+                if ($stmt->rowCount() > 0) {
+                    echo json_encode(['success' => true, 'message' => 'Tarjeta eliminada con éxito.']);
+                } else {
+                    throw new Exception('No se puede eliminar. La tarjeta está asignada o tiene saldo.');
+                }
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+case 'admin/getCardReport':
+             // require_admin();
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT c.nombre_usuario, c.nombre, c.apellido, tr.numero_tarjeta, tr.saldo, e.nombre_estado
+                    FROM tarjetas_recargables tr
+                    JOIN clientes c ON tr.id_cliente = c.id_cliente
+                    JOIN estados e ON tr.estado_id = e.id_estado
+                    ORDER BY c.nombre_usuario
+                ");
+                $stmt->execute();
+                $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['success' => true, 'report' => $report_data]);
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;      
 
 
-// REEMPLAZA TODOS LOS CASE DE INVENTARIO EN api/index.php CON ESTE BLOQUE
 
+
+//Deparamentos
+case 'admin/getDepartments':
+            // require_admin();
+            try {
+                // CORRECCIÓN: Se usa "departamento" para coincidir con la base de datos.
+                $stmt = $pdo->query("SELECT id_departamento, departamento, codigo_departamento FROM departamentos ORDER BY departamento ASC");
+                $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['success' => true, 'departments' => $departments]);
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al obtener los departamentos.']);
+            }
+            break;
+
+case 'admin/createDepartment':
+            // require_admin();
+            // CORRECCIÓN: Se espera "departamento" desde el JavaScript.
+            $data = json_decode(file_get_contents('php://input'), true);
+            $name = trim($data['departamento'] ?? ''); 
+            $code = trim($data['codigo_departamento'] ?? '');
+
+            if (empty($name) || empty($code)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El nombre y el código del departamento son obligatorios.']);
+                break;
+            }
+            try {
+                // CORRECCIÓN: Se inserta en la columna "departamento".
+                $stmt = $pdo->prepare("INSERT INTO departamentos (departamento, codigo_departamento) VALUES (:name, :code)");
+                $stmt->execute([':name' => $name, ':code' => $code]);
+                echo json_encode(['success' => true, 'message' => 'Departamento creado con éxito.']);
+            } catch (PDOException $e) {
+                http_response_code(409); 
+                echo json_encode(['success' => false, 'error' => 'Ya existe un departamento con ese nombre o código.']);
+            }
+            break;
+
+case 'admin/updateDepartment':
+            // require_admin();
+            $data = json_decode(file_get_contents('php://input'), true);
+            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
+            $name = trim($data['name'] ?? '');
+
+            if (!$id || empty($name)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
+                break;
+            }
+            try {
+                // CORRECCIÓN: Se actualiza la columna "departamento".
+                $stmt = $pdo->prepare("UPDATE departamentos SET departamento = :name WHERE id_departamento = :id");
+                $stmt->execute([':name' => $name, ':id' => $id]);
+                echo json_encode(['success' => true, 'message' => 'Departamento actualizado.']);
+            } catch (PDOException $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al actualizar el departamento.']);
+            }
+            break;
+
+
+case 'admin/deleteDepartment':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'ID de departamento no válido.']);
+                break;
+            }
+            try {
+                $stmt = $pdo->prepare("DELETE FROM departamentos WHERE id_departamento = :id");
+                $stmt->execute([':id' => $id]);
+                echo json_encode(['success' => true, 'message' => 'Departamento eliminado con éxito.']);
+            } catch (PDOException $e) {
+                if ($e->getCode() == '23000') {
+                    http_response_code(409);
+                    echo json_encode(['success' => false, 'error' => 'No se puede eliminar. Este departamento tiene productos asociados.']);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
+                }
+            }
+            break;
+    
+
+//Inventario
 case 'admin/addStock':
     // require_admin();
     $data = json_decode(file_get_contents('php://input'), true);
@@ -152,7 +380,6 @@ case 'admin/adjustInventory':
     }
     break;
 
-
 case 'admin/getInventoryHistory':
     // require_admin();
     try {
@@ -202,7 +429,6 @@ case 'admin/getInventoryHistory':
         echo json_encode(['success' => false, 'error' => 'Error al obtener el historial: ' . $e->getMessage()]);
     }
     break;
-
 
 case 'admin/deleteProduct':
     // require_admin();
@@ -257,7 +483,6 @@ case 'admin/deleteProduct':
     }
     break;
 
-
 case 'admin/getMovementStates':
     // require_admin();
     try {
@@ -278,8 +503,10 @@ case 'admin/getMovementStates':
         echo json_encode(['success' => false, 'error' => 'Error al obtener los estados de movimiento.']);
     }
     break;
-// PEGA ESTE NUEVO 'CASE' DENTRO DEL SWITCH EN api/index.php
 
+
+
+//Ofertas
 case 'admin/getActiveOffers':
     // require_admin(); // Seguridad
     try {
@@ -385,8 +612,9 @@ case 'admin/manageOffer':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-// PEGA este nuevo 'case' dentro del switch en api/index.php
 
+
+//Clientes
 case 'admin/deleteCustomer':
     // require_admin(); // Seguridad
     $pdo->beginTransaction();
@@ -494,10 +722,6 @@ case 'admin/getCustomerDetails':
     }
     break;
 
-// REEMPLAZA este 'case' completo en api/index.php
-
-// REEMPLAZA este 'case' completo en api/index.php
-
 case 'admin/createCustomer':
     // require_admin(); // Seguridad
     $pdo->beginTransaction();
@@ -577,9 +801,6 @@ case 'admin/createCustomer':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
-
-// REEMPLAZA este 'case' completo en api/index.php
 
 case 'admin/updateCustomer':
     // require_admin(); // Seguridad
@@ -732,6 +953,8 @@ case 'admin/updateCustomer':
 
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
+
+//Bucket e Google para imagenes
 case 'admin/uploadProcessedToBucket':
     // Lógica para subir los archivos procesados al bucket
     try {
@@ -780,8 +1003,6 @@ case 'admin/uploadProcessedToBucket':
     }
     break;
 
-// FIN DEL NUEVO BLOQUE
-
 case 'download_processed_images':
     $input = json_decode(file_get_contents('php://input'), true);
     $filesToZip = $input['files'] ?? [];
@@ -815,6 +1036,10 @@ case 'download_processed_images':
     readfile($zipFilePath);
     unlink($zipFilePath); // Limpia el archivo temporal
     break;
+
+
+
+//Productos y Bucket e Google para imagenes
 
 case 'admin/deleteProduct':
     // require_admin();
@@ -1005,7 +1230,7 @@ case 'admin/deleteBucketImage':
 
     break;
 
-            case 'admin/checkProductCode':
+case 'admin/checkProductCode':
             $code = $_GET['code'] ?? '';
             $current_id = isset($_GET['current_id']) ? (int)$_GET['current_id'] : 0;
             
@@ -1039,7 +1264,8 @@ case 'admin/deleteBucketImage':
        
        // api/index.php
 
-    case 'admin/createProduct':
+
+case 'admin/createProduct':
         // Inicia la transacción
         $pdo->beginTransaction();
 
@@ -1137,8 +1363,8 @@ case 'admin/deleteBucketImage':
             echo json_encode(['success' => false, 'error' => $error_message]);
         }
         break;
-            
-        case 'admin/batchAction':
+
+case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)
      
       $data = json_decode(file_get_contents('php://input'), true);
@@ -1198,7 +1424,7 @@ case 'admin/deleteBucketImage':
                 break;
    
          
-          case 'toggle-inventory':
+case 'toggle-inventory':
             // Esto cambia el valor de 'usa_inventario' al opuesto (si es 1 lo hace 0, y viceversa)
             $stmt = $pdo->prepare("UPDATE productos SET usa_inventario = NOT usa_inventario WHERE id_producto IN ($placeholders)");
             $stmt->execute($productIds);
@@ -1221,7 +1447,7 @@ case 'admin/deleteBucketImage':
     
     // Reemplaza este case en tu api/index.php
 
-    case 'admin/getProducts':
+case 'admin/getProducts':
         // require_admin(); // Descomentar en producción
 
         // --- INICIO DE LA LÓGICA DE PAGINACIÓN Y ORDENAMIENTO ---
@@ -1353,7 +1579,7 @@ case 'admin/deleteBucketImage':
                 }
     break;    
 
-     case 'admin/updateProduct':
+case 'admin/updateProduct':
             $pdo->beginTransaction();
             try {
                 $productId = $_POST['id_producto'] ?? 0;
@@ -1396,10 +1622,10 @@ case 'admin/deleteBucketImage':
                 throw $e; // Relanza la excepción para que el manejador principal la capture
             }
             break;
-// ... dentro de tu switch($resource) ...
 
-// Reemplaza estos dos 'case' en tu archivo api/index.php
 
+
+//Layout de los sliders de la web
 case 'admin/saveLayoutSettings':
     // require_admin();
     $configFile = __DIR__ . '/../config/layout_config.php';
@@ -1489,7 +1715,6 @@ case 'layout-settings':
     echo json_encode(['success' => true, 'settings' => $settings]);
     break;
 
-// ... resto de tus 'case' ...
 
         case 'products':
             handleProductsRequest($pdo);
