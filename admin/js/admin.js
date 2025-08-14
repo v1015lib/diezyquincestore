@@ -16,171 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // =================================================================
-// INICIO: DEFINICIÓN DE TEMAS PARA GRÁFICOS
-// =================================================================
-
-// Variable para guardar el tema actual
-let currentChartTheme = 'light'; 
-
-// Objeto que contiene todos nuestros temas disponibles
-const chartThemes = {
-    // TEMA CLARO (el que ya tienes)
-    light: {
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-        gridColor: 'rgba(0, 0, 0, 0.1)',
-        fontColor: '#666',
-        tooltip: {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            titleColor: '#fff',
-            bodyColor: '#fff',
-        }
-    },
-    // TEMA OSCURO (un nuevo estilo)
-    dark: {
-        backgroundColor: 'rgba(40, 42, 54, 0.8)', // Un fondo oscuro
-        gridColor: 'rgba(255, 255, 255, 0.15)', // Líneas de la cuadrícula claras
-        fontColor: '#f8f8f2', // Texto claro
-        tooltip: {
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            titleColor: '#282a36',
-            bodyColor: '#282a36',
-        }
-    },
-    // TEMA "OCÉANO" (otro ejemplo)
-    ocean: {
-        backgroundColor: 'rgba(235, 245, 251, 0.8)',
-        gridColor: 'rgba(11, 117, 187, 0.1)',
-        fontColor: '#0b75bb',
-        tooltip: {
-            backgroundColor: '#0b75bb',
-            titleColor: '#fff',
-            bodyColor: '#fff',
-        }
-    }
-};
-
-/**
- * Función que genera las opciones completas para un gráfico,
- * combinando el tema seleccionado con opciones generales.
- * @param {string} themeName - El nombre del tema (ej. 'light', 'dark').
- * @returns {object} - El objeto de opciones para Chart.js.
- */
-function getChartOptions(themeName = 'light') {
-    const theme = chartThemes[themeName] || chartThemes.light;
-
-    return {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    color: theme.fontColor, // Color de texto del eje Y
-                    callback: function(value) {
-                        return '$' + value.toLocaleString();
-                    }
-                },
-                grid: {
-                    color: theme.gridColor // Color de las líneas de la cuadrícula
-                }
-            },
-            x: {
-                ticks: {
-                    color: theme.fontColor // Color de texto del eje X
-                },
-                grid: {
-                    color: theme.gridColor
-                }
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                backgroundColor: theme.tooltip.backgroundColor,
-                titleColor: theme.tooltip.titleColor,
-                bodyColor: theme.tooltip.bodyColor,
-                mode: 'index',
-                intersect: false,
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) { label += ': '; }
-                        if (context.parsed.y !== null) {
-                            label += '$' + context.parsed.y.toLocaleString('es-SV', { minimumFractionDigits: 2 });
-                        }
-                        return label;
-                    }
-                }
-            }
-        }
-    };
-}
-
-// =================================================================
-// FIN: DEFINICIÓN DE TEMAS PARA GRÁFICOS
-// =================================================================
-// =================================================================
-// INICIO: FUNCIONES DE ANÁLISIS TÉCNICO
-// =================================================================
-
-/**
- * Calcula la Media Móvil Simple (SMA).
- * @param {number[]} data - Array de valores numéricos (ej. ventas diarias).
- * @param {number} period - El número de períodos para calcular la media (ej. 7 días).
- * @returns {number[]} - Un array con los valores de la media móvil. Tendrá 'period-1' valores nulos al inicio.
- */
-function calculateSMA(data, period) {
-    let sma = [];
-    for (let i = 0; i < data.length; i++) {
-        if (i < period - 1) {
-            sma.push(null); // No hay suficientes datos para los primeros días
-        } else {
-            let sum = 0;
-            for (let j = 0; j < period; j++) {
-                sum += data[i - j];
-            }
-            sma.push(sum / period);
-        }
-    }
-    return sma;
-}
-
-/**
- * Calcula las Bandas de Bollinger.
- * @param {number[]} data - Array de valores numéricos.
- * @param {number} period - El período para la media móvil y la desviación estándar (ej. 20).
- * @param {number} stdDevMultiplier - El número de desviaciones estándar (normalmente 2).
- * @returns {object} - Un objeto con tres arrays: upper, middle (SMA), y lower.
- */
-function calculateBollingerBands(data, period, stdDevMultiplier) {
-    let middle = calculateSMA(data, period);
-    let upper = [];
-    let lower = [];
-
-    for (let i = 0; i < data.length; i++) {
-        if (i < period - 1) {
-            upper.push(null);
-            lower.push(null);
-        } else {
-            let slice = data.slice(i - period + 1, i + 1);
-            let sumOfSquares = slice.reduce((sum, value) => sum + Math.pow(value - middle[i], 2), 0);
-            let stdDev = Math.sqrt(sumOfSquares / period);
-            
-            upper.push(middle[i] + (stdDev * stdDevMultiplier));
-            lower.push(middle[i] - (stdDev * stdDevMultiplier));
-        }
-    }
-    return { upper, middle, lower };
-}
-
-// =================================================================
-// FIN: FUNCIONES DE ANÁLISIS TÉCNICO
-// =================================================================
-    
-    // --- Estado Global de la Aplicación ---
+ 
     let currentFilters = {
         search: '',
         department: '',
@@ -1067,11 +903,8 @@ async function loadActionContent(actionPath) {
         } else if (actionPath === 'inventario/historial_movimientos') {
             fetchAndRenderInventoryHistory();
         }else if (actionPath === 'estadisticas/resumen') {
-            initializeStatisticsSummary();
-        } else if (actionPath === 'estadisticas/reporte_de_ventas') {
-            initializeSalesReports();
-        }
-
+            loadStatisticsWidgets();
+        } 
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
     }
@@ -2852,321 +2685,176 @@ function updateProcessorButtons() {
 
 
 
-console.log('Módulo de Estadísticas: admin.js cargado y listo.');
-
-// Revisa si el contenedor del RESUMEN de estadísticas existe en la página
-const summaryContainer = document.getElementById('statistics-summary');
-if (summaryContainer) {
-    console.log('Vista de Resumen de Estadísticas detectada. Llamando a loadSummaryData()...');
-    loadSummaryData();
-}
-
-// Revisa si el contenedor de los REPORTES de ventas existe en la página
-const reportsContainer = document.getElementById('sales-report-content');
-if (reportsContainer) {
-    console.log('Vista de Reportes de Ventas detectada. Iniciando...');
-    loadSalesReport('daily'); // Carga el reporte diario por defecto
-
-    // Asigna los eventos de clic a los botones de filtro
-    document.getElementById('report-daily').addEventListener('click', () => loadSalesReport('daily'));
-    document.getElementById('report-weekly').addEventListener('click', () => loadSalesReport('weekly'));
-    document.getElementById('report-monthly').addEventListener('click', () => loadSalesReport('monthly'));
-    document.getElementById('report-quarterly').addEventListener('click', () => loadSalesReport('quarterly'));
-    document.getElementById('report-yearly').addEventListener('click', () => loadSalesReport('yearly'));
-}
-
-/**
- * Carga los datos del resumen general desde la API.
- */
-function loadSummaryData() {
-    console.log("Intentando fetch a 'api/?resource=getSummary'");
-    fetch(`${API_BASE_URL}?resource=getSummary`)
-        .then(response => {
-            console.log('Respuesta del servidor recibida para el resumen. Status:', response.status);
-            if (!response.ok) {
-                throw new Error(`Error HTTP! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Datos del resumen recibidos y procesados:', data);
-            if (data.error) {
-                console.error('La API devolvió un error:', data.error);
-                document.querySelector('#statistics-summary h2').textContent = 'Error al cargar datos.';
-                return;
-            }
-            document.getElementById('total-clientes').textContent = data.total_clientes;
-            document.getElementById('ventas-diarias').textContent = '$' + parseFloat(data.ventas_diarias).toFixed(2);
-            document.getElementById('ventas-semanales').textContent = '$' + parseFloat(data.ventas_semanales).toFixed(2);
-            document.getElementById('ventas-mensuales').textContent = '$' + parseFloat(data.ventas_mensuales).toFixed(2);
-            document.getElementById('ventas-trimestrales').textContent = '$' + parseFloat(data.ventas_trimestrales).toFixed(2);
-            document.getElementById('ventas-anuales').textContent = '$' + parseFloat(data.ventas_anuales).toFixed(2);
-        })
-        .catch(error => {
-            console.error('Falló el fetch para el resumen:', error);
-            document.querySelector('#statistics-summary h2').textContent = 'Error de conexión. Revisa la consola (F12).';
-        });
-}
-
-/**
- * Carga el reporte de ventas por departamento.
- * @param {string} period - El período a consultar ('daily', 'weekly', etc.)
- */
-   function loadSalesReport(period) {
-        const reportContent = document.getElementById('sales-report-content');
-        const reportTitle = document.getElementById('report-title');
-        reportContent.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
-        const periodNames = {
-            daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
-            quarterly: 'Trimestral', yearly: 'Anual'
-        };
-        reportTitle.textContent = `Ventas por Depto. (${periodNames[period] || ''})`;
-
-        fetch(`${API_BASE_URL}?resource=getSalesReport&period=${period}`)
-            .then(response => response.json())
-            .then(data => {
-                reportContent.innerHTML = '';
-                if (data.error) throw new Error(data.error);
-                if (data.length > 0) {
-                    let totalGeneral = 0;
-                    data.forEach(item => {
-                        const total = parseFloat(item.total_por_departamento);
-                        totalGeneral += total;
-                        const row = `<tr><td>${item.departamento}</td><td>$${total.toFixed(2)}</td></tr>`;
-                        reportContent.insertAdjacentHTML('beforeend', row);
-                    });
-                    const totalRow = `<tr class="total-row"><td><strong>Total General</strong></td><td><strong>$${totalGeneral.toFixed(2)}</strong></td></tr>`;
-                    reportContent.insertAdjacentHTML('beforeend', totalRow);
-                } else {
-                    reportContent.innerHTML = '<tr><td colspan="2">No hay datos.</td></tr>';
-                }
-            }).catch(error => console.error('Error en Reporte:', error));
-    }
 
 
-// =================================================================
-// FIN DEL CÓDIGO DE ESTADÍSTICAS
-// =================================================================
+
 
 
     initializeSidemenu();
     checkSidemenuState();
     loadModule('dashboard');
 
+async function fetchAndRenderSalesSummary(startDate, endDate) {
+    const salesWidget = document.getElementById('sales-summary-widget');
+    const chartTitle = document.getElementById('sales-chart-title');
+    if (!salesWidget || !chartTitle) return;
 
+    salesWidget.innerHTML = `<p>Calculando...</p>`;
+    chartTitle.textContent = `Gráfico de Ventas (cargando...)`;
 
+    try {
+        const params = new URLSearchParams({ startDate, endDate });
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getSalesStats&${params.toString()}`);
+        const result = await response.json();
 
+        if (result.success) {
+            const stats = result.stats;
+            const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('es-SV');
+            const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('es-SV');
 
-
-
-
-// =================================================================
-// INICIO DEL ÚNICO BLOQUE DE CÓDIGO PARA ESTADÍSTICAS
-// (Elimina todas las otras versiones de estas funciones)
-// =================================================================
-
-function initializeStatisticsSummary() {
-    console.log("Vista de Resumen de Estadísticas inicializada.");
-    loadSummaryData();
-    
-    // Dibuja los gráficos iniciales
-    requestAnimationFrame(() => {
-        renderWeeklySalesChart();
-        renderAnnualSalesChart();
-    });
-
-    // --- NUEVO: Listeners para los controles ---
-    const themeSelector = document.getElementById('theme-selector');
-    if(themeSelector) {
-        themeSelector.addEventListener('change', (event) => {
-            currentChartTheme = event.target.value;
-            // Redibuja ambos gráficos con el nuevo tema
-            renderWeeklySalesChart();
-            renderAnnualSalesChart();
-        });
-    }
-    
-    document.querySelectorAll('.chart-type-btn').forEach(button => {
-        button.addEventListener('click', () => {
-            const chartToUpdate = button.dataset.chart;
-            const newType = button.dataset.type;
-
-            if (chartToUpdate === 'weeklySalesChart') {
-                renderWeeklySalesChart(newType);
-            } else if (chartToUpdate === 'annualSalesChart') {
-                renderAnnualSalesChart(newType);
-            }
-        });
-    });
-}
-
-function initializeSalesReports() {
-    console.log("Vista de Reportes de Ventas inicializada.");
-    loadSalesReport('daily');
-    loadMonthlyBreakdown();
-
-    // Asigna eventos a los botones de filtro de reportes
-    document.getElementById('report-daily')?.addEventListener('click', () => loadSalesReport('daily'));
-    document.getElementById('report-weekly')?.addEventListener('click', () => loadSalesReport('weekly'));
-    document.getElementById('report-monthly')?.addEventListener('click', () => loadSalesReport('monthly'));
-    document.getElementById('report-quarterly')?.addEventListener('click', () => loadSalesReport('quarterly'));
-    document.getElementById('report-yearly')?.addEventListener('click', () => loadSalesReport('yearly'));
-}
-
-function loadSummaryData() {
-    fetch(`${API_BASE_URL}?resource=getSummary`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) throw new Error(data.error);
-            document.getElementById('total-clientes').textContent = data.total_clientes;
-            document.getElementById('ventas-diarias').textContent = '$' + parseFloat(data.ventas_diarias).toFixed(2);
-            document.getElementById('ventas-semanales').textContent = '$' + parseFloat(data.ventas_semanales).toFixed(2);
-            document.getElementById('ventas-mensuales').textContent = '$' + parseFloat(data.ventas_mensuales).toFixed(2);
-            document.getElementById('ventas-trimestrales').textContent = '$' + parseFloat(data.ventas_trimestrales).toFixed(2);
-            document.getElementById('ventas-anuales').textContent = '$' + parseFloat(data.ventas_anuales).toFixed(2);
-        }).catch(error => {
-            console.error('Error cargando el resumen:', error);
-        });
-}
-
-// REEMPLAZA ESTAS DOS FUNCIONES
-
-function renderWeeklySalesChart(chartType = 'line') {
-    const canvasContainer = document.getElementById('weeklySalesChartContainer');
-    if (!canvasContainer) return;
-    canvasContainer.innerHTML = '<canvas id="weeklySalesChart"></canvas>'; // Reinicia el canvas
-    const ctx = document.getElementById('weeklySalesChart').getContext('2d');
-
-    fetch(`${API_BASE_URL}?resource=getWeeklySalesChartData`)
-        .then(response => response.json())
-        .then(chartData => {
-            if (chartData.error) throw new Error(chartData.error);
+            salesWidget.innerHTML = `
+                <p style="font-size: 2rem; font-weight: 700; color: #0C0A4E;">$${stats.total_revenue}</p>
+                <ul style="list-style: none; padding: 0;">
+                    ${stats.sales_by_payment.map(item => `
+                        <li style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
+                            <span>${item.nombre_metodo}:</span>
+                            <strong>${item.count} ventas</strong>
+                        </li>
+                    `).join('') || '<li>No hay ventas por método de pago.</li>'}
+                </ul>
+            `;
             
-            // Usamos nuestra nueva función para obtener el estilo
-            const options = getChartOptions(currentChartTheme);
-
-            new Chart(ctx, {
-                type: chartType, // Acepta un tipo de gráfico dinámico
-                data: {
-                    labels: chartData.labels,
-                    datasets: [{
-                        label: 'Ventas Semanales',
-                        data: chartData.data.map(item => item.value),
-                        fill: true,
-                        backgroundColor: 'rgba(59, 125, 221, 0.2)',
-                        borderColor: 'rgba(59, 125, 221, 1)',
-                        tension: 0.3
-                    }]
-                },
-                options: options // Aplicamos las opciones del tema
-            });
-        })
-        .catch(error => console.error('Error en gráfico semanal:', error));
+            chartTitle.textContent = `Gráfico de Ventas Diarias (${formattedStartDate} - ${formattedEndDate})`;
+            renderSalesChart(stats.daily_sales);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        salesWidget.innerHTML = `<p style="color:red;">Error al cargar resumen de ventas.</p>`;
+        chartTitle.textContent = 'Error al cargar gráfico';
+    }
 }
 
-function renderAnnualSalesChart(chartType = 'line') {
-    const canvasContainer = document.getElementById('annualSalesChartContainer');
-    if (!canvasContainer) return;
-    canvasContainer.innerHTML = '<canvas id="annualSalesChart"></canvas>';
-    const ctx = document.getElementById('annualSalesChart').getContext('2d');
 
-    fetch(`${API_BASE_URL}?resource=getAnnualSalesChartData`)
-        .then(response => response.json())
-        .then(chartData => {
-            if (chartData.error) throw new Error(chartData.error);
+// --- LÓGICA DEL MÓDULO DE ESTADÍSTICAS ---
 
-            // Usamos nuestra nueva función para obtener el estilo
-            const options = getChartOptions(currentChartTheme);
-
-            new Chart(ctx, {
-                type: chartType, // Acepta un tipo de gráfico dinámico
-                data: {
-                    labels: chartData.labels,
-                    datasets: [{
-                        label: 'Ventas Anuales',
-                        data: chartData.data.map(item => item.value),
-                        fill: true,
-                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
-                        borderColor: 'rgba(22, 163, 74, 1)',
-                        tension: 0.3
-                    }]
-                },
-                options: options // Aplicamos las opciones del tema
-            });
-        })
-        .catch(error => console.error('Error en gráfico anual:', error));
-}
-function loadSalesReport(period) {
-    const reportContent = document.getElementById('sales-report-content');
-    const reportTitle = document.getElementById('report-title');
-    if (!reportContent || !reportTitle) return;
-
-    reportContent.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
-    const periodNames = { daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual', quarterly: 'Trimestral', yearly: 'Anual' };
-    reportTitle.textContent = `Ventas por Depto. (${periodNames[period] || ''})`;
-
-    fetch(`${API_BASE_URL}?resource=getSalesReport&period=${period}`)
-        .then(response => response.json())
-        .then(data => {
-            reportContent.innerHTML = '';
-            if (data.error) throw new Error(data.error);
-            if (data.length > 0) {
-                let totalGeneral = data.reduce((sum, item) => sum + parseFloat(item.total_por_departamento), 0);
-                data.forEach(item => {
-                    reportContent.innerHTML += `<tr><td>${item.departamento}</td><td>$${parseFloat(item.total_por_departamento).toFixed(2)}</td></tr>`;
-                });
-                reportContent.innerHTML += `<tr class="total-row"><td><strong>Total General</strong></td><td><strong>$${totalGeneral.toFixed(2)}</strong></td></tr>`;
-            } else {
-                reportContent.innerHTML = '<tr><td colspan="2">No hay datos para este período.</td></tr>';
-            }
-        }).catch(error => {
-            console.error('Error en Reporte:', error);
-            reportContent.innerHTML = '<tr><td colspan="2" style="color:red">Error al cargar el reporte.</td></tr>';
-        });
+async function loadStatisticsWidgets() {
+    // Llama a las funciones para cargar los datos en paralelo
+    await Promise.all([
+        fetchAndRenderSalesSummary(),
+        fetchAndRenderProductStats()
+    ]);
 }
 
-function loadMonthlyBreakdown() {
-    const breakdownContent = document.getElementById('monthly-breakdown-content');
-    const breakdownTitle = document.getElementById('monthly-breakdown-title');
-    const breakdownTotal = document.getElementById('monthly-breakdown-total');
-    if (!breakdownContent || !breakdownTitle || !breakdownTotal) return;
+async function loadStatisticsWidgets() {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 1); // Rango por defecto: último año
 
-    fetch(`${API_BASE_URL}?resource=getMonthlyBreakdown`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) throw new Error(data.error);
+    const formatDate = (date) => date.toISOString().split('T')[0];
 
-            const now = new Date();
-            const monthName = now.toLocaleString('es-ES', { month: 'long' });
-            breakdownTitle.textContent = `Desglose de Ventas de ${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${now.getFullYear()}`;
-            breakdownContent.innerHTML = '';
-            let monthlyTotal = 0;
+    document.getElementById('start-date').value = formatDate(startDate);
+    document.getElementById('end-date').value = formatDate(endDate);
+    
+    // Carga inicial de datos
+    await fetchAndRenderSalesSummary(formatDate(startDate), formatDate(endDate));
+    await fetchAndRenderProductStats(); // Este no depende de la fecha por ahora
 
-            if (data.length > 0) {
-                data.forEach(item => {
-                    const dailyTotal = parseFloat(item.total_diario);
-                    monthlyTotal += dailyTotal;
-                    const dateParts = item.fecha.split('-');
-                    const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
-                    breakdownContent.innerHTML += `<tr><td>${formattedDate}</td><td>$${dailyTotal.toFixed(2)}</td></tr>`;
-                });
-            } else {
-                breakdownContent.innerHTML = '<tr><td colspan="2">No hay ventas registradas este mes.</td></tr>';
-            }
-            breakdownTotal.innerHTML = `<strong>$${monthlyTotal.toFixed(2)}</strong>`;
-        }).catch(error => {
-            console.error('Error en Desglose Mensual:', error);
-        });
+    // Listener para el botón de filtrar
+    document.getElementById('filter-stats-btn').addEventListener('click', () => {
+        const start = document.getElementById('start-date').value;
+        const end = document.getElementById('end-date').value;
+        if (start && end) {
+            fetchAndRenderSalesSummary(start, end);
+        } else {
+            alert('Por favor, selecciona un rango de fechas válido.');
+        }
+    });
 }
 
-// =================================================================
-// FIN DEL BLOQUE DE CÓDIGO PARA ESTADÍSTICAS
-// =================================================================
+async function fetchAndRenderProductStats() {
+    const topProductsWidget = document.getElementById('top-products-widget');
+    const lowStockWidget = document.getElementById('low-stock-widget');
+    if (!topProductsWidget || !lowStockWidget) return;
 
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getProductStats`);
+        const result = await response.json();
 
+        if (result.success) {
+            const stats = result.stats;
+            // Renderiza el top 5 de productos
+            topProductsWidget.innerHTML = `
+                <ol style="padding-left: 1.5rem;">
+                    ${stats.top_products.map(p => `
+                        <li style="margin-bottom: 0.5rem;">
+                            ${p.nombre_producto} - <strong>$${parseFloat(p.total_sold).toFixed(2)}</strong>
+                        </li>
+                    `).join('')}
+                </ol>
+            `;
+            // Renderiza los productos con bajo stock
+            lowStockWidget.innerHTML = `
+                <ul style="list-style: none; padding: 0;">
+                    ${stats.low_stock_products.map(p => `
+                         <li style="display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding: 0.3rem 0;">
+                            <span>${p.nombre_producto}</span>
+                            <strong style="color: #c0392b;">Stock: ${p.stock_actual} (Mín: ${p.stock_minimo})</strong>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        topProductsWidget.innerHTML = `<p style="color:red;">Error al cargar productos.</p>`;
+        lowStockWidget.innerHTML = `<p style="color:red;">Error al cargar stock.</p>`;
+    }
+}
 
+// En tu archivo: admin/js/admin.js
 
+// En tu archivo: admin/js/admin.js
 
+function renderSalesChart(dailySales) {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    if (!ctx) return;
+
+    // Medida de seguridad: Si dailySales no es un array, lo convierte en uno vacío.
+    const safeDailySales = Array.isArray(dailySales) ? dailySales : [];
+
+    const labels = safeDailySales.map(sale => new Date(sale.fecha).toLocaleDateString('es-SV', { month: 'short', day: 'numeric' }));
+    const data = safeDailySales.map(sale => sale.daily_total);
+
+    if (window.mySalesChart instanceof Chart) {
+        window.mySalesChart.destroy();
+    }
+
+    window.mySalesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventas por Día',
+                data: data,
+                backgroundColor: 'rgba(12, 10, 78, 0.2)',
+                borderColor: 'rgba(12, 10, 78, 1)',
+                borderWidth: 2,
+                tension: 0.1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
 
 
 });

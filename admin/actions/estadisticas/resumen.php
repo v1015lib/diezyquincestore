@@ -1,49 +1,39 @@
+<div class="stats-header">
+    <div class="date-range-filter">
+        <label for="start-date">Desde:</label>
+        <input type="date" id="start-date">
+        <label for="end-date">Hasta:</label>
+        <input type="date" id="end-date">
+        <button id="filter-stats-btn" class="action-btn">Filtrar</button>
+    </div>
+</div>
 
-<div class="statistics-container" id="statistics-summary">
-    <h2>Resumen General</h2>
-
-    <div class="charts-grid">
-    <div class="chart-container">
-        <div class="chart-header">
-            <h3>Ventas de la Última Semana</h3>
-            <div class="chart-controls">
-                <button class="chart-type-btn" data-chart="weeklySalesChart" data-type="line">Línea</button>
-                <button class="chart-type-btn" data-chart="weeklySalesChart" data-type="bar">Barra</button>
-            </div>
-        </div>
-        <div id="weeklySalesChartContainer" class="chart-canvas-wrapper">
-            <canvas id="weeklySalesChart"></canvas>
+<div class="widgets-grid" id="stats-widgets-container">
+    <div class="widget">
+        <h3>Ventas del Período</h3>
+        <div class="widget-content" id="sales-summary-widget">
+            <p>Cargando datos...</p>
         </div>
     </div>
-    <div class="chart-container">
-        <div class="chart-header">
-            <h3>Ventas Anuales (Mensual)</h3>
-            <div class="chart-controls">
-                <button class="chart-type-btn" data-chart="annualSalesChart" data-type="line">Línea</button>
-                <button class="chart-type-btn" data-chart="annualSalesChart" data-type="bar">Barra</button>
-            </div>
+
+    <div class="widget">
+        <h3>Top 5 Productos Más Vendidos</h3>
+        <div class="widget-content" id="top-products-widget">
+            <p>Cargando datos...</p>
         </div>
-        <div id="annualSalesChartContainer" class="chart-canvas-wrapper">
-            <canvas id="annualSalesChart"></canvas>
+    </div>
+
+    <div class="widget">
+        <h3>Productos con Bajo Stock</h3>
+        <div class="widget-content" id="low-stock-widget">
+            <p>Cargando datos...</p>
         </div>
     </div>
 </div>
 
-<div class="theme-selector-container">
-    <label for="theme-selector">Estilo del Gráfico:</label>
-    <select id="theme-selector" class="admin-config-input">
-        <option value="light">Claro</option>
-        <option value="dark">Oscuro</option>
-        <option value="ocean">Océano</option>
-    </select>
-</div>
-
-    <div class="summary-grid">
-        <div class="stat-card"><h3>Total de Clientes</h3><p id="total-clientes">...</p></div>
-        <div class="stat-card"><h3>Ventas Diarias</h3><p id="ventas-diarias">...</p></div>
-        <div class="stat-card"><h3>Ventas Semanales</h3><p id="ventas-semanales">...</p></div>
-        <div class="stat-card"><h3>Ventas Mensuales</h3><p id="ventas-mensuales">...</p></div>
-        <div class="stat-card"><h3>Ventas Trimestrales</h3><p id="ventas-trimestrales">...</p></div>
-        <div class="stat-card"><h3>Ventas Anuales</h3><p id="ventas-anuales">...</p></div>
+<div class="widget" style="margin-top: 2rem;">
+    <h3 id="sales-chart-title">Gráfico de Ventas Diarias</h3>
+    <div class="widget-content" id="sales-chart-container">
+        <canvas id="salesChart"></canvas>
     </div>
 </div>
