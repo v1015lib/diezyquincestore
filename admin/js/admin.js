@@ -834,7 +834,10 @@ async function loadModule(moduleName) {
             await loadActionContent('tarjetas/gestion');
         }else if (moduleName === 'inventario') {
             await loadActionContent('inventario/agregar_stock');
-        }else if (moduleName === 'web_admin') {
+        }else if (moduleName === 'estadisticas') { 
+            await loadActionContent('estadisticas/resumen');
+        }
+        else if (moduleName === 'web_admin') {
             await loadActionContent('web_admin/sliders');
         const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
             if (activeButton) {
@@ -869,7 +872,7 @@ async function loadActionContent(actionPath) {
         } else if (actionPath === 'productos/eliminar_producto') {
             initializeProductSearchForDelete();
         }else if (actionPath === 'inventario/historial_movimientos') {
-            await populateMovementTypeFilter(); // <-- AÑADE ESTA LÍNEA
+            await populateMovementTypeFilter(); 
             fetchAndRenderInventoryHistory();
         }else if (actionPath === 'clientes/todos_los_clientes') {
             await fetchAndRenderCustomers();
@@ -877,24 +880,19 @@ async function loadActionContent(actionPath) {
             initializeAddCustomerForm();
         }else if (actionPath.startsWith('web_admin/')) {
             initializeWebAdminControls();
-        } else if (actionPath === 'productos/crear_oferta') { // <-- NUEVA CONDICIÓN
+        } else if (actionPath === 'productos/crear_oferta') {
                 initializeOfferManagement();
-        } else if (actionPath === 'productos/ofertas_activas') { // <-- NUEVA CONDICIÓN
+        } else if (actionPath === 'productos/ofertas_activas') { 
                 await fetchAndRenderActiveOffers();
         }else if (actionPath === 'tarjetas/gestion') {
             initializeCardManagement();
         } else if (actionPath === 'tarjetas/reporte_clientes') {
             fetchAndRenderCardReport();
-
         }else if (actionPath === 'tarjetas/reporte_clientes') {
-            fetchAndRenderCardReport();
-            
-        // --- AÑADIR ESTA NUEVA CONDICIÓN ---
+            fetchAndRenderCardReport();            
         } else if (actionPath === 'tarjetas/recargar') {
             initializeCardRecharge();
-        // --- FIN DE LA NUEVA CONDICIÓN ---
-
-        }else if (actionPath === 'departamentos/gestion') { // <-- AÑADIR ESTE BLOQUE
+        }else if (actionPath === 'departamentos/gestion') {
             initializeDepartmentManagement();
         }if (actionPath === 'utilidades/copia_seguridad') {
             initializeBackupControls();
@@ -904,6 +902,10 @@ async function loadActionContent(actionPath) {
             initializeInventoryForm('adjust');
         } else if (actionPath === 'inventario/historial_movimientos') {
             fetchAndRenderInventoryHistory();
+        }else if (actionPath === 'estadisticas/resumen') {
+            initializeStatisticsSummary();
+        } else if (actionPath === 'estadisticas/reporte_de_ventas') {
+            initializeSalesReports();
         }
 
     } catch (error) {
@@ -2673,9 +2675,7 @@ async function showProcessedFiles() {
     }
 }
 
-/**
- * Activa o desactiva los botones de acción basado en si hay checkboxes marcados.
- */
+
 function updateProcessorButtons() {
     const checkedBoxes = document.querySelectorAll('.processed-file-checkbox:checked').length;
     const uploadBtn = document.getElementById('upload-to-gallery-btn');
@@ -2688,8 +2688,311 @@ function updateProcessorButtons() {
 
 
 
+console.log('Módulo de Estadísticas: admin.js cargado y listo.');
+
+// Revisa si el contenedor del RESUMEN de estadísticas existe en la página
+const summaryContainer = document.getElementById('statistics-summary');
+if (summaryContainer) {
+    console.log('Vista de Resumen de Estadísticas detectada. Llamando a loadSummaryData()...');
+    loadSummaryData();
+}
+
+// Revisa si el contenedor de los REPORTES de ventas existe en la página
+const reportsContainer = document.getElementById('sales-report-content');
+if (reportsContainer) {
+    console.log('Vista de Reportes de Ventas detectada. Iniciando...');
+    loadSalesReport('daily'); // Carga el reporte diario por defecto
+
+    // Asigna los eventos de clic a los botones de filtro
+    document.getElementById('report-daily').addEventListener('click', () => loadSalesReport('daily'));
+    document.getElementById('report-weekly').addEventListener('click', () => loadSalesReport('weekly'));
+    document.getElementById('report-monthly').addEventListener('click', () => loadSalesReport('monthly'));
+    document.getElementById('report-quarterly').addEventListener('click', () => loadSalesReport('quarterly'));
+    document.getElementById('report-yearly').addEventListener('click', () => loadSalesReport('yearly'));
+}
+
+/**
+ * Carga los datos del resumen general desde la API.
+ */
+function loadSummaryData() {
+    console.log("Intentando fetch a 'api/?resource=getSummary'");
+    fetch(`${API_BASE_URL}?resource=getSummary`)
+        .then(response => {
+            console.log('Respuesta del servidor recibida para el resumen. Status:', response.status);
+            if (!response.ok) {
+                throw new Error(`Error HTTP! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Datos del resumen recibidos y procesados:', data);
+            if (data.error) {
+                console.error('La API devolvió un error:', data.error);
+                document.querySelector('#statistics-summary h2').textContent = 'Error al cargar datos.';
+                return;
+            }
+            document.getElementById('total-clientes').textContent = data.total_clientes;
+            document.getElementById('ventas-diarias').textContent = '$' + parseFloat(data.ventas_diarias).toFixed(2);
+            document.getElementById('ventas-semanales').textContent = '$' + parseFloat(data.ventas_semanales).toFixed(2);
+            document.getElementById('ventas-mensuales').textContent = '$' + parseFloat(data.ventas_mensuales).toFixed(2);
+            document.getElementById('ventas-trimestrales').textContent = '$' + parseFloat(data.ventas_trimestrales).toFixed(2);
+            document.getElementById('ventas-anuales').textContent = '$' + parseFloat(data.ventas_anuales).toFixed(2);
+        })
+        .catch(error => {
+            console.error('Falló el fetch para el resumen:', error);
+            document.querySelector('#statistics-summary h2').textContent = 'Error de conexión. Revisa la consola (F12).';
+        });
+}
+
+/**
+ * Carga el reporte de ventas por departamento.
+ * @param {string} period - El período a consultar ('daily', 'weekly', etc.)
+ */
+   function loadSalesReport(period) {
+        const reportContent = document.getElementById('sales-report-content');
+        const reportTitle = document.getElementById('report-title');
+        reportContent.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
+        const periodNames = {
+            daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
+            quarterly: 'Trimestral', yearly: 'Anual'
+        };
+        reportTitle.textContent = `Ventas por Depto. (${periodNames[period] || ''})`;
+
+        fetch(`${API_BASE_URL}?resource=getSalesReport&period=${period}`)
+            .then(response => response.json())
+            .then(data => {
+                reportContent.innerHTML = '';
+                if (data.error) throw new Error(data.error);
+                if (data.length > 0) {
+                    let totalGeneral = 0;
+                    data.forEach(item => {
+                        const total = parseFloat(item.total_por_departamento);
+                        totalGeneral += total;
+                        const row = `<tr><td>${item.departamento}</td><td>$${total.toFixed(2)}</td></tr>`;
+                        reportContent.insertAdjacentHTML('beforeend', row);
+                    });
+                    const totalRow = `<tr class="total-row"><td><strong>Total General</strong></td><td><strong>$${totalGeneral.toFixed(2)}</strong></td></tr>`;
+                    reportContent.insertAdjacentHTML('beforeend', totalRow);
+                } else {
+                    reportContent.innerHTML = '<tr><td colspan="2">No hay datos.</td></tr>';
+                }
+            }).catch(error => console.error('Error en Reporte:', error));
+    }
+
+
+// =================================================================
+// FIN DEL CÓDIGO DE ESTADÍSTICAS
+// =================================================================
+
+
     initializeSidemenu();
     checkSidemenuState();
     loadModule('dashboard');
+
+
+
+
+
+    // =================================================================
+// INICIO: FUNCIONES PARA EL MÓDULO DE ESTADÍSTICAS
+// =================================================================
+
+/**
+ * Se ejecuta cuando se carga la acción 'estadisticas/resumen'.
+ * Llama a la función que obtiene y muestra los datos.
+ */
+// Reemplaza tu función initializeStatisticsSummary con esta:
+function initializeStatisticsSummary() {
+    console.log("Inicializando vista de Resumen de Estadísticas...");
+    loadSummaryData(); // Carga las tarjetas como antes
+    renderWeeklySalesChart(); // Dibuja el gráfico semanal
+    renderAnnualSalesChart(); // Dibuja el gráfico anual
+}
+
+/**
+ * Se ejecuta cuando se carga la acción 'estadisticas/reporte_de_ventas'.
+ * Llama a la función que carga los datos y asigna eventos a los botones.
+ */
+function initializeSalesReports() {
+    console.log("Inicializando vista de Reportes de Ventas...");
+    loadSalesReport('daily'); // Carga el reporte por departamento
+    loadMonthlyBreakdown();   // Carga el nuevo desglose mensual
+
+    // Asigna eventos a los botones de filtro
+    document.getElementById('report-daily').addEventListener('click', () => loadSalesReport('daily'));
+    document.getElementById('report-weekly').addEventListener('click', () => loadSalesReport('weekly'));
+    document.getElementById('report-monthly').addEventListener('click', () => loadSalesReport('monthly'));
+    document.getElementById('report-quarterly').addEventListener('click', () => loadSalesReport('quarterly'));
+    document.getElementById('report-yearly').addEventListener('click', () => loadSalesReport('yearly'));
+}
+
+function loadSummaryData() {
+    fetch('api/?resource=getSummary')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            document.getElementById('total-clientes').textContent = data.total_clientes;
+            document.getElementById('ventas-diarias').textContent = '$' + parseFloat(data.ventas_diarias).toFixed(2);
+            document.getElementById('ventas-semanales').textContent = '$' + parseFloat(data.ventas_semanales).toFixed(2);
+            document.getElementById('ventas-mensuales').textContent = '$' + parseFloat(data.ventas_mensuales).toFixed(2);
+            document.getElementById('ventas-trimestrales').textContent = '$' + parseFloat(data.ventas_trimestrales).toFixed(2);
+            document.getElementById('ventas-anuales').textContent = '$' + parseFloat(data.ventas_anuales).toFixed(2);
+        }).catch(error => {
+            console.error('Error en Resumen:', error);
+            document.querySelector('#statistics-summary h2').textContent = 'Error al cargar datos';
+        });
+}
+
+
+function loadSalesReport(period) {
+    const reportContent = document.getElementById('sales-report-content');
+    const reportTitle = document.getElementById('report-title');
+    reportContent.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
+    const periodNames = {
+        daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
+        quarterly: 'Trimestral', yearly: 'Anual'
+    };
+    reportTitle.textContent = `Reporte de Ventas ${periodNames[period] || ''}`;
+
+    fetch(`api/?resource=getSalesReport&period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            reportContent.innerHTML = '';
+            if (data.error) throw new Error(data.error);
+            if (data.length > 0) {
+                let totalGeneral = 0;
+                data.forEach(item => {
+                    const total = parseFloat(item.total_por_departamento);
+                    totalGeneral += total;
+                    const row = `<tr><td>${item.departamento}</td><td>$${total.toFixed(2)}</td></tr>`;
+                    reportContent.insertAdjacentHTML('beforeend', row);
+                });
+                const totalRow = `<tr class="total-row"><td><strong>Total General</strong></td><td><strong>$${totalGeneral.toFixed(2)}</strong></td></tr>`;
+                reportContent.insertAdjacentHTML('beforeend', totalRow);
+            } else {
+                reportContent.innerHTML = '<tr><td colspan="2">No hay datos para este período.</td></tr>';
+            }
+        }).catch(error => {
+            console.error('Error en Reporte:', error);
+            reportTitle.textContent = 'Error al cargar el reporte';
+        });
+}
+function loadMonthlyBreakdown() {
+    const breakdownContent = document.getElementById('monthly-breakdown-content');
+    const breakdownTitle = document.getElementById('monthly-breakdown-title');
+    const breakdownTotal = document.getElementById('monthly-breakdown-total');
+
+    fetch('api/?resource=getMonthlyBreakdown')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            // Formatear el título con el mes y año actual
+            const now = new Date();
+            const monthName = now.toLocaleString('es-ES', { month: 'long' });
+            const year = now.getFullYear();
+            breakdownTitle.textContent = `Desglose de Ventas de ${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
+
+            breakdownContent.innerHTML = ''; // Limpiar la tabla
+            let monthlyTotal = 0;
+
+            if (data.length > 0) {
+                data.forEach(item => {
+                    const dailyTotal = parseFloat(item.total_diario);
+                    monthlyTotal += dailyTotal;
+
+                    // Formatear la fecha a dd/mm/aaaa
+                    const dateParts = item.fecha.split('-');
+                    const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+
+                    const row = `<tr>
+                                    <td>${formattedDate}</td>
+                                    <td>$${dailyTotal.toFixed(2)}</td>
+                                 </tr>`;
+                    breakdownContent.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                breakdownContent.innerHTML = '<tr><td colspan="2">No hay ventas registradas este mes.</td></tr>';
+            }
+
+            // Actualizar el total del mes en el pie de la tabla
+            breakdownTotal.innerHTML = `<strong>$${monthlyTotal.toFixed(2)}</strong>`;
+
+        }).catch(error => {
+            console.error('Error en Desglose Mensual:', error);
+            breakdownTitle.textContent = 'Error al cargar el desglose mensual';
+        });
+}
+
+
+
+
+
+function renderWeeklySalesChart() {
+    const container = document.getElementById('weeklySalesChart');
+    if (!container) return;
+    container.innerHTML = '<div class="loader"></div>';
+
+    fetch(`${API_BASE_URL}?resource=getWeeklySalesChartData`)
+        .then(response => response.json())
+        .then(chartData => {
+            if (chartData.error) throw new Error(chartData.error);
+            container.innerHTML = ''; // Limpiar loader
+
+            // Añadir las guías del eje Y
+            container.innerHTML += `
+                <div class="y-axis-label top">$${parseFloat(chartData.max_value).toFixed(2)}</div>
+                <div class="y-axis-label middle">$${(parseFloat(chartData.max_value) / 2).toFixed(2)}</div>
+            `;
+
+            chartData.data.forEach((item, index) => {
+                const barHtml = `
+                    <div class="chart-bar-item" title="$${parseFloat(item.value).toFixed(2)}">
+                        <div class="bar-fill" style="height: ${item.percent}%;"></div>
+                        <div class="bar-label">${chartData.labels[index]}</div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', barHtml);
+            });
+        })
+        .catch(error => {
+            console.error('Error al renderizar gráfico semanal:', error);
+            container.innerHTML = '<p class="error-message">Error al cargar gráfico</p>';
+        });
+}
+
+function renderAnnualSalesChart() {
+    const container = document.getElementById('annualSalesChart');
+    if (!container) return;
+    container.innerHTML = '<div class="loader"></div>';
+
+    fetch(`${API_BASE_URL}?resource=getAnnualSalesChartData`)
+        .then(response => response.json())
+        .then(chartData => {
+            if (chartData.error) throw new Error(chartData.error);
+            container.innerHTML = ''; // Limpiar loader
+
+            // Añadir las guías del eje Y
+            container.innerHTML += `
+                <div class="y-axis-label top">$${parseFloat(chartData.max_value).toFixed(2)}</div>
+                <div class="y-axis-label middle">$${(parseFloat(chartData.max_value) / 2).toFixed(2)}</div>
+            `;
+            
+            chartData.data.forEach((item, index) => {
+                const barHtml = `
+                    <div class="chart-bar-item" title="$${parseFloat(item.value).toFixed(2)}">
+                        <div class="bar-fill" style="height: ${item.percent}%;"></div>
+                        <div class="bar-label">${chartData.labels[index]}</div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', barHtml);
+            });
+        })
+        .catch(error => {
+            console.error('Error al renderizar gráfico anual:', error);
+            container.innerHTML = '<p class="error-message">Error al cargar gráfico</p>';
+        });
+}
+
 });
 
