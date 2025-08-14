@@ -34,6 +34,135 @@ try {
     switch ($resource) {
 
 
+
+
+// Reemplaza estos dos cases en tu api/index.php
+
+case 'getWeeklySalesChartData':
+    header('Content-Type: application/json');
+    try {
+        // ... (La consulta SQL larga para obtener los últimos 7 días se mantiene igual que antes)
+        $sql = "
+            SELECT 
+                d.day_date AS sale_date,
+                COALESCE(SUM(s.total), 0) AS daily_total
+            FROM 
+                (SELECT CURDATE() - INTERVAL (a.a + (10 * b.a)) DAY as day_date FROM (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS a CROSS JOIN (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS b) AS d
+            LEFT JOIN 
+                (SELECT DATE(fecha_venta) AS sale_date, SUM(monto_total) AS total FROM ventas GROUP BY sale_date
+                UNION ALL
+                SELECT DATE(cc.fecha_creacion) AS sale_date, SUM(dc.cantidad * dc.precio_unitario) AS total
+                FROM carritos_compra cc JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                WHERE cc.estado_id NOT IN (3, 11)
+                GROUP BY sale_date) AS s ON d.day_date = s.sale_date
+            WHERE d.day_date BETWEEN CURDATE() - INTERVAL 6 DAY AND CURDATE()
+            GROUP BY d.day_date
+            ORDER BY d.day_date ASC;
+        ";
+        $stmt = $pdo->query($sql);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $labels = [];
+        $data = [];
+        $max_value = 0;
+        foreach ($results as $row) {
+            if ($row['daily_total'] > $max_value) {
+                $max_value = $row['daily_total'];
+            }
+        }
+        $max_value = $max_value == 0 ? 1 : $max_value; // Evitar división por cero
+
+        foreach ($results as $row) {
+            $date = new DateTime($row['sale_date']);
+            $formatter = new IntlDateFormatter('es_ES', IntlDateFormatter::FULL, IntlDateFormatter::FULL, null, null, 'E dd');
+            $labels[] = $formatter->format($date);
+            $data[] = [
+                "value" => $row['daily_total'],
+                "percent" => ($row['daily_total'] / $max_value) * 100
+            ];
+        }
+
+        echo json_encode(['labels' => $labels, 'data' => $data, 'max_value' => $max_value]);
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error de BD: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'getAnnualSalesChartData':
+    header('Content-Type: application/json');
+    try {
+        // ... (La consulta SQL larga para obtener los 12 meses se mantiene igual que antes)
+        $sql = "
+            SELECT 
+                m.month_num,
+                COALESCE(SUM(s.total), 0) AS monthly_total
+            FROM
+                (SELECT 1 AS month_num UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12) AS m
+            LEFT JOIN
+                (SELECT MONTH(fecha_venta) AS sale_month, SUM(monto_total) AS total 
+                FROM ventas 
+                WHERE YEAR(fecha_venta) = YEAR(CURDATE()) 
+                GROUP BY sale_month
+                UNION ALL
+                SELECT MONTH(cc.fecha_creacion) AS sale_month, SUM(dc.cantidad * dc.precio_unitario) AS total
+                FROM carritos_compra cc JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                WHERE cc.estado_id NOT IN (3, 11) AND YEAR(cc.fecha_creacion) = YEAR(CURDATE())
+                GROUP BY sale_month) AS s ON m.month_num = s.sale_month
+            GROUP BY m.month_num
+            ORDER BY m.month_num ASC;
+        ";
+        $stmt = $pdo->query($sql);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        $data = [];
+        $max_value = 0;
+
+        foreach ($results as $row) {
+            if ($row['monthly_total'] > $max_value) {
+                $max_value = $row['monthly_total'];
+            }
+        }
+        $max_value = $max_value == 0 ? 1 : $max_value;
+
+        foreach ($results as $row) {
+             $data[$row['month_num'] - 1] = [
+                "value" => $row['monthly_total'],
+                "percent" => ($row['monthly_total'] / $max_value) * 100
+             ];
+        }
+
+        echo json_encode(['labels' => $labels, 'data' => $data, 'max_value' => $max_value]);
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error de BD: ' . $e->getMessage()]);
+    }
+    break;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Pega este case junto con los otros de estadísticas ('getSummary', 'getSalesReport')
 
 case 'getMonthlyBreakdown':

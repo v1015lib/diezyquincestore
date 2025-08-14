@@ -2675,9 +2675,7 @@ async function showProcessedFiles() {
     }
 }
 
-/**
- * Activa o desactiva los botones de acción basado en si hay checkboxes marcados.
- */
+
 function updateProcessorButtons() {
     const checkedBoxes = document.querySelectorAll('.processed-file-checkbox:checked').length;
     const uploadBtn = document.getElementById('upload-to-gallery-btn');
@@ -2689,11 +2687,6 @@ function updateProcessorButtons() {
 }
 
 
-
-
-// =================================================================
-// INICIO: CÓDIGO PARA EL MÓDULO DE ESTADÍSTICAS Y REPORTES (VERSIÓN CORREGIDA)
-// =================================================================
 
 console.log('Módulo de Estadísticas: admin.js cargado y listo.');
 
@@ -2723,7 +2716,7 @@ if (reportsContainer) {
  */
 function loadSummaryData() {
     console.log("Intentando fetch a 'api/?resource=getSummary'");
-    fetch('api/?resource=getSummary')
+    fetch(`${API_BASE_URL}?resource=getSummary`)
         .then(response => {
             console.log('Respuesta del servidor recibida para el resumen. Status:', response.status);
             if (!response.ok) {
@@ -2755,53 +2748,37 @@ function loadSummaryData() {
  * Carga el reporte de ventas por departamento.
  * @param {string} period - El período a consultar ('daily', 'weekly', etc.)
  */
-function loadSalesReport(period) {
-    console.log(`Intentando fetch a 'api/?resource=getSalesReport&period=${period}'`);
-    const reportContent = document.getElementById('sales-report-content');
-    const reportTitle = document.getElementById('report-title');
-    reportContent.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
+   function loadSalesReport(period) {
+        const reportContent = document.getElementById('sales-report-content');
+        const reportTitle = document.getElementById('report-title');
+        reportContent.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
+        const periodNames = {
+            daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
+            quarterly: 'Trimestral', yearly: 'Anual'
+        };
+        reportTitle.textContent = `Ventas por Depto. (${periodNames[period] || ''})`;
 
-    const periodNames = {
-        daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
-        quarterly: 'Trimestral', yearly: 'Anual'
-    };
-    reportTitle.textContent = `Reporte de Ventas ${periodNames[period] || ''}`;
+        fetch(`${API_BASE_URL}?resource=getSalesReport&period=${period}`)
+            .then(response => response.json())
+            .then(data => {
+                reportContent.innerHTML = '';
+                if (data.error) throw new Error(data.error);
+                if (data.length > 0) {
+                    let totalGeneral = 0;
+                    data.forEach(item => {
+                        const total = parseFloat(item.total_por_departamento);
+                        totalGeneral += total;
+                        const row = `<tr><td>${item.departamento}</td><td>$${total.toFixed(2)}</td></tr>`;
+                        reportContent.insertAdjacentHTML('beforeend', row);
+                    });
+                    const totalRow = `<tr class="total-row"><td><strong>Total General</strong></td><td><strong>$${totalGeneral.toFixed(2)}</strong></td></tr>`;
+                    reportContent.insertAdjacentHTML('beforeend', totalRow);
+                } else {
+                    reportContent.innerHTML = '<tr><td colspan="2">No hay datos.</td></tr>';
+                }
+            }).catch(error => console.error('Error en Reporte:', error));
+    }
 
-    fetch(`api/?resource=getSalesReport&period=${period}`)
-        .then(response => {
-            console.log(`Respuesta del servidor recibida para el reporte ${period}. Status:`, response.status);
-            if (!response.ok) {
-                throw new Error(`Error HTTP! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log(`Datos del reporte ${period} recibidos y procesados:`, data);
-            reportContent.innerHTML = '';
-            if (data.error) {
-                console.error('La API devolvió un error:', data.error);
-                reportContent.innerHTML = '<tr><td colspan="2">Error al cargar el reporte.</td></tr>';
-                return;
-            }
-            if (data.length > 0) {
-                let totalGeneral = 0;
-                data.forEach(item => {
-                    const total = parseFloat(item.total_por_departamento);
-                    totalGeneral += total;
-                    const row = `<tr><td>${item.departamento}</td><td>$${total.toFixed(2)}</td></tr>`;
-                    reportContent.insertAdjacentHTML('beforeend', row);
-                });
-                const totalRow = `<tr class="total-row"><td><strong>Total General</strong></td><td><strong>$${totalGeneral.toFixed(2)}</strong></td></tr>`;
-                reportContent.insertAdjacentHTML('beforeend', totalRow);
-            } else {
-                reportContent.innerHTML = '<tr><td colspan="2">No hay datos de ventas para este período.</td></tr>';
-            }
-        })
-        .catch(error => {
-            console.error('Falló el fetch para el reporte:', error);
-            reportTitle.textContent = 'Error de conexión. Revisa la consola (F12).';
-        });
-}
 
 // =================================================================
 // FIN DEL CÓDIGO DE ESTADÍSTICAS
@@ -2824,9 +2801,12 @@ function loadSalesReport(period) {
  * Se ejecuta cuando se carga la acción 'estadisticas/resumen'.
  * Llama a la función que obtiene y muestra los datos.
  */
+// Reemplaza tu función initializeStatisticsSummary con esta:
 function initializeStatisticsSummary() {
     console.log("Inicializando vista de Resumen de Estadísticas...");
-    loadSummaryData();
+    loadSummaryData(); // Carga las tarjetas como antes
+    renderWeeklySalesChart(); // Dibuja el gráfico semanal
+    renderAnnualSalesChart(); // Dibuja el gráfico anual
 }
 
 /**
@@ -2846,9 +2826,6 @@ function initializeSalesReports() {
     document.getElementById('report-yearly').addEventListener('click', () => loadSalesReport('yearly'));
 }
 
-/**
- * Obtiene los datos del resumen general desde la API y los muestra en las tarjetas.
- */
 function loadSummaryData() {
     fetch('api/?resource=getSummary')
         .then(response => response.json())
@@ -2866,10 +2843,7 @@ function loadSummaryData() {
         });
 }
 
-/**
- * Obtiene el reporte de ventas por departamento para un período específico.
- * @param {string} period - El período a consultar ('daily', 'weekly', etc.)
- */
+
 function loadSalesReport(period) {
     const reportContent = document.getElementById('sales-report-content');
     const reportTitle = document.getElementById('report-title');
@@ -2949,8 +2923,76 @@ function loadMonthlyBreakdown() {
             breakdownTitle.textContent = 'Error al cargar el desglose mensual';
         });
 }
-// =================================================================
-// FIN: FUNCIONES PARA EL MÓDULO DE ESTADÍSTICAS
-// =================================================================
+
+
+
+
+
+function renderWeeklySalesChart() {
+    const container = document.getElementById('weeklySalesChart');
+    if (!container) return;
+    container.innerHTML = '<div class="loader"></div>';
+
+    fetch(`${API_BASE_URL}?resource=getWeeklySalesChartData`)
+        .then(response => response.json())
+        .then(chartData => {
+            if (chartData.error) throw new Error(chartData.error);
+            container.innerHTML = ''; // Limpiar loader
+
+            // Añadir las guías del eje Y
+            container.innerHTML += `
+                <div class="y-axis-label top">$${parseFloat(chartData.max_value).toFixed(2)}</div>
+                <div class="y-axis-label middle">$${(parseFloat(chartData.max_value) / 2).toFixed(2)}</div>
+            `;
+
+            chartData.data.forEach((item, index) => {
+                const barHtml = `
+                    <div class="chart-bar-item" title="$${parseFloat(item.value).toFixed(2)}">
+                        <div class="bar-fill" style="height: ${item.percent}%;"></div>
+                        <div class="bar-label">${chartData.labels[index]}</div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', barHtml);
+            });
+        })
+        .catch(error => {
+            console.error('Error al renderizar gráfico semanal:', error);
+            container.innerHTML = '<p class="error-message">Error al cargar gráfico</p>';
+        });
+}
+
+function renderAnnualSalesChart() {
+    const container = document.getElementById('annualSalesChart');
+    if (!container) return;
+    container.innerHTML = '<div class="loader"></div>';
+
+    fetch(`${API_BASE_URL}?resource=getAnnualSalesChartData`)
+        .then(response => response.json())
+        .then(chartData => {
+            if (chartData.error) throw new Error(chartData.error);
+            container.innerHTML = ''; // Limpiar loader
+
+            // Añadir las guías del eje Y
+            container.innerHTML += `
+                <div class="y-axis-label top">$${parseFloat(chartData.max_value).toFixed(2)}</div>
+                <div class="y-axis-label middle">$${(parseFloat(chartData.max_value) / 2).toFixed(2)}</div>
+            `;
+            
+            chartData.data.forEach((item, index) => {
+                const barHtml = `
+                    <div class="chart-bar-item" title="$${parseFloat(item.value).toFixed(2)}">
+                        <div class="bar-fill" style="height: ${item.percent}%;"></div>
+                        <div class="bar-label">${chartData.labels[index]}</div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', barHtml);
+            });
+        })
+        .catch(error => {
+            console.error('Error al renderizar gráfico anual:', error);
+            container.innerHTML = '<p class="error-message">Error al cargar gráfico</p>';
+        });
+}
+
 });
 
