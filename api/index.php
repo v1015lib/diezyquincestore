@@ -34,6 +34,80 @@ try {
     switch ($resource) {
 
 
+        case 'admin/userSalesStats':
+            if ($method == 'GET') {
+                // Lógica directamente en el case
+                $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-6 days'));
+                $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
+
+                $sql = "SELECT
+                            u.nombre_usuario,
+                            SUM(v.monto_total) AS total_vendido,
+                            COUNT(v.id_venta) AS numero_ventas
+                        FROM ventas v
+                        JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
+                        WHERE v.fecha_venta BETWEEN :fecha_inicio AND :fecha_fin
+                        GROUP BY u.id_usuario
+                        ORDER BY total_vendido DESC";
+                
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':fecha_inicio' => $fechaInicio . ' 00:00:00',
+                    ':fecha_fin' => $fechaFin . ' 23:59:59'
+                ]);
+                $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode(['success' => true, 'stats' => $stats]);
+            }
+            break;
+
+        case 'admin/activityLog':
+            if ($method == 'GET') {
+                // Lógica directamente en el case
+                $sql = "(SELECT
+                            u.nombre_usuario,
+                            'Producto Modificado' as tipo_accion,
+                            p.nombre_producto as descripcion,
+                            p.fecha_actualizacion as fecha
+                        FROM productos p
+                        JOIN usuarios u ON p.modificado_por_usuario_id = u.id_usuario
+                        WHERE p.modificado_por_usuario_id IS NOT NULL)
+                        UNION ALL
+                        (SELECT
+                            u.nombre_usuario,
+                            CASE
+                                WHEN mi.cantidad > 0 THEN 'Stock Agregado'
+                                ELSE 'Ajuste de Stock'
+                            END as tipo_accion,
+                            CONCAT(mi.cantidad, ' unidades a: ', p.nombre_producto) as descripcion,
+                            mi.fecha as fecha
+                        FROM movimientos_inventario mi
+                        JOIN usuarios u ON mi.id_usuario = u.id_usuario
+                        JOIN productos p ON mi.id_producto = p.id_producto
+                        WHERE mi.id_usuario IS NOT NULL)
+                        UNION ALL
+                        (SELECT
+                            u.nombre_usuario,
+                            'Venta POS Procesada' as tipo_accion,
+                            CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
+                            v.fecha_venta as fecha
+                        FROM ventas v
+                        JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
+                        WHERE v.id_usuario_venta IS NOT NULL)
+                        ORDER BY fecha DESC
+                        LIMIT 50";
+
+                $stmt = $pdo->query($sql);
+                $log = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode(['success' => true, 'log' => $log]);
+            }
+            break;
+
+        
+
+//Estadistica
+
 case 'admin/getSalesStats':
     header('Content-Type: application/json');
 
@@ -179,31 +253,7 @@ case 'admin/getProductStats':
     }
     break;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//Backup de base de datoa
+//Backup de base de datos
 case 'admin/createBackup':
     // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
     set_time_limit(120);
@@ -1749,20 +1799,23 @@ case 'admin/batchAction':
             $message = 'Productos eliminados correctamente.';
             break;
 
-          case 'deactivate':
+
+
+case 'deactivate':
             // Asumiendo que el estado 'Inactivo' tiene el ID 2
             $stmt = $pdo->prepare("UPDATE productos SET estado = 2 WHERE id_producto IN ($placeholders)");
             $stmt->execute($productIds);
-            $message = 'Productos inactivados en la tienda.';
+            $message = count($productIds) . ' producto(s) inactivado(s) en la tienda.';
             break;
 
                     // --- CÓDIGO INTEGRADO ---
-                    case 'activate':
+    case 'activate':
                         // Asumiendo que el estado 'Activo' tiene el ID 1
-                        $stmt = $pdo->prepare("UPDATE productos SET estado = 1 WHERE id_producto IN ($placeholders)");
-                        $stmt->execute($productIds);
-                        $message = 'Productos activados en la tienda.';
-                        break;
+            $stmt = $pdo->prepare("UPDATE productos SET estado = 1 WHERE id_producto IN ($placeholders)");
+            $stmt->execute($productIds);
+            $message = count($productIds) . ' producto(s) activado(s) en la tienda.';
+            break;
+    break;
                     // --- FIN DEL CÓDIGO INTEGRADO ---
                                     case 'change-department':
                 $departmentId = $data['departmentId'] ?? null;

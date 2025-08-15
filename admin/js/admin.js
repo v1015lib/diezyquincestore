@@ -812,6 +812,7 @@ mainContent.addEventListener('click', async (event) => {
     }
 
 // REEMPLAZA ESTA FUNCIÓN COMPLETA
+// REEMPLAZA ESTA FUNCIÓN EN admin.js
 async function loadModule(moduleName) {
     mainContent.innerHTML = '<h2>Cargando...</h2>';
     try {
@@ -819,30 +820,29 @@ async function loadModule(moduleName) {
         if (!response.ok) throw new Error('Módulo no encontrado.');
         mainContent.innerHTML = await response.text();
 
-        if (moduleName === 'productos') {
+        if (moduleName === 'dashboard') {
+            await loadActionContent('dashboard/ventas_por_usuario'); // CORREGIDO: Carga el resumen por defecto
+        } else if (moduleName === 'productos') {
             await loadActionContent('productos/todos_los_productos');
-        }else if (moduleName === 'clientes') {
+        } else if (moduleName === 'clientes') {
             await loadActionContent('clientes/todos_los_clientes');
-        }else if (moduleName === 'departamentos') { 
+        } else if (moduleName === 'departamentos') {
             await loadActionContent('departamentos/gestion');
-        }else if (moduleName === 'utilidades') {
+        } else if (moduleName === 'utilidades') {
             await loadActionContent('utilidades/copia_seguridad');
-
-        }else if (moduleName === 'tarjetas') {
+        } else if (moduleName === 'tarjetas') {
             await loadActionContent('tarjetas/gestion');
-        }else if (moduleName === 'inventario') {
+        } else if (moduleName === 'inventario') {
             await loadActionContent('inventario/agregar_stock');
-        }else if (moduleName === 'estadisticas') { 
+        } else if (moduleName === 'estadisticas') {
             await loadActionContent('estadisticas/resumen');
-        }
-        else if (moduleName === 'web_admin') {
+        } else if (moduleName === 'web_admin') {
             await loadActionContent('web_admin/sliders');
-        const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
+            const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
             if (activeButton) {
                 activeButton.classList.add('active');
             }
         }
-        
     } catch (error) {
         mainContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
     }
@@ -902,7 +902,13 @@ async function loadActionContent(actionPath) {
             fetchAndRenderInventoryHistory();
         }else if (actionPath === 'estadisticas/resumen') {
             loadStatisticsWidgets();
-        } 
+        }else if (actionPath === 'dashboard/resumen') {
+            // No necesita acción extra, solo muestra el HTML.
+        } else if (actionPath === 'dashboard/ventas_por_usuario') {
+            await fetchAndRenderUserSales();
+        } else if (actionPath === 'dashboard/log_actividad') {
+            await fetchAndRenderActivityLog();
+        }
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
     }
@@ -959,7 +965,7 @@ async function loadActionContent(actionPath) {
         }
     }
     
-    function updateBatchActionsState() {
+    /*function updateBatchActionsState() {
         const selectedRows = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr'));
         const batchSelector = mainContent.querySelector('#batch-action-selector');
         const batchButton = mainContent.querySelector('#batch-action-execute');
@@ -990,7 +996,49 @@ async function loadActionContent(actionPath) {
         } else if (areAllInactive) {
             activateOption.style.display = 'block';
         }
+    } aqui no unciona la accion e activar o desactivar en lo te los emas si es funcional */
+
+    function updateBatchActionsState() {
+    const selectedRows = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr'));
+    const batchSelector = mainContent.querySelector('#batch-action-selector');
+    const batchButton = mainContent.querySelector('#batch-action-execute');
+
+    if (!batchSelector || !batchButton) return;
+
+    const activateOption = batchSelector.querySelector('option[value="activate"]');
+    const deactivateOption = batchSelector.querySelector('option[value="deactivate"]');
+    if (!activateOption || !deactivateOption) return;
+
+    const totalSelected = selectedRows.length;
+
+    // 1. Estado inicial: todo deshabilitado y opciones ocultas
+    batchSelector.disabled = true;
+    batchButton.disabled = true;
+    batchSelector.value = ''; // Resetea la selección
+    activateOption.style.display = 'none';
+    deactivateOption.style.display = 'none';
+
+    // 2. Si no hay nada seleccionado, no hacemos nada más
+    if (totalSelected === 0) return;
+
+    // 3. Habilitamos el selector ya que hay productos seleccionados
+    batchSelector.disabled = false;
+
+    // 4. Verificamos el estado de los productos seleccionados
+    // dataset.status viene de la fila <tr> que se genera en fetchAndRenderProducts
+    const areAllActive = selectedRows.every(row => row.dataset.status === 'activo');
+    const areAllInactive = selectedRows.every(row => row.dataset.status !== 'activo');
+    
+    // 5. Mostramos la opción correspondiente según la lógica
+    if (areAllActive) {
+        // Si todos están activos, solo mostramos la opción para desactivar
+        deactivateOption.style.display = 'block';
+    } else if (areAllInactive) {
+        // Si todos están inactivos, solo mostramos la opción para activar
+        activateOption.style.display = 'block';
     }
+    // Si hay una mezcla de activos e inactivos, ninguna opción se mostrará.
+}
 
     function resetProductForm(form) {
         if (!form) return;
@@ -2751,8 +2799,8 @@ async function loadStatisticsWidgets() {
 
 async function loadStatisticsWidgets() {
     const endDate = new Date();
-    const startDate = new Date(endDate.getFullYear(), 0, 1);
-    startDate.setFullYear(startDate.getFullYear() - 1); // Rango por defecto: último año
+    const startDate = new Date(endDate.getFullYear(), 7);
+    startDate.setFullYear(startDate.getFullYear() - 0); // Rango por defecto:  año actual 0
 
     const formatDate = (date) => date.toISOString().split('T')[0];
 
@@ -2834,30 +2882,137 @@ function renderSalesChart(dailySales) {
         window.mySalesChart.destroy();
     }
 
-    window.mySalesChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Ventas por Día',
-                data: data,
-                backgroundColor: '#0C0A4E)',
-                borderColor: 'rgba(12, 10, 78, 1)',
-                borderWidth: .5,
-                tension: .5
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            },
-            responsive: true,
-            maintainAspectRatio: true
+ window.mySalesChart = new Chart(ctx, {
+
+    type: 'line',
+
+    data: {
+
+      labels: labels,
+
+      datasets: [{
+
+        label: 'Ventas por Día',
+
+        data: data,
+
+        backgroundColor: '#0C0A4E)',
+
+        borderColor: 'rgba(12, 10, 78, 1)',
+
+        borderWidth: .5,
+
+        tension: 0
+
+      }]
+
+    },
+
+    options: {
+
+      scales: {
+
+       
+
+        y: {
+
+          beginAtZero: true
+
         }
-    });
+
+      },
+
+      responsive: true,
+
+      maintainAspectRatio: true
+
+    }
+
+  });
 }
+
+
+
+
+
+/*****************************************************************/
+/*****************************************************************/
+async function fetchAndRenderUserSales() {
+    const tableBody = document.getElementById('user-sales-tbody');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="3">Cargando datos...</td></tr>';
+
+    try {
+        // Llama al endpoint 'admin/userSalesStats'
+        const response = await fetch(`${API_BASE_URL}?resource=admin/userSalesStats`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.stats.length > 0) {
+            result.stats.forEach(stat => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${stat.nombre_usuario}</td>
+                    <td>$${parseFloat(stat.total_vendido).toFixed(2)}</td>
+                    <td>${stat.numero_ventas}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="3">No se encontraron ventas para los usuarios en el rango de fechas.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="3" style="color:red;">Error al cargar las estadísticas de ventas.</td></tr>`;
+    }
+}
+
+async function fetchAndRenderActivityLog() {
+    const tableBody = document.getElementById('activity-log-tbody');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="4">Cargando registro de actividad...</td></tr>';
+
+    try {
+        // Llama al endpoint 'admin/activityLog'
+        const response = await fetch(`${API_BASE_URL}?resource=admin/activityLog`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.log.length > 0) {
+            result.log.forEach(entry => {
+                const row = document.createElement('tr');
+                const entryDate = new Date(entry.fecha).toLocaleString('es-SV');
+                row.innerHTML = `
+                    <td>${entryDate}</td>
+                    <td>${entry.nombre_usuario}</td>
+                    <td>${entry.tipo_accion}</td>
+                    <td>${entry.descripcion}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="4">No hay actividad reciente para mostrar.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar el registro de actividad.</td></tr>`;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 });
