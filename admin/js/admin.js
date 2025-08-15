@@ -11,12 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelector = document.getElementById('selector-imagen');
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
-
     const API_BASE_URL = '../api/index.php';
 
 
 
- 
     let currentFilters = {
         search: '',
         department: '',
@@ -2713,10 +2711,10 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
             const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('es-SV');
 
             salesWidget.innerHTML = `
-                <p style="font-size: 2rem; font-weight: 700; color: #0C0A4E;">$${stats.total_revenue}</p>
+                <p style="font-size: 2rem; font-weight: 400; color: #0C0A4E;">$${stats.total_revenue}</p>
                 <ul style="list-style: none; padding: 0;">
                     ${stats.sales_by_payment.map(item => `
-                        <li style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
+                        <li style="display: flex; justify-content: space-between; padding: 0.2rem 0;">
                             <span>${item.nombre_metodo}:</span>
                             <strong>${item.count} ventas</strong>
                         </li>

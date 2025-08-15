@@ -106,7 +106,7 @@
 .chart-canvas-wrapper {
     flex-grow: 1; // Hace que el contenedor del canvas ocupe todo el espacio vertical disponible
     position: relative;
-    
+    bg
     canvas {
         width: 100% !important;
         height: 100% !important;
@@ -115,6 +115,7 @@
 
 // Estilos para la cuadrícula de tarjetas de resumen (más limpias)
 .summary-grid {
+    background-color: red;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1rem;

@@ -55,17 +55,17 @@
 .widgets-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
+    gap: .5rem;
 }
 
 .widget {
     background-color: #fff;
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: .5rem;
     border: 1px solid $border-color;
 
     h3 {
-        font-size: 1.1rem;
+        font-size: 1rem;
         color: $text-color;
         margin: 0 0 1rem 0;
         padding-bottom: 0.75rem;
@@ -74,6 +74,14 @@
 
     .widget-content {
         color: $secondary-color;
+        font-size: .8rem;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        align-content: center;
+        justify-content: flex-start;
+        height: 100%;
     }
 }
 
