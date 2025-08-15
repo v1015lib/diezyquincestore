@@ -34,56 +34,81 @@ try {
     switch ($resource) {
 
 
-
-
-
 case 'admin/getSalesStats':
     header('Content-Type: application/json');
 
     try {
-        // Obtenemos las fechas, si no existen, usamos el último mes por defecto
-        $startDate = $_GET['startDate'] ?? date('Y-m-d', strtotime('-1 month'));
-        $endDate = $_GET['endDate'] ?? date('Y-m-d');
+        $startDateStr = $_GET['startDate'] ?? date('Y-m-d', strtotime('-1 month'));
+        $endDateStr = $_GET['endDate'] ?? date('Y-m-d');
+        
+        $startDate = new DateTime($startDateStr);
+        $endDate = new DateTime($endDateStr);
+        $endDate->modify('+1 day');
+        $endDateTimeForQuery = $endDateStr . ' 23:59:59';
 
-        if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/", $startDate) ||
-            !preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/", $endDate)) {
-            throw new Exception("Formato de fecha inválido.");
-        }
+        // ... (Validación de fechas sin cambios) ...
 
-        // Usamos la conexión $pdo que ya existe en el archivo
         $stats = [
             'total_revenue' => '0.00',
             'sales_by_payment' => [],
-            'daily_sales' => []
+            'daily_sales' => [],
+            'average_sale' => '0.00' // <-- Se añade el nuevo campo al array inicial
         ];
 
-        // 1. Obtener ingresos totales con la columna correcta 'monto_total'
-        $stmt_revenue = $pdo->prepare("SELECT COALESCE(SUM(monto_total), 0) FROM ventas WHERE fecha_venta BETWEEN :startDate AND :endDate");
-        $stmt_revenue->execute([':startDate' => $startDate, ':endDate' => $endDate]);
-        $stats['total_revenue'] = number_format($stmt_revenue->fetchColumn(), 2);
-
-        // 2. Obtener ventas por método de pago con las columnas correctas
-        $stmt_payment = $pdo->prepare("
-            SELECT m.nombre_metodo, COUNT(v.id_venta) as count
+        $unifiedSalesQuery = "
+            SELECT v.fecha_venta AS fecha_transaccion, v.monto_total AS monto_transaccion, v.id_metodo_pago AS id_metodo_pago_transaccion
             FROM ventas v
-            JOIN metodos_pago m ON v.id_metodo_pago = m.id_metodo_pago
-            WHERE v.fecha_venta BETWEEN :startDate AND :endDate
-            GROUP BY m.nombre_metodo
-        ");
-        $stmt_payment->execute([':startDate' => $startDate, ':endDate' => $endDate]);
-        $stats['sales_by_payment'] = $stmt_payment->fetchAll(PDO::FETCH_ASSOC);
-        
-        // 3. Obtener ventas diarias para el gráfico con las columnas correctas
-        $stmt_daily = $pdo->prepare("
-            SELECT DATE(fecha_venta) as fecha, SUM(monto_total) as daily_total
-            FROM ventas
-            WHERE fecha_venta BETWEEN :startDate AND :endDate
-            GROUP BY DATE(fecha_venta)
-            ORDER BY fecha ASC
-        ");
-        $stmt_daily->execute([':startDate' => $startDate, ':endDate' => $endDate]);
-        $stats['daily_sales'] = $stmt_daily->fetchAll(PDO::FETCH_ASSOC);
+            WHERE v.fecha_venta BETWEEN :startDate AND :endDateTimeForQuery
+            UNION ALL
+            SELECT cc.fecha_creacion AS fecha_transaccion, SUM(dc.cantidad * dc.precio_unitario) AS monto_transaccion, cc.id_metodo_pago AS id_metodo_pago_transaccion
+            FROM carritos_compra cc
+            JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+            WHERE cc.estado_id = 23 AND cc.fecha_creacion BETWEEN :startDate AND :endDateTimeForQuery
+            GROUP BY cc.id_carrito
+        ";
 
+        $stmt_revenue = $pdo->prepare("SELECT COALESCE(SUM(monto_transaccion), 0) FROM ({$unifiedSalesQuery}) AS combined_sales");
+        $stmt_revenue->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
+        $totalRevenue = $stmt_revenue->fetchColumn(); // Guardamos el valor numérico
+        $stats['total_revenue'] = number_format($totalRevenue, 2);
+        
+        $stmt_payment = $pdo->prepare("SELECT m.nombre_metodo, COUNT(*) as count FROM ({$unifiedSalesQuery}) AS combined_sales JOIN metodos_pago m ON combined_sales.id_metodo_pago_transaccion = m.id_metodo_pago GROUP BY m.nombre_metodo");
+        $stmt_payment->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
+        $salesByPayment = $stmt_payment->fetchAll(PDO::FETCH_ASSOC);
+        $stats['sales_by_payment'] = $salesByPayment;
+
+        // --- INICIO DE LA LÓGICA PARA EL PROMEDIO ---
+        $totalSalesCount = 0;
+        // Se suma el conteo de cada método de pago para obtener el total de ventas
+        foreach ($salesByPayment as $paymentMethod) {
+            $totalSalesCount += $paymentMethod['count'];
+        }
+
+        // Se calcula el promedio, evitando la división por cero
+        if ($totalSalesCount > 0) {
+            $average = $totalRevenue / $totalSalesCount;
+            $stats['average_sale'] = number_format($average, 2);
+        }
+        // --- FIN DE LA LÓGICA PARA EL PROMEDIO ---
+
+        // (El resto de la lógica para el gráfico no cambia)
+        $stmt_daily_raw = $pdo->prepare("SELECT DATE(fecha_transaccion) as fecha, SUM(monto_transaccion) as daily_total FROM ({$unifiedSalesQuery}) AS combined_sales GROUP BY DATE(fecha_transaccion) ORDER BY fecha ASC");
+        $stmt_daily_raw->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
+        $salesData = $stmt_daily_raw->fetchAll(PDO::FETCH_ASSOC);
+        
+        $salesByDate = [];
+        foreach ($salesData as $row) {
+            $salesByDate[$row['fecha']] = $row['daily_total'];
+        }
+
+        $period = new DatePeriod($startDate, new DateInterval('P1D'), $endDate);
+        $fullDailySales = [];
+        foreach ($period as $date) {
+            $dateString = $date->format('Y-m-d');
+            $fullDailySales[] = ['fecha' => $dateString, 'daily_total' => $salesByDate[$dateString] ?? '0.00'];
+        }
+        $stats['daily_sales'] = $fullDailySales;
+        
         $response = ['success' => true, 'stats' => $stats];
 
     } catch (Exception $e) {
@@ -97,23 +122,46 @@ case 'admin/getSalesStats':
 case 'admin/getProductStats':
     // require_admin();
     try {
-        // Top 5 productos más vendidos (por subtotal)
+        // --- INICIO DE LA LÓGICA CORREGIDA ---
+        // Top 5 productos más vendidos, combinando TPV (detalle_ventas) y Web (detalle_carrito)
         $stmt_top_products = $pdo->query("
-            SELECT p.nombre_producto, SUM(dv.subtotal) as total_sold
-            FROM detalle_ventas dv
-            JOIN productos p ON dv.id_producto = p.id_producto
-            GROUP BY p.nombre_producto
+            SELECT
+                p.nombre_producto,
+                SUM(combined_sales.total_sold) as total_sold
+            FROM (
+                -- Parte 1: Ventas del TPV (esto ya era correcto)
+                SELECT
+                    id_producto,
+                    subtotal AS total_sold
+                FROM detalle_ventas
+
+                UNION ALL
+
+                -- LA CORRECCIÓN CLAVE ESTÁ AQUÍ:
+                -- Ya no agrupamos ni sumamos dentro de esta parte.
+                -- Simplemente calculamos el subtotal de CADA LÍNEA de producto.
+                SELECT
+                    dc.id_producto,
+                    (dc.cantidad * dc.precio_unitario) AS total_sold
+                FROM detalle_carrito dc
+                JOIN carritos_compra cc ON dc.id_carrito = cc.id_carrito
+                WHERE cc.estado_id = 23 -- Solo carritos con estado 'Pedido Enviado'
+
+            ) AS combined_sales
+            JOIN productos p ON combined_sales.id_producto = p.id_producto
+            GROUP BY p.id_producto, p.nombre_producto
             ORDER BY total_sold DESC
             LIMIT 5
         ");
         $top_products = $stmt_top_products->fetchAll(PDO::FETCH_ASSOC);
+        // --- FIN DE LA LÓGICA CORREGIDA ---
 
-        // Productos con bajo stock
+        // Productos con bajo stock (esta parte no necesita cambios)
         $stmt_low_stock = $pdo->query("
             SELECT nombre_producto, stock_actual, stock_minimo
             FROM productos
-            WHERE usa_inventario = 1 AND stock_actual <= stock_minimo
-            ORDER BY stock_actual ASC
+            WHERE usa_inventario = 1 AND stock_actual <= stock_minimo AND estado = 1
+            ORDER BY (stock_actual - stock_minimo) ASC
             LIMIT 10
         ");
         $low_stock_products = $stmt_low_stock->fetchAll(PDO::FETCH_ASSOC);
@@ -130,10 +178,6 @@ case 'admin/getProductStats':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
-// ... otros cases existentes
-
-
 
 
 

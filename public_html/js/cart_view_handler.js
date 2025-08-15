@@ -39,12 +39,12 @@ export async function loadCartDetails() {
                 cartContent.insertAdjacentHTML('beforeend', itemHtml);
             });
         } else {
-            cartContent.innerHTML = '<p>Tu carrito está vacío.</p>';
+            cartContent.innerHTML = '<p>Tu Lista esta vacia.</p>';
         }
         cartTotalPrice.textContent = `$${data.total}`;
     } catch (error) {
-        console.error('Error al cargar el carrito:', error);
-        cartContent.innerHTML = '<p>Hubo un error al cargar tu carrito.</p>';
+        console.error('Error al cargar la lista:', error);
+        cartContent.innerHTML = '<p>Hubo un error al cargar tu lista.</p>';
     }
 }
 
@@ -83,7 +83,7 @@ export function initializeCartView() {
 
     if (clearCartBtn) {
         clearCartBtn.addEventListener('click', async () => {
-            if (!confirm('¿Estás seguro de que quieres vaciar tu carrito?')) {
+            if (!confirm('¿Estás seguro de que quieres vaciar tu lista?')) {
                 return;
             }
 
@@ -94,7 +94,7 @@ export function initializeCartView() {
                 const result = await response.json();
 
                 if (result.success) {
-                    showNotification('Carrito vaciado con éxito.', 'info');
+                    showNotification('Lista vaciada con éxito.', 'info');
                     
                     // --- Lógica de UI en tiempo real ---
                     
@@ -103,7 +103,7 @@ export function initializeCartView() {
                     items.forEach(item => item.classList.add('is-removing'));
 
                     setTimeout(() => {
-                        cartContent.innerHTML = '<p>Tu carrito está vacío.</p>';
+                        cartContent.innerHTML = '<p>Tu lista esta vacia..</p>';
                     }, 400);
 
                     // 2. Actualizamos totales del PANEL y HEADER
@@ -121,11 +121,11 @@ export function initializeCartView() {
                     // --- FIN: CÓDIGO AÑADIDO PARA LA CORRECCIÓN ---
 
                 } else {
-                    throw new Error(result.error || 'No se pudo vaciar el carrito.');
+                    throw new Error(result.error || 'No se pudo vaciar la lista.');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
-                console.error('Error al vaciar el carrito:', error);
+                console.error('Error al vaciar la lista:', error);
             }
         });
     }

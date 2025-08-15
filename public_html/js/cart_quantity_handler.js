@@ -17,7 +17,7 @@ async function updateCartAPI(productId, quantity) {
             // Comprobamos si el carrito ha quedado vacío
             const cartContent = document.getElementById('cart-content');
             if (cartContent && cartContent.children.length === 0) {
-                cartContent.innerHTML = '<p>Tu carrito está vacío.</p>';
+                cartContent.innerHTML = '<p>Tu lista esta vacia.</p>';
             }
         });
     }
@@ -60,10 +60,10 @@ async function updateCartAPI(productId, quantity) {
         }
 
     } catch (error) {
-        console.error('Error al actualizar el carrito:', error);
+        console.error('Error al actualizar la lista:', error);
         // SOLO si hay un error, recargamos todo el carrito para asegurar que el usuario vea el estado real.
         // Esto evita que la interfaz quede en un estado inconsistente.
-        showNotification('Error al actualizar, restaurando carrito.', 'error');
+        showNotification('Error al actualizar, restaurando lista.', 'error');
         await loadCartDetails(); 
     }
 }

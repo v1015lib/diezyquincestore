@@ -2710,19 +2710,25 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
             const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('es-SV');
             const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('es-SV');
 
+            // SE MODIFICA ESTE BLOQUE PARA AÑADIR LA LÍNEA DEL PROMEDIO
             salesWidget.innerHTML = `
-                <p style="font-size: 2rem; font-weight: 400; color: #0C0A4E;">$${stats.total_revenue}</p>
-                <ul style="list-style: none; padding: 0;">
+                <p style="font-size: 2rem; font-weight: 400; color: #0C0A4E; margin-bottom: 5px;">$${stats.total_revenue}</p>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: red;">
                     ${stats.sales_by_payment.map(item => `
                         <li style="display: flex; justify-content: space-between; padding: 0.2rem 0;">
                             <span>${item.nombre_metodo}:</span>
                             <strong>${item.count} ventas</strong>
                         </li>
                     `).join('') || '<li>No hay ventas por método de pago.</li>'}
+                    
+                    <li style="display: flex; justify-content: space-between; padding: 0.2rem 0; margin-top: 8px; border-top: 1px solid #eee;">
+                        <span>Promedio por Venta:</span>
+                        <strong>$${stats.average_sale}</strong>
+                    </li>
                 </ul>
             `;
             
-            chartTitle.textContent = `Gráfico de Ventas Diarias (${formattedStartDate} - ${formattedEndDate})`;
+            chartTitle.textContent = `Historial de Ventas (POS y WEB) (${formattedStartDate} - ${formattedEndDate})`;
             renderSalesChart(stats.daily_sales);
         } else {
             throw new Error(result.error);
@@ -2732,7 +2738,6 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
         chartTitle.textContent = 'Error al cargar gráfico';
     }
 }
-
 
 // --- LÓGICA DEL MÓDULO DE ESTADÍSTICAS ---
 
@@ -2746,7 +2751,7 @@ async function loadStatisticsWidgets() {
 
 async function loadStatisticsWidgets() {
     const endDate = new Date();
-    const startDate = new Date();
+    const startDate = new Date(endDate.getFullYear(), 0, 1);
     startDate.setFullYear(startDate.getFullYear() - 1); // Rango por defecto: último año
 
     const formatDate = (date) => date.toISOString().split('T')[0];
@@ -2836,10 +2841,10 @@ function renderSalesChart(dailySales) {
             datasets: [{
                 label: 'Ventas por Día',
                 data: data,
-                backgroundColor: 'rgba(12, 10, 78, 0.2)',
+                backgroundColor: '#0C0A4E)',
                 borderColor: 'rgba(12, 10, 78, 1)',
-                borderWidth: 2,
-                tension: 0.1
+                borderWidth: .5,
+                tension: .5
             }]
         },
         options: {
@@ -2849,7 +2854,7 @@ function renderSalesChart(dailySales) {
                 }
             },
             responsive: true,
-            maintainAspectRatio: false
+            maintainAspectRatio: true
         }
     });
 }

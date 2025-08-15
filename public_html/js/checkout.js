@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 if (data.success) {
-                    console.log('El carrito se ha marcado como completado.');
+                    console.log('La lista se ha marcado como completado.');
                     
                     // Abrimos el enlace de WhatsApp en una nueva pestaña
                     window.open(whatsappUrl, '_blank');

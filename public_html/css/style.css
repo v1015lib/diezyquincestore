@@ -2068,7 +2068,7 @@ body.page-checkout {
   display: grid;
   -ms-grid-columns: 1fr;
   grid-template-columns: 1fr;
-  gap: 1.5rem;
+  gap: 0.5rem;
   min-height: 100vh;
 }
 .dashboard-content .form-container-profile {
@@ -2094,6 +2094,9 @@ body.page-checkout {
 .dashboard-content .form-container-profile .form-group {
   margin-bottom: 0.85rem;
 }
+.dashboard-content .form-container-profile .form-group label {
+  font-size: 1rem;
+}
 .dashboard-content .form-container-profile label {
   display: block;
   font-weight: 600;
@@ -2107,10 +2110,11 @@ body.page-checkout {
 .dashboard-content .form-container-profile input[type=tel] {
   width: 100%;
   font-size: inherit;
-  padding: 10px 12px;
+  padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 6px;
   background-color: #fdfdfd;
+  font-size: 0.8rem;
 }
 .dashboard-content .form-container-profile input[type=text]:focus,
 .dashboard-content .form-container-profile input[type=email]:focus,
@@ -2139,12 +2143,14 @@ body.page-checkout {
 .dashboard-content .form-container-profile .submit-btn {
   background-color: #0C0A4E;
   color: #D4A017;
-  padding: 1rem;
+  padding: 0.5rem;
   border: none;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  width: 50%;
+  width: -webkit-fit-content;
+  width: -moz-fit-content;
+  width: fit-content;
   cursor: pointer;
 }
 .dashboard-content .form-container-pass {
@@ -2170,6 +2176,9 @@ body.page-checkout {
 .dashboard-content .form-container-pass .form-group {
   margin-bottom: 0.85rem;
 }
+.dashboard-content .form-container-pass .form-group label {
+  font-size: 1rem;
+}
 .dashboard-content .form-container-pass label {
   display: block;
   font-weight: 600;
@@ -2183,10 +2192,11 @@ body.page-checkout {
 .dashboard-content .form-container-pass input[type=tel] {
   width: 100%;
   font-size: inherit;
-  padding: 10px 12px;
+  padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 6px;
   background-color: #fdfdfd;
+  font-size: 0.8rem;
 }
 .dashboard-content .form-container-pass input[type=text]:focus,
 .dashboard-content .form-container-pass input[type=email]:focus,
@@ -2215,12 +2225,14 @@ body.page-checkout {
 .dashboard-content .form-container-pass .submit-btn {
   background-color: #0C0A4E;
   color: #D4A017;
-  padding: 1rem;
+  padding: 0.5rem;
   border: none;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  width: 50%;
+  width: -webkit-fit-content;
+  width: -moz-fit-content;
+  width: fit-content;
   cursor: pointer;
 }
 
@@ -2967,7 +2979,8 @@ body.page-checkout {
   .form-group input[type=password],
   .form-group input[type=tel] {
     font-size: 16px !important; /* Evita zoom */
-    padding: 12px 14px;
+    padding: 0.2rem;
+    font-size: 0.8rem;
   }
 }
 /* 9. Cart panel responsive */
@@ -3027,4 +3040,7 @@ body.page-checkout {
       min-height: 100vh !important;
     }
   }
+}
+.form-group > * {
+  font-size: 0.8rem !important;
 }
