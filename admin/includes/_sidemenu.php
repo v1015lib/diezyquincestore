@@ -48,7 +48,7 @@
                 <span class="menu-text">Utilidades</span>
             </a></li>   
             <li class="separator"></li> 
-            <li><a href="#">
+            <li><a href="api/logout.php">
                 <span class="menu-icon">🚪</span>
                 <span class="menu-text">Cerrar Sesión</span>
             </a></li>

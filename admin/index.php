@@ -2,15 +2,17 @@
 session_start();
 
 // --- Bloque de Seguridad (Comentado para desarrollo) ---
-//if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
-//    // Asumiendo que el login está en la raíz del dominio principal
-//    header("Location: ../login.php"); 
-//    exit();
-//}
-//if ($_SESSION['rol'] != 'administrador') { 
-//    die('Acceso denegado. Se requieren permisos de administrador.');
-//}
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
+   // Asumiendo que el login está en la raíz del dominio principal
+   header("Location: login-form.php"); 
+   exit();
+}
+if ($_SESSION['rol'] != 'administrador') { 
+    die('Acceso denegado. Se requieren permisos de administrador.');
+}
+
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>

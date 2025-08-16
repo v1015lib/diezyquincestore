@@ -1985,7 +1985,7 @@ async function fetchAndRenderCardReport() {
 }
 
 
-// --- Lógica para el modal de asignación ---
+//Asignacion de tarjeta
 let selectedCardId = null;
 
 mainContent.addEventListener('click', event => {

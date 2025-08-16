@@ -518,6 +518,7 @@ case 'admin/assignCard':
             $data = json_decode(file_get_contents('php://input'), true);
             $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
             $customer_id = filter_var($data['customer_id'] ?? 0, FILTER_VALIDATE_INT);
+            $userId = $_SESSION['id_usuario'] ?? 1; // Captura el ID del usuario
             
             if (!$card_id || !$customer_id) {
                 http_response_code(400);
@@ -526,9 +527,9 @@ case 'admin/assignCard':
             }
             
             try {
-                // Estado 1 = "Activo"
-                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET id_cliente = :customer_id, estado_id = 1, fecha_activacion = NOW() WHERE id_tarjeta = :card_id AND id_cliente IS NULL");
-                $stmt->execute([':customer_id' => $customer_id, ':card_id' => $card_id]);
+                // MODIFICADO: Se añade asignada_por_usuario_id
+                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET id_cliente = :customer_id, estado_id = 1, fecha_activacion = NOW(), asignada_por_usuario_id = :user_id WHERE id_tarjeta = :card_id AND id_cliente IS NULL");
+                $stmt->execute([':customer_id' => $customer_id, ':user_id' => $userId, ':card_id' => $card_id]);
                 
                 if ($stmt->rowCount() > 0) {
                     echo json_encode(['success' => true, 'message' => 'Tarjeta asignada correctamente.']);
