@@ -63,59 +63,69 @@ try {
             break;
 
 case 'admin/activityLog':
-            if ($method == 'GET') {
-                // Lógica directamente en el case
-                // CÓDIGO MODIFICADO (COPIA Y PEGA ESTO EN TU CASE)
+    if ($method == 'GET') {
+        // 1. Obtenemos la fecha del filtro. Si no se envía, se usa la fecha actual.
+        $filter_date = $_GET['date'] ?? date('Y-m-d');
 
-$sql = "(SELECT
-            u.nombre_usuario,
-            CASE
-                WHEN mi.cantidad > 0 THEN 'Stock Agregado'
-                ELSE 'Ajuste de Stock'
-            END as tipo_accion,
-            CONCAT(mi.cantidad, ' unidades a: ', p.nombre_producto) as descripcion,
-            mi.fecha as fecha
-        FROM movimientos_inventario mi
-        JOIN usuarios u ON mi.id_usuario = u.id_usuario
-        JOIN productos p ON mi.id_producto = p.id_producto
-        WHERE mi.id_usuario IS NOT NULL)
-        UNION ALL
-        (SELECT
-            u.nombre_usuario,
-            'Venta POS Procesada' as tipo_accion,
-            CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
-            v.fecha_venta as fecha
-        FROM ventas v
-        JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
-        WHERE v.id_usuario_venta IS NOT NULL)
-        UNION ALL
-        (SELECT
-            u.nombre_usuario,
-            'Tarjeta Asignada' as tipo_accion,
-            CONCAT('Tarjeta ', tr.numero_tarjeta, ' a cliente ', c.nombre_usuario) as descripcion,
-            tr.fecha_activacion as fecha
-        FROM tarjetas_recargables tr
-        JOIN usuarios u ON tr.asignada_por_usuario_id = u.id_usuario
-        JOIN clientes c ON tr.id_cliente = c.id_cliente
-        WHERE tr.asignada_por_usuario_id IS NOT NULL AND tr.fecha_activacion IS NOT NULL)
-        UNION ALL
-        (SELECT
-            u.nombre_usuario,
-            ra.tipo_accion,
-            ra.descripcion,
-            ra.fecha
-        FROM registros_actividad ra
-        JOIN usuarios u ON ra.id_usuario = u.id_usuario)
-        ORDER BY fecha DESC
-        LIMIT 50";
+        // 2. Se añade una condición WHERE DATE(...) a cada SELECT dentro del UNION.
+        $sql = "(SELECT
+                    u.nombre_usuario,
+                    CASE
+                        WHEN mi.cantidad > 0 THEN 'Stock Agregado'
+                        ELSE 'Ajuste de Stock'
+                    END as tipo_accion,
+                    CONCAT(mi.cantidad, ' unidades a: ', p.nombre_producto) as descripcion,
+                    mi.fecha as fecha
+                FROM movimientos_inventario mi
+                JOIN usuarios u ON mi.id_usuario = u.id_usuario
+                JOIN productos p ON mi.id_producto = p.id_producto
+                WHERE mi.id_usuario IS NOT NULL AND DATE(mi.fecha) = :date1)
+                UNION ALL
+                (SELECT
+                    u.nombre_usuario,
+                    'Venta POS Procesada' as tipo_accion,
+                    CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
+                    v.fecha_venta as fecha
+                FROM ventas v
+                JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
+                WHERE v.id_usuario_venta IS NOT NULL AND DATE(v.fecha_venta) = :date2)
+                UNION ALL
+                (SELECT
+                    u.nombre_usuario,
+                    'Tarjeta Asignada' as tipo_accion,
+                    CONCAT('Tarjeta ', tr.numero_tarjeta, ' a cliente ', c.nombre_usuario) as descripcion,
+                    tr.fecha_activacion as fecha
+                FROM tarjetas_recargables tr
+                JOIN usuarios u ON tr.asignada_por_usuario_id = u.id_usuario
+                JOIN clientes c ON tr.id_cliente = c.id_cliente
+                WHERE tr.asignada_por_usuario_id IS NOT NULL AND tr.fecha_activacion IS NOT NULL AND DATE(tr.fecha_activacion) = :date3)
+                UNION ALL
+                (SELECT
+                    u.nombre_usuario,
+                    ra.tipo_accion,
+                    ra.descripcion,
+                    ra.fecha
+                FROM registros_actividad ra
+                JOIN usuarios u ON ra.id_usuario = u.id_usuario
+                WHERE DATE(ra.fecha) = :date4)
+                ORDER BY fecha DESC
+                LIMIT 200"; // Límite aumentado por si un día tiene mucha actividad
 
+        $stmt = $pdo->prepare($sql);
+        
+        // 3. Asignamos la misma fecha a todos los placeholders de la consulta.
+        $stmt->execute([
+            ':date1' => $filter_date,
+            ':date2' => $filter_date,
+            ':date3' => $filter_date,
+            ':date4' => $filter_date
+        ]);
+        
+        $log = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                $stmt = $pdo->query($sql);
-                $log = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                echo json_encode(['success' => true, 'log' => $log]);
-            }
-            break;
+        echo json_encode(['success' => true, 'log' => $log]);
+    }
+    break;
 
         
 
