@@ -591,43 +591,70 @@ case 'admin/getCustomersWithoutCard':
             break;
 
 case 'admin/assignCard':
-             // require_admin();
-            $data = json_decode(file_get_contents('php://input'), true);
-            $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
-            $customer_id = filter_var($data['customer_id'] ?? 0, FILTER_VALIDATE_INT);
-            $userId = $_SESSION['id_usuario'] ?? NULL; // Captura el ID del usuario
+    // require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
+    $customer_id = filter_var($data['customer_id'] ?? 0, FILTER_VALIDATE_INT);
+    $userId = $_SESSION['id_usuario'] ?? null;
 
+    if (!$userId) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'No se ha iniciado sesión correctamente.']);
+        break;
+    }
+    if (!$card_id || !$customer_id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
+        break;
+    }
 
-            // Es mejor verificar si el usuario realmente existe en la sesión
-            if (!$userId) {
-                http_response_code(401); // No autorizado
-                echo json_encode(['success' => false, 'error' => 'No se ha iniciado sesión correctamente.']);
-                break;
-            }
-    
+    $pdo->beginTransaction(); // Iniciar transacción para seguridad
+    try {
+        // 1. Obtenemos los datos necesarios para el log ANTES de hacer el cambio.
+        $stmt_info = $pdo->prepare(
+            "SELECT tr.numero_tarjeta, c.nombre_usuario 
+             FROM tarjetas_recargables tr, clientes c
+             WHERE tr.id_tarjeta = :card_id AND c.id_cliente = :customer_id"
+        );
+        $stmt_info->execute([':card_id' => $card_id, ':customer_id' => $customer_id]);
+        $info = $stmt_info->fetch(PDO::FETCH_ASSOC);
 
-            if (!$card_id || !$customer_id) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
-                break;
-            }
+        if (!$info) {
+            throw new Exception('La tarjeta o el cliente seleccionado no existen.');
+        }
+
+        // 2. Actualizamos la tarjeta para asignarla (ahora sin guardar datos de auditoría aquí).
+        $stmt = $pdo->prepare(
+            "UPDATE tarjetas_recargables 
+             SET id_cliente = :customer_id, estado_id = 1, fecha_activacion = NOW()
+             WHERE id_tarjeta = :card_id AND id_cliente IS NULL"
+        );
+        $stmt->execute([':customer_id' => $customer_id, ':card_id' => $card_id]);
+        
+        if ($stmt->rowCount() > 0) {
+            // 3. Insertamos el registro centralizado en 'registros_actividad'.
+            $stmt_log = $pdo->prepare(
+                "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
+                 VALUES (:id_usuario, :tipo_accion, :descripcion, NOW())"
+            );
+            $description = 'Se asignó la tarjeta ' . $info['numero_tarjeta'] . ' al cliente ' . $info['nombre_usuario'];
+            $stmt_log->execute([
+                ':id_usuario'   => $userId,
+                ':tipo_accion'  => 'Tarjeta Asignada',
+                ':descripcion'  => $description
+            ]);
             
-            try {
-                // MODIFICADO: Se añade asignada_por_usuario_id
-                $stmt = $pdo->prepare("UPDATE tarjetas_recargables SET id_cliente = :customer_id, estado_id = 1, fecha_activacion = NOW(), asignada_por_usuario_id = :user_id WHERE id_tarjeta = :card_id AND id_cliente IS NULL");
-                $stmt->execute([':customer_id' => $customer_id, ':user_id' => $userId, ':card_id' => $card_id]);
-                
-                if ($stmt->rowCount() > 0) {
-                    echo json_encode(['success' => true, 'message' => 'Tarjeta asignada correctamente.']);
-                } else {
-                    throw new Exception('La tarjeta no pudo ser asignada (posiblemente ya está en uso).');
-                }
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
-            
+            $pdo->commit(); // Confirmamos todos los cambios
+            echo json_encode(['success' => true, 'message' => 'Tarjeta asignada y registrada correctamente.']);
+        } else {
+            throw new Exception('La tarjeta no pudo ser asignada (posiblemente ya está en uso).');
+        }
+    } catch (Exception $e) {
+        $pdo->rollBack(); // Revertimos si algo falla
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
 case 'admin/deleteCard':
     // require_admin();
     $data = json_decode(file_get_contents('php://input'), true);

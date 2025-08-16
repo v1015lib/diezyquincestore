@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
     const API_BASE_URL = '../api/index.php';
-    
+
 
 
     let currentFilters = {
@@ -1471,7 +1471,7 @@ mainContent.addEventListener('input', (event) => {
 mainContent.addEventListener('change', async (event) => {
     const target = event.target;
 
-    
+
        if (target.id === 'activity-date-filter') {
         fetchAndRenderActivityLog();
         return; // Detiene la ejecución para no interferir con otros filtros
@@ -1497,7 +1497,7 @@ mainContent.addEventListener('change', async (event) => {
         await fetchAndRenderProducts();
 
     }
-    
+
 });
 
     const handleScroll = async () => {
@@ -1540,7 +1540,7 @@ mainContent.addEventListener('click', async (event) => {
         }
         return; // Detiene la ejecución para no interferir con otros listeners
     }
-    
+
     // --- Lógica para el botón de editar producto (y otros existentes) ---
     if (target.classList.contains('edit-product-btn')) {
         const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
@@ -2977,64 +2977,46 @@ async function fetchAndRenderUserSales() {
     }
 }
 
-async function fetchAndRenderActivityLog() {
-    const tableBody = document.getElementById('activity-log-tbody');
-    const dateFilter = document.getElementById('activity-date-filter');
-    if (!tableBody || !dateFilter) return;
+    async function fetchAndRenderActivityLog() {
+        const tableBody = document.getElementById('activity-log-tbody');
+        const dateFilter = document.getElementById('activity-date-filter');
+        if (!tableBody || !dateFilter) return;
 
-    // Si el campo de fecha está vacío, establece la fecha de hoy.
-    if (!dateFilter.value) {
-        dateFilter.valueAsDate = new Date();
-    }
-    
-    const selectedDate = dateFilter.value;
-    tableBody.innerHTML = '<tr><td colspan="4">Cargando registro de actividad...</td></tr>';
-
-    try {
-        // LA CORRECCIÓN CLAVE: Se añade el parámetro &date=${selectedDate} a la URL.
-        const response = await fetch(`${API_BASE_URL}?resource=admin/activityLog&date=${selectedDate}`);
-        const result = await response.json();
-
-        tableBody.innerHTML = '';
-        if (result.success && result.log.length > 0) {
-            result.log.forEach(entry => {
-                const row = document.createElement('tr');
-                const entryDate = new Date(entry.fecha).toLocaleString('es-SV', {
-                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-                });
-                row.innerHTML = `
-                    <td>${entryDate}</td>
-                    <td>${entry.nombre_usuario}</td>
-                    <td>${entry.tipo_accion}</td>
-                    <td style="white-space: pre-wrap;">${entry.descripcion}</td>
-                `;
-                tableBody.appendChild(row);
-            });
-        } else {
-            tableBody.innerHTML = '<tr><td colspan="4">No hay actividad para mostrar en la fecha seleccionada.</td></tr>';
+        // Si el campo de fecha está vacío, establece la fecha de hoy.
+        if (!dateFilter.value) {
+            dateFilter.valueAsDate = new Date();
         }
-    } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar el registro de actividad.</td></tr>`;
+        
+        const selectedDate = dateFilter.value;
+        tableBody.innerHTML = '<tr><td colspan="4">Cargando registro de actividad...</td></tr>';
+
+        try {
+            // LA CORRECCIÓN CLAVE: Se añade el parámetro &date=${selectedDate} a la URL.
+            const response = await fetch(`${API_BASE_URL}?resource=admin/activityLog&date=${selectedDate}`);
+            const result = await response.json();
+
+            tableBody.innerHTML = '';
+            if (result.success && result.log.length > 0) {
+                result.log.forEach(entry => {
+                    const row = document.createElement('tr');
+                    const entryDate = new Date(entry.fecha).toLocaleString('es-SV', {
+                        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+                    });
+                    row.innerHTML = `
+                        <td>${entryDate}</td>
+                        <td>${entry.nombre_usuario}</td>
+                        <td>${entry.tipo_accion}</td>
+                        <td style="white-space: pre-wrap;">${entry.descripcion}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="4">No hay actividad para mostrar en la fecha seleccionada.</td></tr>';
+            }
+        } catch (error) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar el registro de actividad.</td></tr>`;
+        }
     }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 });
 

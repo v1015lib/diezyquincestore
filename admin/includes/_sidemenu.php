@@ -5,7 +5,7 @@
     <nav>
         <ul>
             <li>
-                <a href="#" class="nav-link" data-module="dashboard">
+                <a href="#" class="nav-link active"  data-module="dashboard">
                 <span class="menu-icon">🏠</span>
                 <span class="menu-text">Dashboard</span>
                 </a>
