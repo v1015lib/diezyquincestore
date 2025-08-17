@@ -1,4 +1,13 @@
 <?php
+session_start();
+
+// --- Bloque de Seguridad Actualizado ---
+// Ahora, este bloque solo verifica que el usuario haya iniciado sesión correctamente,
+// sin importar si es administrador o empleado.
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
+   header("Location: ../../login-form.php"); 
+   exit();
+}
 // Lógica para obtener los tipos de cliente para el selector
 require_once __DIR__ . '/../../../config/config.php';
 $tipos_cliente = $pdo->query("SELECT id_tipo, nombre_tipo FROM tipos_cliente ORDER BY nombre_tipo")->fetchAll(PDO::FETCH_ASSOC);

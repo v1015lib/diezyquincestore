@@ -1,3 +1,18 @@
+<?php
+session_start();
+
+// --- Bloque de Seguridad Actualizado ---
+// Ahora, este bloque solo verifica que el usuario haya iniciado sesión correctamente,
+// sin importar si es administrador o empleado.
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
+   header("Location: ../../login-form.php"); 
+   exit();
+}
+
+// Se ha eliminado la línea "if ($_SESSION['rol'] != 'administrador')".
+// La lógica de permisos ahora se delega completamente al menú lateral (_sidemenu.php).
+
+?>
 <div class="form-container" id="modify-customer-wrapper">
     
     <div id="customer-search-container">

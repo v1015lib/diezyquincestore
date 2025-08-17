@@ -1,3 +1,17 @@
+<?php
+session_start();
+
+// --- Bloque de Seguridad Actualizado ---
+// Ahora, este bloque solo verifica que el usuario haya iniciado sesión correctamente,
+// sin importar si es administrador o empleado.
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
+   header("Location: ../../login-form.php"); 
+   exit();
+}
+    
+?>
+
+
 <div class="list-header">
     <div class="search-container">
         <input type="text" id="customer-search-input" placeholder="Buscar por nombre, usuario, email o teléfono...">
