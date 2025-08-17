@@ -18,12 +18,12 @@
     }
 
     .action-btn {
-        background-color: transparent;
-        border: 1px solid $border-color;
+        background-color: #EBEBEB;
+        border: 0;
 
         padding: 0.5rem;
 
-        font-weight: 200;
+        font-weight: 900;
         cursor: pointer;
         transition: all 0.2s ease !important;
         font-size: 0.9rem;
@@ -36,7 +36,8 @@
 
         &.active {
             background-color: $primary-color;
-            color: white;
+            color: $tcolor2;
+            font-weight: 900;
             border-color: $primary-color;
         }
     }

@@ -62,10 +62,10 @@
       flex-wrap: wrap;
 }
 .module-header .action-btn {
-  background-color: transparent;
-  border: 1px solid #dee2e6;
+  background-color: #EBEBEB;
+  border: 0;
   padding: 0.5rem;
-  font-weight: 200;
+  font-weight: 900;
   cursor: pointer;
   -webkit-transition: all 0.2s ease !important;
   transition: all 0.2s ease !important;
@@ -77,7 +77,8 @@
 }
 .module-header .action-btn.active {
   background-color: #0C0A4E;
-  color: white;
+  color: #D4A017;
+  font-weight: 900;
   border-color: #0C0A4E;
 }
 
@@ -272,11 +273,6 @@
 /* Opcional: Quitar el ancho máximo de otras celdas si no lo quieres */
 .product-table td:not([data-field=nombre_producto]) {
   max-width: none;
-}
-
-body {
-  background-color: #F4F6F9;
-  color: #495057;
 }
 
 .dashboard-layout {
@@ -685,6 +681,7 @@ body {
   }
   .action-ribbon .action-btn {
     text-align: center;
+    background: #000;
   }
 }
 @media (min-width: 992px) {
@@ -1120,9 +1117,8 @@ body {
 /* Reduce el tamaño del botón de eliminar en cada fila */
 #departments-manager-container .product-table .action-btn {
   padding: 0.5rem; /* Menos espacio interno en el botón */
-  font-size: 0.9rem;
+  font-size: 0.7rem;
   border: none;
-  background: red;
   color: white;
   margin: auto; /* Reduce el tamaño del ícono (×) */
 }

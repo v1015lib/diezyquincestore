@@ -302,10 +302,9 @@
 /* Reduce el tamaño del botón de eliminar en cada fila */
 #departments-manager-container .product-table .action-btn {
     padding:  0.5rem; /* Menos espacio interno en el botón */
-    font-size: 0.9rem;
+    font-size: .7rem;
     border: none;
-    background: red;
-    color: white;   
+    color: white; 
     margin: auto;   /* Reduce el tamaño del ícono (×) */
 }
 
