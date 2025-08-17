@@ -821,7 +821,7 @@ async function loadModule(moduleName) {
         mainContent.innerHTML = await response.text();
 
         if (moduleName === 'dashboard') {
-            await loadActionContent('dashboard/ventas_por_usuario'); // CORREGIDO: Carga el resumen por defecto
+            await loadActionContent('dashboard/log_actividad'); // CORREGIDO: Carga el resumen por defecto
         } else if (moduleName === 'productos') {
             await loadActionContent('productos/todos_los_productos');
         } else if (moduleName === 'clientes') {

@@ -2412,8 +2412,6 @@ case 'admin/saveLayoutSettings':
 
 case 'layout-settings':
     $configFile = __DIR__ . '/../config/layout_config.php';
-    // --- VALORES POR DEFECTO ---
-    // Si una clave no existe en el archivo, se usará una de estas.
     $default_settings = [
         'show_main_carousel' => true,
         'show_offers_carousel' => true,
@@ -2422,12 +2420,17 @@ case 'layout-settings':
         'offers_carousel_title' => 'Aprovecha estas oportunidades',
         'offers_carousel_dept' => 0,
         'dept_carousel_title_prefix' => 'Lo que siempre buscas en ',
-        'dept_carousel_dept' => 8
+        'dept_carousel_dept' => 8,
+        'show_product_price' => true,
+        'show_product_code' => true,
+        'details_for_logged_in_only' => false,
+        'show_product_department' => true 
     ];
     $config = file_exists($configFile) ? include($configFile) : [];
     $final_config = array_merge($default_settings, $config);
 
-    // --- LÓGICA AUTOMÁTICA PARA CONSTRUIR TÍTULOS Y FILTROS ---
+    // (El resto de la lógica de este 'case' no necesita cambios)
+    
     $offers_final_filters = ['limit' => 12, 'ofertas' => 'true'];
     $offers_final_title = $final_config['offers_carousel_title'];
 
@@ -2445,29 +2448,28 @@ case 'layout-settings':
     $dept_name_2 = $stmt_dept_name_2->fetchColumn();
     $department_final_title = $dept_name_2 ? $final_config['dept_carousel_title_prefix'] . $dept_name_2 : 'Departamento Destacado';
 
-    // --- ARRAY FINAL QUE SE ENVÍA A LA PÁGINA ---
-    // Este array ahora contiene tanto los ajustes de visibilidad como los de contenido
     $settings = [
         'show_main_carousel' => $final_config['show_main_carousel'],
         'show_offers_carousel' => $final_config['show_offers_carousel'],
         'show_department_carousel' => $final_config['show_department_carousel'],
         'hide_products_without_image' => $final_config['hide_products_without_image'],
         
-        // --- Nuevos valores para el panel de admin ---
         'offers_carousel_title' => $final_config['offers_carousel_title'],
         'offers_carousel_dept' => $final_config['offers_carousel_dept'],
         'dept_carousel_title_prefix' => $final_config['dept_carousel_title_prefix'],
         'dept_carousel_dept' => $final_config['dept_carousel_dept'],
+        
+        'show_product_price' => $final_config['show_product_price'],
+        'show_product_code' => $final_config['show_product_code'],
+        'details_for_logged_in_only' => $final_config['details_for_logged_in_only'],
+        'show_product_department' => $final_config['show_product_department'],
 
-        // --- Configuración que usa la tienda para renderizar los carruseles ---
         'offers_carousel_config' => ['title' => $offers_final_title, 'filters' => $offers_final_filters],
         'department_carousel_config' => ['title' => $department_final_title, 'filters' => ['department_id' => $final_config['dept_carousel_dept'], 'limit' => 8]]
     ];
 
     echo json_encode(['success' => true, 'settings' => $settings]);
     break;
-
-
         case 'products':
             handleProductsRequest($pdo);
             break;

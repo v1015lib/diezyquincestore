@@ -25,4 +25,24 @@
             <input type="checkbox" id="hide_products_without_image" name="hide_products_without_image" class="switch">
         </div>
     </fieldset>
-    </div>
+
+    <fieldset class="form-fieldset">
+        <legend class="form-section-header">Visibilidad de Detalles del Producto</legend>
+        <div class="form-group setting-toggle">
+            <label for="show_product_price">Mostrar precio del producto</label>
+            <input type="checkbox" id="show_product_price" name="show_product_price" class="switch">
+        </div>
+        <div class="form-group setting-toggle">
+            <label for="show_product_code">Mostrar código del producto</label>
+            <input type="checkbox" id="show_product_code" name="show_product_code" class="switch">
+        </div>
+        <div class="form-group setting-toggle">
+            <label for="show_product_department">Mostrar departamento del producto</label>
+            <input type="checkbox" id="show_product_department" name="show_product_department" class="switch">
+        </div>
+        <div class="form-group setting-toggle">
+            <label for="details_for_logged_in_only">Mostrar detalles solo a usuarios registrados</label>
+            <input type="checkbox" id="details_for_logged_in_only" name="details_for_logged_in_only" class="switch">
+        </div>
+    </fieldset>
+</div>

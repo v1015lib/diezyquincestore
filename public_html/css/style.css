@@ -909,6 +909,18 @@ ul, li, a {
   cursor: pointer;
 }
 
+/* AÑADIR AL FINAL DE _product_card.scss */
+.login-prompt-message {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0C0A4E; /* Color primario del tema */
+  background-color: #f0f2f5; /* Un fondo sutil */
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+  margin-top: 1rem;
+}
+
 .cart-overlay {
   position: fixed;
   top: 0;
@@ -3043,4 +3055,15 @@ body.page-checkout {
 }
 .form-group > * {
   font-size: 0.8rem !important;
+}
+
+.login-prompt-message {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0C0A4E; /* Color primario del tema */
+  background-color: #f0f2f5; /* Un fondo sutil */
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+  margin-top: 1rem;
 }

@@ -31,7 +31,6 @@ export async function getUserFavorites() {
         return new Set();
     }
 }
-
 /**
  * Función centralizada para crear el HTML de una tarjeta de producto.
  * @param {object} product - El objeto del producto con sus datos.
@@ -42,18 +41,47 @@ export async function getUserFavorites() {
 export function createProductCardHTML(product, cartQuantity = 0, isFavorite = false) {
     const precioVenta = parseFloat(product.precio_venta);
     const precioOferta = parseFloat(product.precio_oferta);
+
+    // Lógica de visibilidad
+    const isLoggedIn = document.querySelector('.my-account-link');
+    const canShowDetails = !layoutSettings.details_for_logged_in_only || isLoggedIn;
     
-    let priceHtml = `
-        <p class="price">$${precioVenta.toFixed(2)}</p>
-        <p class="code"># ${product.codigo_producto}</p>
-    `;
+    let priceContainerContent = '';
+    let departmentHtml = '';
+
+    if (canShowDetails) {
+        let priceHtml = '';
+        let codeHtml = '';
+        
+        // --- INICIO: CÓDIGO CORREGIDO ---
+        // Ahora el departamento solo se muestra si la visibilidad general está permitida
+        if (layoutSettings.show_product_department) {
+            departmentHtml = `<p class="department">Depto: ${product.nombre_departamento}</p>`;
+        }
+        // --- FIN: CÓDIGO CORREGIDO ---
+
+        if (layoutSettings.show_product_price) {
+            if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
+                priceHtml = `
+                    <p class="price-offer">$${precioOferta.toFixed(2)}</p>
+                    <p class="price-older">$${precioVenta.toFixed(2)}</p>
+                `;
+            } else {
+                priceHtml = `<p class="price">$${precioVenta.toFixed(2)}</p>`;
+            }
+        }
+
+        if (layoutSettings.show_product_code) {
+            codeHtml = `<p class="code"># ${product.codigo_producto}</p>`;
+        }
+        priceContainerContent = priceHtml + codeHtml;
+    } else {
+        priceContainerContent = '<p class="login-prompt-message">Regístrese o inicie sesión para ver</p>';
+    }
+    
     let discountBadgeHtml = '';
 
     if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
-        priceHtml = `
-            <p class="price-offer">$${precioOferta.toFixed(2)}</p>
-            <p class="price-older">$${precioVenta.toFixed(2)}</p>
-        `;
         const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
         discountBadgeHtml = `<div class="discount-badge">-${discountPercent}%</div>`;
     }
@@ -67,9 +95,9 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
             </div>
             <div class="product-info">
                 <h3>${product.nombre_producto}</h3>
-                <p class="department">Depto: ${product.nombre_departamento}</p>
+                ${departmentHtml}
                 <div class="price-container">
-                    ${priceHtml}
+                    ${priceContainerContent}
                 </div>
                 <div class="quantity-selector">
                     <button class="quantity-btn minus" data-action="decrease">-</button>
@@ -80,6 +108,8 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         </div>
     `;
 }
+
+
 
 export async function loadProducts(productListId, paginationControlsId, params = {}) {
     currentProductParams = { ...currentProductParams, ...params };
