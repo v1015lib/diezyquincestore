@@ -9,31 +9,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($username) || empty($password)) {
         $_SESSION['login_error'] = 'Por favor, ingresa tu usuario y contraseña.';
-        header('Location: login-form.php');
+        header('Location: ../login-form.php');
         exit;
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE nombre_usuario = :username");
+        // Se selecciona también la nueva columna de permisos
+        $stmt = $pdo->prepare("SELECT id_usuario, nombre_usuario, cod_acceso, rol, permisos FROM usuarios WHERE nombre_usuario = :username");
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['cod_acceso'])) {
-            if ($user['rol'] === 'administrador') {
-                // Regenera el ID de sesión por seguridad
+            // AHORA SE ACEPTAN AMBOS ROLES: 'administrador' y 'empleado'
+            if ($user['rol'] === 'administrador' || $user['rol'] === 'empleado') {
+                
                 session_regenerate_id(true);
                 
-                // Configura las variables de sesión
                 $_SESSION['loggedin'] = true;
                 $_SESSION['id_usuario'] = $user['id_usuario'];
                 $_SESSION['nombre_usuario'] = $user['nombre_usuario'];
                 $_SESSION['rol'] = $user['rol'];
+                
+                // Si el usuario es un empleado, se cargan sus permisos en la sesión
+                if ($user['rol'] === 'empleado') {
+                    $_SESSION['permisos'] = $user['permisos']; // Guardamos el JSON de permisos
+                }
 
-                // Redirige al panel principal de administración
                 header('Location: ../index.php');
                 exit;
             } else {
-                $_SESSION['login_error'] = 'No tienes permisos para acceder a esta área.';
+                // Este bloque ahora solo se ejecutaría para roles desconocidos o deshabilitados
+                $_SESSION['login_error'] = 'Tu rol de usuario no tiene un acceso definido.';
                 header('Location: ../login-form.php');
                 exit;
             }
@@ -43,14 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } catch (PDOException $e) {
-        // En un entorno de producción, sería mejor registrar este error que mostrarlo
         $_SESSION['login_error'] = 'Error en la conexión con la base de datos.';
-        // error_log('Error en login: ' . $e->getMessage()); // Descomenta para registrar errores
         header('Location: ../login-form.php');
         exit;
     }
 } else {
-    // Si no es una solicitud POST, simplemente redirige al login
     header('Location: ../login-form.php');
     exit;
 }

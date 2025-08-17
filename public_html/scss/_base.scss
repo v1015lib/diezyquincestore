@@ -12,21 +12,21 @@
 }
 
 input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
-            all: unset;
-            border: none;
-        }
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+    all: unset;
+    border: none;
+}
 
-        /* Para Firefox */
-            input[type=number] {
-            -moz-appearance: textfield;
-            all: unset;
-            }  
-            input[type=button]{
-                all: unset;
-            }   
+/* Para Firefox */
+input[type=number] {
+    -moz-appearance: textfield;
+    all: unset;
+}  
+input[type=button]{
+    all: unset;
+}   
 
 html {
     // --- LA MAGIA DE LA TIPOGRAFÍA RESPONSIVA EMPIEZA AQUÍ ---

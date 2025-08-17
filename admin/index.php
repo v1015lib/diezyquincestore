@@ -1,14 +1,16 @@
 <?php
 session_start();
-// --- Bloque de Seguridad (Comentado para desarrollo) ---
+
+// --- Bloque de Seguridad Actualizado ---
+// Ahora, este bloque solo verifica que el usuario haya iniciado sesión correctamente,
+// sin importar si es administrador o empleado.
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
-   // Asumiendo que el login está en la raíz del dominio principal
    header("Location: login-form.php"); 
    exit();
 }
-if ($_SESSION['rol'] != 'administrador') { 
-    die('Acceso denegado. Se requieren permisos de administrador.');
-}
+
+// Se ha eliminado la línea "if ($_SESSION['rol'] != 'administrador')".
+// La lógica de permisos ahora se delega completamente al menú lateral (_sidemenu.php).
 
 ?>
 

@@ -836,10 +836,13 @@ async function loadModule(moduleName) {
             await loadActionContent('inventario/agregar_stock');
         } else if (moduleName === 'estadisticas') {
             await loadActionContent('estadisticas/resumen');
-        } else if (moduleName === 'web_admin') {
+        }else if (moduleName === 'usuarios') {
+            await loadActionContent('usuarios/gestion');
+        } 
+        else if (moduleName === 'web_admin') {
             await loadActionContent('web_admin/sliders');
-            const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
-            if (activeButton) {
+        const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
+        if (activeButton) {
                 activeButton.classList.add('active');
             }
         }
@@ -908,6 +911,8 @@ async function loadActionContent(actionPath) {
             await fetchAndRenderUserSales();
         } else if (actionPath === 'dashboard/log_actividad') {
             await fetchAndRenderActivityLog();
+        }else if (actionPath === 'usuarios/gestion') {
+            initializeUserManagement();
         }
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
@@ -3017,6 +3022,219 @@ async function fetchAndRenderUserSales() {
             tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar el registro de actividad.</td></tr>`;
         }
     }
+
+
+    /**************************************************************************************/
+
+
+
+
+    function initializeUserManagement() {
+    fetchAndRenderUsers();
+
+    const createUserForm = document.getElementById('create-user-form');
+    if (createUserForm) {
+        createUserForm.addEventListener('submit', handleUserFormSubmit);
+    }
+
+    const modal = document.getElementById('permissions-modal');
+    if (modal) {
+        modal.addEventListener('click', (event) => {
+            if (event.target.matches('.modal-close-btn, #modal-cancel-btn-perms')) {
+                closePermissionsModal();
+            }
+        });
+        document.getElementById('permissions-form').addEventListener('submit', handlePermissionsFormSubmit);
+    }
+}
+
+async function fetchAndRenderUsers() {
+    const tableBody = document.getElementById('users-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="2">Cargando empleados...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getUsers`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.users.length > 0) {
+            result.users.forEach(user => {
+                const row = document.createElement('tr');
+                row.dataset.userId = user.id_usuario;
+                // Guardamos los permisos en un data-attribute para fácil acceso
+                row.dataset.permissions = user.permisos || '{}';
+                
+                row.innerHTML = `
+                    <td>${user.nombre_usuario}</td>
+                    <td>
+                        <button class="action-btn edit-permissions-btn">Editar Permisos</button>
+                        <button class="action-btn delete-user-btn" style="background-color: #f8d7da;">Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="2">No hay empleados registrados.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="2" style="color:red;">Error al cargar usuarios.</td></tr>`;
+    }
+}
+
+async function handleUserFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-user-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    const data = {
+        nombre_usuario: form.querySelector('#new_nombre_usuario').value,
+        password: form.querySelector('#new_password').value
+    };
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createUser`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        form.reset();
+        fetchAndRenderUsers();
+        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Crear Empleado';
+    }
+}
+
+mainContent.addEventListener('click', (event) => {
+    if (event.target.classList.contains('edit-permissions-btn')) {
+        const row = event.target.closest('tr');
+        const userId = row.dataset.userId;
+        const username = row.querySelector('td:first-child').textContent;
+        const permissions = JSON.parse(row.dataset.permissions);
+        renderPermissionsModal(userId, username, permissions);
+    }
+    if (event.target.classList.contains('delete-user-btn')) {
+        const row = event.target.closest('tr');
+        const userId = row.dataset.userId;
+        const username = row.querySelector('td:first-child').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"? Esta acción no se puede deshacer.`)) {
+            deleteUser(userId);
+        }
+    }
+});
+
+function renderPermissionsModal(userId, username, permissions) {
+    const modal = document.getElementById('permissions-modal');
+    document.getElementById('permissions-modal-title').textContent = `Permisos para: ${username}`;
+    document.getElementById('edit-user-id').value = userId;
+
+    const container = document.getElementById('permissions-checkbox-container');
+    const modules = [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'productos', label: 'Productos' },
+        { id: 'departamentos', label: 'Departamentos' },
+        { id: 'clientes', label: 'Clientes' },
+        { id: 'tarjetas', label: 'Tarjetas' },
+        { id: 'inventario', label: 'Inventario' },
+        { id: 'estadisticas', label: 'Estadísticas' },
+        { id: 'web_admin', label: 'Web Admin' },
+        { id: 'utilidades', label: 'Utilidades' }
+    ];
+
+    container.innerHTML = modules.map(module => `
+        <div class="form-group setting-toggle" style="justify-content: flex-start;">
+            <label for="perm-${module.id}">${module.label}</label>
+            <input type="checkbox" id="perm-${module.id}" name="permisos[${module.id}]" class="switch" ${permissions[module.id] ? 'checked' : ''}>
+        </div>
+    `).join('');
+
+    modal.style.display = 'flex';
+}
+
+function closePermissionsModal() {
+    const modal = document.getElementById('permissions-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function handlePermissionsFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('permissions-modal-feedback');
+    const submitButton = document.getElementById('modal-save-btn-perms');
+
+    const userId = form.querySelector('#edit-user-id').value;
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    const permissions = {};
+    checkboxes.forEach(cb => {
+        const key = cb.name.match(/\[(.*?)\]/)[1];
+        permissions[key] = cb.checked;
+    });
+
+    const data = {
+        id_usuario: userId,
+        permisos: permissions
+    };
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Guardando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateUserPermissions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        setTimeout(() => {
+            closePermissionsModal();
+            fetchAndRenderUsers(); // Recarga la lista para mostrar los cambios
+        }, 1500);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Guardar Cambios';
+    }
+}
+
+async function deleteUser(userId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteUser`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_usuario: userId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        // Elimina la fila de la tabla visualmente
+        document.querySelector(`tr[data-user-id="${userId}"]`).remove();
+        alert('Usuario eliminado.');
+
+    } catch (error) {
+        alert(`Error al eliminar: ${error.message}`);
+    }
+}
+
 
 });
 

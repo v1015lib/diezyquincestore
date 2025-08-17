@@ -76,7 +76,7 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         }
         priceContainerContent = priceHtml + codeHtml;
     } else {
-        priceContainerContent = '<p class="login-prompt-message">Regístrese o inicie sesión para ver</p>';
+        priceContainerContent = '<p class="login-prompt-message">Regístrese o inicie sesión para ver la informacion</p>';
     }
     
     let discountBadgeHtml = '';
