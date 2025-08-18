@@ -48,6 +48,6 @@
     </table>
 </div>
 
-<div id="loading-indicator" style="display: none; text-align: center; ">
+<div id="loading-indicator" style="display: none; text-align: center; font-size: .8rem;">
     <p>Cargando más productos...</p>
 </div>

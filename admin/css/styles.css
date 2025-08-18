@@ -681,7 +681,6 @@
   }
   .action-ribbon .action-btn {
     text-align: center;
-    background: #000;
   }
 }
 @media (min-width: 992px) {
@@ -1121,4 +1120,5 @@
   border: none;
   color: white;
   margin: auto; /* Reduce el tamaño del ícono (×) */
+  background: red;
 }
