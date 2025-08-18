@@ -20,13 +20,22 @@
             <?php if (can_access('dashboard', $rol, $permisos)): ?>
             <li>
                 <a href="#" class="nav-link active"  data-module="dashboard">
-                <span class="menu-icon">🏠</span>
+                <span class="menu-icon">📊</span>
                 <span class="menu-text">Dashboard</span>
                 </a>
             </li>
             <li class="separator"></li>
             <?php endif; ?>
             
+            <?php /* INICIO DEL NUEVO BLOQUE */ ?>
+            <?php if (can_access('pos', $rol, $permisos)): ?>
+            <li><a href="#" class="nav-link" data-module="pos">
+                <span class="menu-icon">🛒</span> <?php /* <-- Cambia el ícono */ ?>
+                <span class="menu-text">POS</span> <?php /* <-- Cambia el texto */ ?>
+            </a></li>
+            <?php endif; ?>
+            <?php /* FIN DEL NUEVO BLOQUE */ ?>
+
             <?php if (can_access('productos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="productos">
                 <span class="menu-icon">📦</span>
@@ -36,7 +45,7 @@
 
             <?php if (can_access('departamentos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="departamentos">
-                <span class="menu-icon">📁</span>
+                <span class="menu-icon">🏬</span>
                 <span class="menu-text">Departamentos</span>
             </a></li>
             <?php endif; ?>
@@ -79,7 +88,7 @@
 
             <?php if (can_access('web_admin', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="web_admin">
-                <span class="menu-icon">🌐</span>
+                <span class="menu-icon">⚙️</span>
                 <span class="menu-text">Web Admin</span>
             </a></li>
             <?php endif; ?>

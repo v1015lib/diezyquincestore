@@ -219,7 +219,11 @@
   background-color: #f8f9fa;
 }
 .product-table tbody tr:hover {
-  background-color: #6662eb;
+  background-color: #19149f;
+  color: white;
+}
+.product-table tbody tr:hover > * {
+  color: white;
 }
 .product-table td[data-field=nombre_producto] {
   max-width: 350px;
@@ -330,7 +334,7 @@
 }
 .dashboard-sidemenu .dashboard-sidemenu-header {
   padding: 0.5rem;
-  border-bottom: 1px solid #13107b;
+  border-bottom: 1px solid #1a1a1a;
 }
 .dashboard-sidemenu .dashboard-sidemenu-header h3 {
   margin: 0;
@@ -363,15 +367,14 @@
   transition: color 0.2s ease;
 }
 .dashboard-sidemenu nav ul li a:hover {
-  background-color: #0f0d65;
+  background-color: #1d18bf;
 }
 .dashboard-sidemenu nav ul li a:hover .menu-icon, .dashboard-sidemenu nav ul li a:hover .menu-text {
   color: #fff;
 }
 .dashboard-sidemenu nav ul li.separator {
   height: 1px;
-  margin: 0.5rem 1.5rem;
-  background-color: #13107b;
+  margin: 0.5rem;
 }
 
 .dashboard-header {
@@ -386,7 +389,6 @@
           justify-content: space-between;
   padding: 0.5rem 1.5rem;
   background-color: #fff;
-  border-bottom: 1px solid #dee2e6;
   -ms-flex-negative: 0;
       flex-shrink: 0;
   z-index: 900;
@@ -705,7 +707,8 @@
   .sidemenu-footer {
     margin-top: auto;
     padding: 1rem;
-    border-top: 1px solid #13107b;
+    -webkit-filter: invert(1);
+            filter: invert(1);
   }
   #sidemenu-collapse-btn {
     background: none;
@@ -1118,6 +1121,7 @@
   padding: 0.5rem; /* Menos espacio interno en el botón */
   font-size: 0.7rem;
   border: none;
-  color: white;
   margin: auto; /* Reduce el tamaño del ícono (×) */
+  background: #FF2C2C;
+  color: white;
 }

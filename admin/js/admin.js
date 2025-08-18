@@ -836,10 +836,11 @@ async function loadModule(moduleName) {
             await loadActionContent('inventario/agregar_stock');
         } else if (moduleName === 'estadisticas') {
             await loadActionContent('estadisticas/resumen');
+        }else if (moduleName === 'pos') {
+            await loadActionContent('pos/pos_ventas');
         }else if (moduleName === 'usuarios') {
             await loadActionContent('usuarios/gestion');
-        } 
-        else if (moduleName === 'web_admin') {
+        }else if (moduleName === 'web_admin') {
             await loadActionContent('web_admin/sliders');
         const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
         if (activeButton) {
@@ -3152,7 +3153,8 @@ function renderPermissionsModal(userId, username, permissions) {
         { id: 'inventario', label: 'Inventario' },
         { id: 'estadisticas', label: 'Estadísticas' },
         { id: 'web_admin', label: 'Web Admin' },
-        { id: 'utilidades', label: 'Utilidades' }
+        { id: 'utilidades', label: 'Utilidades' },
+        { id: 'pos', label: 'pos' }
     ];
 
     container.innerHTML = modules.map(module => `

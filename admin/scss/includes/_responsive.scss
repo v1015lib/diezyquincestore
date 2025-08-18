@@ -70,7 +70,7 @@
     .sidemenu-footer {
         margin-top: auto; // Empuja el footer hacia abajo
         padding: 1rem;
-        border-top: 1px solid lighten($primary-color, 10%);
+        filter: invert(1);
     }
 
     #sidemenu-collapse-btn {
