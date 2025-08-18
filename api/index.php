@@ -33,7 +33,6 @@ try {
 
 
 
-// --- Casos para el Módulo de Usuarios ---
         case 'admin/getUsers':
              // Seguridad
             try {
@@ -114,10 +113,6 @@ try {
 
 
 
-
-
-
-
     case 'admin/userSalesStats':
         if ($method == 'GET') {
                 // Lógica directamente en el case
@@ -145,7 +140,7 @@ try {
         }
     break;
 
-        case 'admin/activityLog':
+    case 'admin/activityLog':
         if ($method == 'GET') {
         // 1. Obtenemos la fecha del filtro. Si no se envía, se usa la fecha actual.
             $filter_date = $_GET['date'] ?? date('Y-m-d');
@@ -3213,107 +3208,7 @@ function handleCheckUsernameRequest(PDO $pdo) {
     exit; // --- ¡LA CORRECCIÓN MÁS IMPORTANTE! ---
           // Detiene la ejecución para asegurar una respuesta JSON limpia.
 }
-/*function handleProductsRequest(PDO $pdo) {
-    // Parámetros de la URL para paginación, filtros y orden
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
-    $offset = ($page - 1) * $limit;
-    $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
-    $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
-    
-    $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random'; // 'random' como valor por defecto
-    $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
 
-    $filter_name = '';
-    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
-
-    $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';//cometar para que $hide_no_image = true; funcione
-    
-    //$hide_no_image = true; forzar para desarrrolo el mostrar solo aquellos productos que si tienen imagen
-
-    // Validación de seguridad para el ordenamiento
-    $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra', 'random'];
-    if (!in_array($sort_by, $allowedSorts)) {
-        $sort_by = 'random';
-    }
-    if (!in_array($order, ['ASC', 'DESC'])) {
-        $order = 'ASC';
-    }
-
-    $select_fields = "p.*"; 
-
-    // Construcción de la consulta SQL
-    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento";
-    $where_clauses = ["p.estado = 1"];
-    $params = [];
-    
-    // Se añade la nueva condición a la consulta si el parámetro está activo.
-    if ($hide_no_image) {
-        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
-    }
-
-    // Filtros existentes (departamento, búsqueda, ofertas)
-    if ($department_id !== null && $department_id > 0) {
-        $where_clauses[] = "p.departamento = :department_id";
-        $params[':department_id'] = $department_id;
-        $stmt_dept_name = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :dept_id");
-        $stmt_dept_name->execute([':dept_id' => $department_id]);
-        $filter_name = $stmt_dept_name->fetchColumn();
-    }
-    if (!empty($search_term)) {
-        $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
-        $params[':search_term'] = '%' . $search_term . '%';
-        $params[':search_term_code'] = '%' . $search_term . '%';
-        $filter_name = $search_term;
-    }
-    if ($ofertas_only) {
-        $where_clauses[] = "(p.precio_oferta IS NOT NULL AND p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta)";
-        $filter_name = "Productos en Oferta";
-    }
-
-    $where_sql = " WHERE " . implode(" AND ", $where_clauses);
-    
-    // Contar el total de productos para la paginación
-    $countSql = "SELECT COUNT(*) " . $base_sql . $where_sql;
-    $stmtCount = $pdo->prepare($countSql);
-    $stmtCount->execute($params);
-    $total_products = $stmtCount->fetchColumn();
-    $total_pages = ceil($total_products / $limit);
-    
-    $sql = "SELECT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
-    
-    // Lógica de ordenamiento
-    if ($sort_by === 'random') {
-        $sql .= " ORDER BY RAND()";
-    } else {
-        $sql .= " ORDER BY " . $sort_by . " " . $order;
-    }
-    
-    $sql .= " LIMIT :limit OFFSET :offset";
-    $params[':limit'] = $limit;
-    $params[':offset'] = $offset;
-    
-    $stmt = $pdo->prepare($sql);
-    foreach ($params as $key => &$val) {
-        $type = ($key === ':limit' || $key === ':offset' || $key === ':department_id') ? PDO::PARAM_INT : PDO::PARAM_STR;
-        $stmt->bindParam($key, $val, $type);
-    }
-    
-    $stmt->execute();
-    $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    echo json_encode([
-        'products' => $products, 
-        'total_products' => (int)$total_products, 
-        'total_pages' => $total_pages, 
-        'current_page' => $page, 
-        'limit' => $limit, 
-        'filter_name' => $filter_name
-    ]);
-}*/
-// REEMPLAZA la función handleProductsRequest completa en api/index.php
-
-// REEMPLAZA OTRA VEZ la función handleProductsRequest completa en api/index.php
 
 function handleProductsRequest(PDO $pdo) {
     // Parámetros de la URL (sin cambios)
