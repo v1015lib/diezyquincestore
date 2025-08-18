@@ -43,7 +43,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
                 </div>
         </main>
     </div>
-    
+     <script src="js/pos.js"></script>
     <script type="module" src="js/admin.js"></script>
     <div id="department-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
@@ -95,5 +95,6 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
         </div>
     </div>
 </div>
+
 </body>
 </html>

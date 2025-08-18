@@ -31,182 +31,259 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
-
-
-        case 'admin/getUsers':
-             // Seguridad
-            try {
-                $stmt = $pdo->query("SELECT id_usuario, nombre_usuario, permisos FROM usuarios WHERE rol = 'empleado' ORDER BY nombre_usuario");
-                $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                echo json_encode(['success' => true, 'users' => $users]);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al obtener usuarios.']);
-            }
-            break;
-
-        case 'admin/createUser':
-            
-            $data = json_decode(file_get_contents('php://input'), true);
-            $username = trim($data['nombre_usuario'] ?? '');
-            $password = $data['password'] ?? '';
-
-            if (empty($username) || empty($password)) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Nombre de usuario y contraseña son obligatorios.']);
-                break;
-            }
-            try {
-                $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO usuarios (nombre_usuario, cod_acceso, rol) VALUES (:username, :password, 'empleado')");
-                $stmt->execute([':username' => $username, ':password' => $password_hash]);
-                echo json_encode(['success' => true, 'message' => 'Empleado creado con éxito.']);
-            } catch (PDOException $e) {
-                http_response_code(409); // Conflict
-                echo json_encode(['success' => false, 'error' => 'El nombre de usuario ya existe.']);
-            }
-            break;
-
-        case 'admin/updateUserPermissions':
-            
-            $data = json_decode(file_get_contents('php://input'), true);
-            $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
-            $permissions = $data['permisos'] ?? [];
-
-            if (!$userId) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'ID de usuario no válido.']);
-                break;
-            }
-            try {
-                $permissionsJson = json_encode($permissions);
-                $stmt = $pdo->prepare("UPDATE usuarios SET permisos = :permissions WHERE id_usuario = :id AND rol = 'empleado'");
-                $stmt->execute([':permissions' => $permissionsJson, ':id' => $userId]);
-                echo json_encode(['success' => true, 'message' => 'Permisos actualizados.']);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al guardar los permisos.']);
-            }
-            break;
-
-        case 'admin/deleteUser':
-            
-            $data = json_decode(file_get_contents('php://input'), true);
-            $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
-
-            if (!$userId) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'ID de usuario no válido.']);
-                break;
-            }
-            try {
-                $stmt = $pdo->prepare("DELETE FROM usuarios WHERE id_usuario = :id AND rol = 'empleado'");
-                $stmt->execute([':id' => $userId]);
-                echo json_encode(['success' => true, 'message' => 'Usuario eliminado correctamente.']);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al eliminar el usuario.']);
-            }
-            break;
-
-
-
-
-
-    case 'admin/userSalesStats':
-        if ($method == 'GET') {
-                // Lógica directamente en el case
-            $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-6 days'));
-            $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
-
-            $sql = "SELECT
-            u.nombre_usuario,
-            SUM(v.monto_total) AS total_vendido,
-            COUNT(v.id_venta) AS numero_ventas
+case 'admin/userSalesStats':
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                u.nombre_usuario,
+                COUNT(v.id_venta) AS numero_ventas,
+                SUM(v.monto_total) AS total_vendido
             FROM ventas v
             JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
-            WHERE v.fecha_venta BETWEEN :fecha_inicio AND :fecha_fin
-            GROUP BY u.id_usuario
-            ORDER BY total_vendido DESC";
-
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
-                ':fecha_inicio' => $fechaInicio . ' 00:00:00',
-                ':fecha_fin' => $fechaFin . ' 23:59:59'
-            ]);
-            $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            echo json_encode(['success' => true, 'stats' => $stats]);
-        }
+            WHERE v.fecha_venta >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND v.estado_id = 29
+            GROUP BY u.id_usuario, u.nombre_usuario
+            ORDER BY total_vendido DESC
+        ");
+        $stmt->execute();
+        $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'stats' => $stats]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener estadísticas por usuario: ' . $e->getMessage()]);
+    }
     break;
 
-    case 'admin/activityLog':
-        if ($method == 'GET') {
-        // 1. Obtenemos la fecha del filtro. Si no se envía, se usa la fecha actual.
-            $filter_date = $_GET['date'] ?? date('Y-m-d');
+case 'admin/activityLog':
+    if ($method == 'GET') {
+        $filter_date = $_GET['date'] ?? date('Y-m-d');
 
-        // 2. Se añade una condición WHERE DATE(...) a cada SELECT dentro del UNION.
-            $sql = "(SELECT
-            u.nombre_usuario,
-            CASE
-            WHEN mi.cantidad > 0 THEN 'Stock Agregado'
-            ELSE 'Ajuste de Stock'
-            END as tipo_accion,
-            CONCAT(mi.cantidad, ' unidades a: ', p.nombre_producto) as descripcion,
-            mi.fecha as fecha
-            FROM movimientos_inventario mi
-            JOIN usuarios u ON mi.id_usuario = u.id_usuario
-            JOIN productos p ON mi.id_producto = p.id_producto
-            WHERE mi.id_usuario IS NOT NULL AND DATE(mi.fecha) = :date1)
-            UNION ALL
-            (SELECT
-            u.nombre_usuario,
-            'Venta POS Procesada' as tipo_accion,
-            CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
-            v.fecha_venta as fecha
-            FROM ventas v
-            JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
-            WHERE v.id_usuario_venta IS NOT NULL AND DATE(v.fecha_venta) = :date2)
-            UNION ALL
-            (SELECT
-            u.nombre_usuario,
-            'Tarjeta Asignada' as tipo_accion,
-            CONCAT('Tarjeta ', tr.numero_tarjeta, ' a cliente ', c.nombre_usuario) as descripcion,
-            tr.fecha_activacion as fecha
-            FROM tarjetas_recargables tr
-            JOIN usuarios u ON tr.asignada_por_usuario_id = u.id_usuario
-            JOIN clientes c ON tr.id_cliente = c.id_cliente
-            WHERE tr.asignada_por_usuario_id IS NOT NULL AND tr.fecha_activacion IS NOT NULL AND DATE(tr.fecha_activacion) = :date3)
-            UNION ALL
-            (SELECT
-            u.nombre_usuario,
-            ra.tipo_accion,
-            ra.descripcion,
-            ra.fecha
-            FROM registros_actividad ra
-            JOIN usuarios u ON ra.id_usuario = u.id_usuario
-            WHERE DATE(ra.fecha) = :date4)
-            ORDER BY fecha DESC
-                LIMIT 200"; // Límite aumentado por si un día tiene mucha actividad
+        $sql = "(SELECT
+                    u.nombre_usuario,
+                    CASE
+                        WHEN mi.cantidad > 0 THEN 'Stock Agregado'
+                        ELSE 'Ajuste de Stock'
+                    END as tipo_accion,
+                    CONCAT(mi.cantidad, ' unidades a: ', p.nombre_producto) as descripcion,
+                    mi.fecha as fecha
+                FROM movimientos_inventario mi
+                JOIN usuarios u ON mi.id_usuario = u.id_usuario
+                JOIN productos p ON mi.id_producto = p.id_producto
+                WHERE mi.id_usuario IS NOT NULL AND DATE(mi.fecha) = :date1)
+                
+                UNION ALL
+                
+                (SELECT
+                    u.nombre_usuario,
+                    'Venta POS Procesada' as tipo_accion,
+                    CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
+                    v.fecha_venta as fecha
+                FROM ventas v
+                JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
+                -- --- INICIO DE LA CORRECCIÓN ---
+                WHERE v.id_usuario_venta IS NOT NULL 
+                  AND v.estado_id = 29 -- Solo muestra ventas finalizadas
+                  AND DATE(v.fecha_venta) = :date2)
+                -- --- FIN DE LA CORRECCIÓN ---
+                
+                UNION ALL
+                
+                (SELECT
+                    u.nombre_usuario,
+                    'Tarjeta Asignada' as tipo_accion,
+                    CONCAT('Tarjeta ', tr.numero_tarjeta, ' a cliente ', c.nombre_usuario) as descripcion,
+                    tr.fecha_activacion as fecha
+                FROM tarjetas_recargables tr
+                JOIN usuarios u ON tr.asignada_por_usuario_id = u.id_usuario
+                JOIN clientes c ON tr.id_cliente = c.id_cliente
+                WHERE tr.asignada_por_usuario_id IS NOT NULL AND tr.fecha_activacion IS NOT NULL AND DATE(tr.fecha_activacion) = :date3)
+                
+                UNION ALL
+                
+                (SELECT
+                    u.nombre_usuario,
+                    ra.tipo_accion,
+                    ra.descripcion,
+                    ra.fecha
+                FROM registros_actividad ra
+                JOIN usuarios u ON ra.id_usuario = u.id_usuario
+                WHERE DATE(ra.fecha) = :date4)
+                
+                ORDER BY fecha DESC
+                LIMIT 200";
 
-                $stmt = $pdo->prepare($sql);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':date1' => $filter_date,
+            ':date2' => $filter_date,
+            ':date3' => $filter_date,
+            ':date4' => $filter_date
+        ]);
 
-        // 3. Asignamos la misma fecha a todos los placeholders de la consulta.
-                $stmt->execute([
-                    ':date1' => $filter_date,
-                    ':date2' => $filter_date,
-                    ':date3' => $filter_date,
-                    ':date4' => $filter_date
-                ]);
+        $log = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'log' => $log]);
+    }
+    break;
 
-                $log = $stmt->fetchAll(PDO::FETCH_ASSOC);
+case 'pos_search_products':
+    if (isset($_GET['query'])) {
+        $query = '%' . $_GET['query'] . '%';
+        $stmt = $pdo->prepare("SELECT id_producto, codigo_producto, nombre_producto, precio_venta, stock_actual, usa_inventario, stock_actual as stock_actual_inicial FROM productos WHERE (nombre_producto LIKE :query OR codigo_producto LIKE :query) AND estado = 1 LIMIT 10");
+        $stmt->execute([':query' => $query]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+    break;
 
-                echo json_encode(['success' => true, 'log' => $log]);
+case 'pos_start_sale':
+    if ($method === 'POST') {
+        if (!isset($_SESSION['id_usuario']) || empty($_SESSION['id_usuario'])) {
+            http_response_code(403); echo json_encode(['success' => false, 'error' => 'No autorizado.']); break;
+        }
+        $id_usuario_actual = $_SESSION['id_usuario'];
+        $pdo->beginTransaction();
+        try {
+            $stmt_find = $pdo->prepare("SELECT id_venta FROM ventas WHERE id_usuario_venta = :id_usuario AND estado_id = 8 LIMIT 1");
+            $stmt_find->execute([':id_usuario' => $id_usuario_actual]);
+            $saleId = $stmt_find->fetchColumn();
+            $ticket_items = [];
+
+            if ($saleId) {
+                $stmt_items = $pdo->prepare("
+                    SELECT p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, p.stock_actual, p.usa_inventario, dv.cantidad, p.stock_actual as stock_actual_inicial
+                    FROM detalle_ventas dv
+                    JOIN productos p ON dv.id_producto = p.id_producto
+                    WHERE dv.id_venta = :sale_id
+                ");
+                $stmt_items->execute([':sale_id' => $saleId]);
+                $ticket_items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+            } else {
+                $stmt_default_client = $pdo->prepare("SELECT id_cliente FROM clientes WHERE nombre_usuario = 'publico_general' LIMIT 1");
+                $stmt_default_client->execute();
+                $default_client_id = $stmt_default_client->fetchColumn();
+
+                if (!$default_client_id) {
+                    $pdo->exec("INSERT INTO clientes (id_cliente, nombre_usuario, nombre, email, telefono, id_tipo_cliente) VALUES (1, 'publico_general', 'Público en General', 'sin@correo.com', '00000000', 1) ON DUPLICATE KEY UPDATE id_cliente=id_cliente");
+                    $default_client_id = 1;
+                }
+
+                $stmt_create = $pdo->prepare("INSERT INTO ventas (id_cliente, id_usuario_venta, id_metodo_pago, monto_total, estado_id) VALUES (:id_cliente, :id_usuario, 1, 0.00, 8)");
+                $stmt_create->execute([':id_cliente' => $default_client_id, ':id_usuario' => $id_usuario_actual]);
+                $saleId = $pdo->lastInsertId();
+                
+                // --- CORRECCIÓN: Se ha eliminado el registro de actividad de esta sección ---
+                // logActivity($pdo, $id_usuario_actual, 'Inicio de Ticket POS', "Se inició el ticket de venta POS No. {$saleId}.");
             }
-            break;
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'sale_id' => $saleId, 'ticket_items' => $ticket_items]);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error de BD: ' . $e->getMessage()]);
+        }
+    }
+    break;
+            
+case 'pos_add_item':
+     if ($method === 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $sale_id = $data['sale_id']; $product_id = $data['product_id']; $quantity = $data['quantity']; $unit_price = $data['unit_price'];
+        $pdo->beginTransaction();
+        try {
+            if ($quantity <= 0) {
+                $stmt_delete = $pdo->prepare("DELETE FROM detalle_ventas WHERE id_venta = :sale_id AND id_producto = :product_id");
+                $stmt_delete->execute([':sale_id' => $sale_id, ':product_id' => $product_id]);
+            } else {
+                $stmt = $pdo->prepare("SELECT id_detalle_venta FROM detalle_ventas WHERE id_venta = :sale_id AND id_producto = :product_id");
+                $stmt->execute([':sale_id' => $sale_id, ':product_id' => $product_id]);
+                $existing_detail_id = $stmt->fetchColumn();
+                $subtotal = $quantity * $unit_price;
+                if ($existing_detail_id) {
+                    $stmt_update = $pdo->prepare("UPDATE detalle_ventas SET cantidad = :qty, subtotal = :subtotal, precio_unitario = :price WHERE id_detalle_venta = :id");
+                    $stmt_update->execute([':qty' => $quantity, ':subtotal' => $subtotal, ':price' => $unit_price, ':id' => $existing_detail_id]);
+                } else {
+                    $stmt_insert = $pdo->prepare("INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal) VALUES (:sale_id, :product_id, :qty, :price, :subtotal)");
+                    $stmt_insert->execute([':sale_id' => $sale_id, ':product_id' => $product_id, ':qty' => $quantity, ':price' => $unit_price, ':subtotal' => $subtotal]);
+                }
+            }
+            $pdo->commit();
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $pdo->rollBack(); http_response_code(400); echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+    break;
 
-        
+case 'pos_finalize_sale':
+    if ($method === 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $sale_id = $data['sale_id'];
+        $payment_method_id = $data['payment_method_id'];
+        $total_amount = $data['total_amount'];
+        $client_id = $data['client_id'] ?? null;
 
+        $pdo->beginTransaction();
+        try {
+            if (empty($client_id)) {
+                $stmt_default_client = $pdo->prepare("SELECT id_cliente FROM clientes WHERE nombre_usuario = 'publico_general' LIMIT 1");
+                $stmt_default_client->execute();
+                $client_id = $stmt_default_client->fetchColumn();
+                if (!$client_id) {
+                    $client_id = 1;
+                }
+            }
+
+            $stmt_items = $pdo->prepare("SELECT dv.id_producto, dv.cantidad, p.usa_inventario, p.stock_actual FROM detalle_ventas dv JOIN productos p ON dv.id_producto = p.id_producto WHERE dv.id_venta = :sale_id");
+            $stmt_items->execute([':sale_id' => $sale_id]);
+            $items_to_process = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($items_to_process as $item) {
+                if ($item['usa_inventario']) {
+                    if ($item['cantidad'] > $item['stock_actual']) {
+                        throw new Exception("Stock insuficiente para finalizar.");
+                    }
+                    $stmt_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :qty WHERE id_producto = :id");
+                    $stmt_stock->execute([':qty' => $item['cantidad'], ':id' => $item['id_producto']]);
+                }
+            }
+            
+            $stmt = $pdo->prepare("UPDATE ventas SET id_cliente = :client_id, id_metodo_pago = :payment_id, monto_total = :total, estado_id = 29, fecha_venta = NOW() WHERE id_venta = :sale_id AND estado_id = 8");
+            $stmt->execute([':client_id' => $client_id, ':payment_id' => $payment_method_id, ':total' => $total_amount, ':sale_id' => $sale_id]);
+            
+            // La actividad SÍ se registra aquí, al finalizar la venta.
+            logActivity($pdo, $_SESSION['id_usuario'], 'Venta POS Finalizada', "Se finalizó la venta POS No. {$sale_id} con un total de $ {$total_amount}.");
+            
+            $pdo->commit();
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $pdo->rollBack(); 
+            http_response_code(500); 
+            echo json_encode(['success' => false, 'error' => 'Error al finalizar: ' . $e->getMessage()]);
+        }
+    }
+    break;
+
+case 'pos_cancel_sale':
+    if ($method === 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true); $sale_id = $data['sale_id'];
+        $stmt = $pdo->prepare("DELETE FROM ventas WHERE id_venta = :sale_id AND estado_id = 8");
+        if ($stmt->execute([':sale_id' => $sale_id])) {
+             // --- CORRECCIÓN: Se ha eliminado el registro de actividad de esta sección ---
+             // logActivity($pdo, $_SESSION['id_usuario'], 'Venta POS Cancelada', "Se canceló y eliminó el ticket de venta POS No. {$sale_id}.");
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'No se pudo cancelar la venta.']);
+        }
+    }
+    break;
+            
+case 'pos_search_clients':
+     if (isset($_GET['query'])) {
+        $query = '%' . $_GET['query'] . '%';
+        $stmt = $pdo->prepare("SELECT id_cliente, nombre, apellido, nombre_usuario FROM clientes WHERE nombre LIKE :query OR apellido LIKE :query OR nombre_usuario LIKE :query LIMIT 10");
+        $stmt->execute([':query' => $query]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+    break;
 //Estadistica
 
 case 'admin/getSalesStats':
@@ -3349,6 +3426,24 @@ function handleClearCartRequest(PDO $pdo) {
     } else {
         // No había un carrito activo para este usuario.
         echo json_encode(['success' => true, 'message' => 'No se encontró un carrito activo.']);
+    }
+}
+function logActivity(PDO $pdo, int $userId, string $actionType, string $description) {
+    try {
+        $stmt = $pdo->prepare(
+            "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
+             VALUES (:id_usuario, :tipo_accion, :descripcion, NOW())"
+        );
+        
+        $stmt->execute([
+            ':id_usuario'   => $userId,
+            ':tipo_accion'  => $actionType,
+            ':descripcion'  => $description
+        ]);
+    } catch (Exception $e) {
+        // En un entorno de producción, podrías registrar este error en un archivo en lugar de detener el script.
+        // Por ahora, lo dejamos así para no interrumpir el flujo principal en caso de que falle el log.
+        error_log("Fallo al registrar actividad: " . $e->getMessage());
     }
 }
 

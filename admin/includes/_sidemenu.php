@@ -27,14 +27,15 @@
             <li class="separator"></li>
             <?php endif; ?>
             
-            <?php /* INICIO DEL NUEVO BLOQUE */ ?>
+            <?php /* INICIO DEL NUEVO BLOQUE POS */ ?>
             <?php if (can_access('pos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="pos">
-                <span class="menu-icon">🛒</span> <?php /* <-- Cambia el ícono */ ?>
-                <span class="menu-text">POS</span> <?php /* <-- Cambia el texto */ ?>
+                <span class="menu-icon">🛒</span> 
+                <span class="menu-text">Punto de Venta</span>
             </a></li>
             <?php endif; ?>
-            <?php /* FIN DEL NUEVO BLOQUE */ ?>
+            <?php /* FIN DEL NUEVO BLOQUE POS */ ?>
+
 
             <?php if (can_access('productos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="productos">
