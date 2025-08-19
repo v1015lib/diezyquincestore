@@ -1,11 +1,21 @@
 function initializePOS() {
     let currentTicket = [];
     let currentSaleId = null;
-    let currentClientId = null;
+    let currentClientId = 1;
     let currentClientName = 'Público en General';
+    // VARIABLE CLAVE: Almacena el índice de la fila activa para los atajos
+    let activeTicketRowIndex = -1; 
 
-    const searchInput = document.getElementById('pos-product-search');
-    const searchResultsContainer = document.getElementById('search-results-container');
+    // Referencias a elementos del DOM (sin cambios)
+    const productInput = document.getElementById('pos-product-input');
+    const openSearchModalBtn = document.getElementById('open-search-modal-btn');
+    const productSearchModal = document.getElementById('product-search-modal');
+    const modalSearchInput = document.getElementById('modal-product-search-input');
+    const modalSearchResultsContainer = document.getElementById('modal-search-results-container');
+    const notificationModal = document.getElementById('pos-notification-modal');
+    const notificationTitle = document.getElementById('pos-notification-title');
+    const notificationMessage = document.getElementById('pos-notification-message');
+    const notificationOkBtn = document.getElementById('pos-notification-ok-btn');
     const ticketTableBody = document.querySelector('#ticket-table tbody');
     const totalAmountInput = document.getElementById('total-amount');
     const pagaConInput = document.getElementById('paga-con');
@@ -15,132 +25,54 @@ function initializePOS() {
     const assignClientBtn = document.getElementById('assign-client-btn');
     const clientNameSpan = document.getElementById('client-name');
     const clientModal = document.getElementById('assign-client-modal');
-    const closeModalBtn = clientModal.querySelector('.close-button');
     const clientSearchInput = document.getElementById('client-search');
     const clientSearchResults = document.getElementById('client-search-results');
     const paymentMethodSelect = document.getElementById('payment-method-select');
     const cardPaymentDetails = document.getElementById('card-payment-details');
     const cardNumberInput = document.getElementById('card-number-input');
     const cardBalanceFeedback = document.getElementById('card-balance-feedback');
+    const openCheckoutModalBtn = document.getElementById('open-checkout-modal-btn');
+    const checkoutModal = document.getElementById('checkout-modal');
+    const checkoutTicketList = document.getElementById('checkout-ticket-list');
+    const footerTotalAmount = document.getElementById('footer-total-amount');
+
     let debounceTimer;
     const API_URL = '../api/index.php';
 
-// --- NUEVO MANEJADOR DE CLICS PARA LA SELECCIÓN DE CLIENTE ---
-    clientSearchResults.addEventListener('click', function(event) {
-        const selectedClient = event.target.closest('.client-result-item');
-        if (selectedClient) {
-            // Leemos los datos guardados en el elemento en lugar de una variable
-            currentClientId = selectedClient.dataset.clientId;
-            currentClientName = selectedClient.dataset.clientName;
-            
-            clientNameSpan.textContent = currentClientName;
-            clientModal.style.display = 'none';
-            
-            // Importante: Volvemos a verificar el estado del campo de la tarjeta
-            toggleCardPaymentFields(); 
-        }
-    });
-    function toggleCardPaymentFields() {
-        const isCardPayment = paymentMethodSelect.value === '2';
-        const isClientAssigned = currentClientId !== null;
-
-        if (isCardPayment && isClientAssigned) {
-            cardPaymentDetails.style.display = 'block';
-            pagaConInput.disabled = true; // Deshabilitamos "Paga con" para pagos con tarjeta
-        } else {
-            cardPaymentDetails.style.display = 'none';
-            cardNumberInput.value = '';
-            cardBalanceFeedback.textContent = '';
-            pagaConInput.disabled = false;
-        }
-        updateChange(); // Actualizamos el estado del botón cobrar
-    }
-
-    async function startOrResumeSale() {
-        try {
-            const response = await fetch(`${API_URL}?resource=pos_start_sale`, { method: 'POST' });
-            const data = await response.json();
-
-            if (data.success && data.sale_id) {
-                currentSaleId = data.sale_id;
-                
-                if (data.ticket_items && data.ticket_items.length > 0) {
-                    currentTicket = data.ticket_items;
-                    //showNotification('Se ha cargado un ticket en proceso.', 'info');
-                } else {
-                    currentTicket = [];
-                }
-                
-                resetPOS();
-            } else {
-                showNotification(data.error || 'Error al iniciar o reanudar la venta.', 'error');
-            }
-        } catch (error) {
-            showNotification('Error de conexión al iniciar venta.', 'error');
-        }
-    }
-
-    function resetPOS() {
-        updateTicketTable();
-        clientNameSpan.textContent = currentClientName;
-        pagaConInput.value = '';
-        searchInput.value = '';
-        searchResultsContainer.style.display = 'none';
-    }
-
-    searchInput.addEventListener('input', async function() {
-        const query = this.value;
-        if (query.length < 2) {
-            searchResultsContainer.style.display = 'none';
-            return;
-        }
-        try {
-            const response = await fetch(`${API_URL}?resource=pos_search_products&query=${encodeURIComponent(query)}`);
-            const products = await response.json();
-            searchResultsContainer.innerHTML = '';
-            if (products.length > 0) {
-                products.forEach(product => {
-                    const stockInfo = product.usa_inventario ? `(Stock: ${product.stock_actual})` : '(Servicio)';
-                    const div = document.createElement('div');
-                    div.className = 'search-result-item';
-                    div.innerHTML = `${product.nombre_producto} - <strong>$${parseFloat(product.precio_venta).toFixed(2)}</strong> ${stockInfo}`;
-                    div.addEventListener('click', () => addProductToTicket(product));
-                    searchResultsContainer.appendChild(div);
-                });
-                searchResultsContainer.style.display = 'block';
-            } else {
-                searchResultsContainer.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error buscando productos:', error);
-        }
-    });
-
-    document.addEventListener('click', e => {
-        if (!searchResultsContainer.contains(e.target) && e.target !== searchInput) {
-            searchResultsContainer.style.display = 'none';
-        }
-    });
-
+    // --- LÓGICA DE PRODUCTOS (addProductToTicket actualizada) ---
     async function addProductToTicket(product) {
+        if (!currentSaleId) { /* ... */ return; }
         const existingProduct = currentTicket.find(item => item.id_producto === product.id_producto);
-        const quantityInTicket = existingProduct ? existingProduct.cantidad : 0;
-        if (product.usa_inventario == 1 && (product.stock_actual <= 0 || product.stock_actual <= quantityInTicket)) {
-            showNotification('Este producto está agotado o no tiene más existencias.', 'error');
-            return;
-        }
+        
         if (existingProduct) {
+            if (existingProduct.usa_inventario == 1 && existingProduct.cantidad >= existingProduct.stock_actual_inicial) {
+                return; // Bloqueo silencioso
+            }
             existingProduct.cantidad++;
         } else {
-            product.stock_actual_inicial = product.stock_actual;
-            currentTicket.push({ ...product, cantidad: 1 });
+            if (product.usa_inventario == 1 && parseInt(product.stock_actual) <= 0) {
+                showPOSNotificationModal('Sin Existencias', `El producto "${product.nombre_producto}" está agotado.`, 'error');
+                return;
+            }
+            currentTicket.push({
+                ...product,
+                cantidad: 1,
+                stock_actual_inicial: product.stock_actual,
+                precio_venta_original: product.precio_venta,
+                precio_oferta_original: product.precio_oferta,
+                precio_mayoreo_original: product.precio_mayoreo,
+                precio_activo: 'normal'
+            });
         }
-        await updateItemInDB(product.id_producto, product.precio_venta);
+        await updateItemInDB(product.id_producto);
         updateTicketTable();
-        searchInput.value = '';
-        searchResultsContainer.style.display = 'none';
+        // **MEJORA**: Seleccionar la última fila añadida
+        setActiveRow(currentTicket.length - 1);
     }
 
+
+
+    // --- LÓGICA DE LA TABLA DEL TICKET (Actualizada) ---
     function updateTicketTable() {
         ticketTableBody.innerHTML = '';
         let total = 0;
@@ -149,15 +81,15 @@ function initializePOS() {
             total += subtotal;
             const stockDisplay = item.usa_inventario ? (item.stock_actual_inicial - item.cantidad) : 'N/A';
             const row = document.createElement('tr');
+            row.dataset.index = index;
+            let priceClass = '', priceTitle = '';
+            if (item.precio_activo === 'oferta') { priceClass = 'price-offer'; priceTitle = 'Precio de Oferta (F2)'; }
+            else if (item.precio_activo === 'mayoreo') { priceClass = 'price-wholesale'; priceTitle = 'Precio de Mayoreo (F4)'; }
             row.innerHTML = `
                 <td>${item.nombre_producto}</td>
                 <td>${stockDisplay}</td>
-                <td>
-                    <button class="quantity-change btn btn-sm btn-secondary" data-index="${index}" data-change="-1">-</button>
-                    <input type="number" class="quantity-input" value="${item.cantidad}" data-index="${index}" min="1" style="width: 60px; text-align: center;">
-                    <button class="quantity-change btn btn-sm btn-secondary" data-index="${index}" data-change="1">+</button>
-                </td>
-                <td>$${parseFloat(item.precio_venta).toFixed(2)}</td>
+                <td><input type="number" class="quantity-input" value="${item.cantidad}" data-index="${index}" min="1"></td>
+                <td class="${priceClass}" title="${priceTitle}">$${parseFloat(item.precio_venta).toFixed(2)}</td>
                 <td>$${subtotal.toFixed(2)}</td>
                 <td><button class="remove-item btn btn-sm btn-danger" data-index="${index}">X</button></td>
             `;
@@ -165,11 +97,205 @@ function initializePOS() {
         });
         totalAmountInput.value = total.toFixed(2);
         updateChange();
+                footerTotalAmount.textContent = `$${total.toFixed(2)}`;
+                        openCheckoutModalBtn.disabled = total <= 0;
+
+
     }
+
+        function openCheckoutModal() {
+        if (currentTicket.length === 0) return;
+
+        // Poblar el resumen del ticket en el modal
+        checkoutTicketList.innerHTML = '';
+        currentTicket.forEach(item => {
+            const subtotal = item.cantidad * item.precio_venta;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'ticket-item';
+            itemDiv.innerHTML = `
+                <span class="item-name">${item.cantidad} x ${item.nombre_producto}</span>
+                <span class="item-details">$${subtotal.toFixed(2)}</span>
+            `;
+            checkoutTicketList.appendChild(itemDiv);
+        });
+
+        checkoutModal.style.display = 'block';
+        pagaConInput.focus(); // Poner el foco en el campo de pago
+    }
+
+        function closeCheckoutModal() {
+        checkoutModal.style.display = 'none';
+    }
+
+    // --- MANEJADORES DE EVENTOS (NUEVOS Y MODIFICADOS) ---
+    openCheckoutModalBtn.addEventListener('click', openCheckoutModal);
+    checkoutModal.addEventListener('click', (e) => {
+        if (e.target.classList.contains('close-button') || e.target.id === 'checkout-modal') {
+            closeCheckoutModal();
+        }
+    });
+
+    // Atajo de teclado para abrir el modal
+    document.addEventListener('keydown', (e) => {
+        // ... (otros atajos) ...
+        if (e.key === 'F12') {
+            e.preventDefault();
+            openCheckoutModal();
+        }
+        if (e.key === 'Escape') {
+            if (checkoutModal.style.display === 'block') {
+                closeCheckoutModal();
+            } else if (productSearchModal.style.display === 'block') {
+                closeProductSearchModal();
+            } else {
+                 cancelSaleBtn.click();
+            }
+        }
+    });
+
+
+
+    // --- NUEVO: SISTEMA DE NAVEGACIÓN Y ATAJOS DE TECLADO ---
+
+    function setActiveRow(index) {
+        // Desmarcar la fila anteriormente activa
+        ticketTableBody.querySelectorAll('tr.active-row').forEach(row => row.classList.remove('active-row'));
+        
+        // Encontrar y marcar la nueva fila activa
+        const newActiveRow = ticketTableBody.querySelector(`tr[data-index="${index}"]`);
+        if (newActiveRow) {
+            newActiveRow.classList.add('active-row');
+            activeTicketRowIndex = index;
+            // Opcional: hacer scroll para que la fila sea visible si está fuera de la vista
+            newActiveRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            activeTicketRowIndex = -1; // Si no se encuentra, no hay ninguna activa
+        }
+    }
+
+    async function changeActiveRowQuantity(change) {
+        if (activeTicketRowIndex === -1) return; // No hacer nada si no hay fila seleccionada
+        const item = currentTicket[activeTicketRowIndex];
+        const newQuantity = item.cantidad + change;
+
+        if (newQuantity < 1) return; // No permitir cantidad menor a 1
+
+        if (item.usa_inventario == 1 && newQuantity > item.stock_actual_inicial) {
+            return; // Bloqueo silencioso si se excede el stock
+        }
+        
+        item.cantidad = newQuantity;
+        await updateItemInDB(item.id_producto);
+        updateTicketTable();
+        // Mantenemos la fila activa después de actualizar la tabla
+        setActiveRow(activeTicketRowIndex);
+    }
+
+    async function applySpecialPrice(priceType) {
+        if (activeTicketRowIndex === -1) return;
+        const item = currentTicket[activeTicketRowIndex];
+
+        // Lógica para alternar precios
+        if (item.precio_activo === priceType) {
+            item.precio_venta = item.precio_venta_original;
+            item.precio_activo = 'normal';
+        } else {
+            const newPrice = parseFloat(priceType === 'oferta' ? item.precio_oferta_original : item.precio_mayoreo_original);
+            if (newPrice > 0) {
+                item.precio_venta = newPrice;
+                item.precio_activo = priceType;
+            } else {
+                showPOSNotificationModal('Precio no Disponible', `Este producto no tiene precio de ${priceType}.`, 'error');
+                return;
+            }
+        }
+        await updateItemInDB(item.id_producto);
+        updateTicketTable();
+        setActiveRow(activeTicketRowIndex);
+    }
+    document.addEventListener('keydown', (e) => {
+        // Evitar que los atajos se activen si se está escribiendo en otros inputs
+        if (document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'pos-product-input') {
+            return;
+        }
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                let nextIndex = activeTicketRowIndex + 1;
+                if (nextIndex >= currentTicket.length) nextIndex = 0; // Vuelve al inicio
+                setActiveRow(nextIndex);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                let prevIndex = activeTicketRowIndex - 1;
+                if (prevIndex < 0) prevIndex = currentTicket.length - 1; // Va al final
+                setActiveRow(prevIndex);
+                break;
+            case '+':
+                e.preventDefault();
+                changeActiveRowQuantity(1);
+                break;
+            case '-':
+                e.preventDefault();
+                changeActiveRowQuantity(-1);
+                break;
+            case 'F2':
+                e.preventDefault();
+                applySpecialPrice('oferta');
+                break;
+            case 'F4':
+                e.preventDefault();
+                applySpecialPrice('mayoreo');
+                break;
+        }
+    });
+    // --- MANEJADORES DE EVENTOS DE LA TABLA (INTEGRADOS) ---
+
+    // Listener para seleccionar fila con el ratón y para borrar
+    ticketTableBody.addEventListener('click', async (e) => {
+        const row = e.target.closest('tr');
+        
+        if (e.target.classList.contains('remove-item')) {
+            e.stopPropagation(); // Evita que la selección cambie al hacer clic en 'X'
+            const index = parseInt(e.target.dataset.index);
+            const item = currentTicket.splice(index, 1)[0];
+            await updateItemInDB(item.id_producto, true);
+            updateTicketTable();
+            if (currentTicket.length > 0) {
+                setActiveRow(Math.min(index, currentTicket.length - 1));
+            } else {
+                activeTicketRowIndex = -1;
+            }
+        } else if (row && row.dataset.index) {
+            setActiveRow(parseInt(row.dataset.index));
+        }
+    });
+
+    // Listener para actualizar cantidad desde el input manualmente
+   ticketTableBody.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('quantity-input')) {
+            const index = parseInt(e.target.dataset.index);
+            let newQuantity = parseInt(e.target.value);
+            const item = currentTicket[index];
+            if (isNaN(newQuantity) || newQuantity < 1) { e.target.value = 1; newQuantity = 1; }
+            if (item.usa_inventario == 1 && newQuantity > item.stock_actual_inicial) {
+                newQuantity = item.stock_actual_inicial;
+                e.target.value = newQuantity;
+            }
+            item.cantidad = newQuantity;
+            await updateItemInDB(item.id_producto);
+            updateTicketTable();
+            setActiveRow(index);
+        }
+    });
     
-    async function updateItemInDB(productId, unitPrice) {
+    // --- FUNCIONES AUXILIARES Y LÓGICA EXISTENTE (SIN CAMBIOS) ---
+
+    async function updateItemInDB(productId, isRemoval = false) {
         const item = currentTicket.find(p => p.id_producto === productId);
-        const quantity = item ? item.cantidad : 0;
+        const quantity = isRemoval ? 0 : (item ? item.cantidad : 0);
+        const unitPrice = item ? item.precio_venta : 0;
         try {
             const response = await fetch(`${API_URL}?resource=pos_add_item`, {
                 method: 'POST',
@@ -178,37 +304,178 @@ function initializePOS() {
             });
             const data = await response.json();
             if (!data.success) {
-                showNotification(data.error || 'No se pudo actualizar el producto en el ticket.', 'error');
-                if (item) item.cantidad--;
-                if (item.cantidad <= 0) currentTicket = currentTicket.filter(p => p.id_producto !== productId);
-                updateTicketTable();
+                showPOSNotificationModal('Error', data.error || 'No se pudo actualizar el producto.', 'error');
             }
         } catch (error) {
-             showNotification('Error de conexión al actualizar el ticket.', 'error');
+            showPOSNotificationModal('Error de Conexión', 'No se pudo actualizar el ticket.', 'error');
         }
     }
 
-    ticketTableBody.addEventListener('click', async e => {
-        if (e.target.classList.contains('quantity-change')) {
-            const index = e.target.dataset.index;
-            const change = parseInt(e.target.dataset.change);
-            const item = currentTicket[index];
-            const newQuantity = item.cantidad + change;
-            if (newQuantity < 1) return;
-            if (item.usa_inventario == 1 && newQuantity > item.stock_actual_inicial) {
-                 showNotification('No hay suficientes existencias.', 'error'); return;
-            }
-            item.cantidad = newQuantity;
-            await updateItemInDB(item.id_producto, item.precio_venta);
-            updateTicketTable();
-        }
-        if (e.target.classList.contains('remove-item')) {
-            const index = e.target.dataset.index;
-            const item = currentTicket.splice(index, 1)[0];
-            await updateItemInDB(item.id_producto, item.precio_venta);
-            updateTicketTable();
+    function showPOSNotificationModal(title, message, type = 'info') {
+        notificationTitle.textContent = title;
+        notificationMessage.textContent = message;
+        notificationTitle.className = type === 'error' ? 'error-title' : '';
+        notificationModal.style.display = 'block';
+        notificationOkBtn.focus();
+    }
+
+    function closePOSNotificationModal() {
+        notificationModal.style.display = 'none';
+    }
+
+    notificationModal.addEventListener('click', (e) => {
+        if (e.target.classList.contains('close-button') || e.target.id === 'pos-notification-ok-btn' || e.target.classList.contains('modal')) {
+            closePOSNotificationModal();
         }
     });
+
+    openSearchModalBtn.addEventListener('click', () => {
+        productSearchModal.style.display = 'block';
+        modalSearchInput.focus();
+    });
+
+    productSearchModal.addEventListener('click', (e) => {
+        if (e.target.classList.contains('close-button') || e.target.classList.contains('modal')) {
+            closeProductSearchModal();
+        }
+    });
+
+    function closeProductSearchModal() {
+        productSearchModal.style.display = 'none';
+        modalSearchInput.value = '';
+        modalSearchResultsContainer.innerHTML = '';
+    }
+
+modalSearchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const query = this.value;
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Apuntamos directamente a la lista donde van los resultados, no al contenedor principal.
+    const resultsList = document.getElementById('modal-search-results-list');
+    if (!resultsList) return; // Seguridad por si no encuentra el elemento
+    // --- FIN DE LA CORRECCIÓN ---
+
+    if (query.length < 2) {
+        resultsList.innerHTML = ''; // Ahora solo se limpia la lista, no toda la estructura.
+        return;
+    }
+    
+    debounceTimer = setTimeout(async () => {
+        try {
+            const response = await fetch(`${API_URL}?resource=pos_search_products&query=${encodeURIComponent(query)}`);
+            const products = await response.json();
+            // La función renderSearchResults ya funciona bien, no necesita cambios.
+            renderSearchResults(products, modalSearchResultsContainer);
+        } catch (error) {
+            console.error('Error buscando productos en modal:', error);
+        }
+    }, 300);
+});
+
+    modalSearchResultsContainer.addEventListener('click', (e) => {
+        const item = e.target.closest('.search-result-item');
+        if (item) {
+            const product = JSON.parse(item.dataset.product);
+            addProductToTicket(product);
+            closeProductSearchModal();
+        }
+    });
+
+    productInput.addEventListener('keypress', async function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const code = this.value.trim();
+            if (code === '') return;
+            try {
+                const response = await fetch(`${API_URL}?resource=pos_get_product_by_code&code=${encodeURIComponent(code)}`);
+                const result = await response.json();
+                if (result.success && result.product) {
+                    addProductToTicket(result.product);
+                    this.value = '';
+                } else {
+                    showPOSNotificationModal('Error', result.error || 'Producto no encontrado.', 'error');
+                }
+            } catch (error) {
+                showPOSNotificationModal('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
+            }
+        }
+    });
+
+// Reemplaza esta función en tu archivo admin/js/pos.js
+
+// Reemplaza esta función en tu archivo admin/js/pos.js
+
+// Reemplaza esta función en tu archivo admin/js/pos.js
+
+function renderSearchResults(products, container) {
+    const resultsList = container.querySelector('#modal-search-results-list');
+    if (!resultsList) {
+        console.error("Error: El contenedor de la lista de resultados no fue encontrado.");
+        return;
+    }
+    resultsList.innerHTML = '';
+    
+    if (products.length > 0) {
+        products.forEach(product => {
+            // **INICIO DE LA MODIFICACIÓN**
+            // Se define el texto para el stock. Si no usa inventario, se muestra 'N/A'.
+            const stockInfo = product.usa_inventario ? product.stock_actual : 'N/A';
+            // **FIN DE LA MODIFICACIÓN**
+            
+            const row = document.createElement('div');
+            row.className = 'search-result-item';
+            row.dataset.product = JSON.stringify(product);
+            
+            // **INICIO DE LA MODIFICACIÓN**
+            // Se genera el HTML con las 4 columnas.
+            row.innerHTML = `
+                <div class="col-product">${product.nombre_producto}</div>
+                <div class="col-department">${product.nombre_departamento}</div>
+                <div class="col-price">$${parseFloat(product.precio_venta).toFixed(2)}</div>
+                <div class="col-stock">${stockInfo}</div>
+            `;
+            // **FIN DE LA MODIFICACIÓN**
+            
+            resultsList.appendChild(row);
+        });
+    } else {
+        resultsList.innerHTML = '<div class="search-result-item-empty">No se encontraron productos.</div>';
+    }
+}
+    async function startOrResumeSale() {
+        try {
+            const response = await fetch(`${API_URL}?resource=pos_start_sale`, { method: 'POST' });
+            const data = await response.json();
+            if (data.success && data.sale_id) {
+                currentSaleId = data.sale_id;
+                if (data.ticket_items && data.ticket_items.length > 0) {
+                    currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual_inicial || item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
+                } else {
+                    currentTicket = [];
+                }
+                currentClientId = 1;
+                currentClientName = 'Público en General';
+                resetPOS();
+                toggleCardPaymentFields();
+            } else {
+                showPOSNotificationModal('Error', data.error || 'Error al iniciar una nueva venta.', 'error');
+            }
+        } catch (error) {
+            showPOSNotificationModal('Error de Conexión', 'No se pudo iniciar la venta.', 'error');
+        }
+    }
+    
+    function resetPOS() {
+        updateTicketTable();
+        clientNameSpan.textContent = currentClientName;
+        pagaConInput.value = '';
+        productInput.value = '';
+        cardNumberInput.value = '';
+        cardBalanceFeedback.textContent = '';
+        cobrarBtn.textContent = 'Cobrar y Finalizar';
+        activeTicketRowIndex = -1;
+    }
 
     pagaConInput.addEventListener('input', updateChange);
 
@@ -216,66 +483,61 @@ function initializePOS() {
         const total = parseFloat(totalAmountInput.value);
         const pagaCon = parseFloat(pagaConInput.value) || 0;
         const cambio = pagaCon - total;
-
-        if (paymentMethodSelect.value === '2') { // Si es pago con tarjeta
-            checkCardBalance(); // El botón se habilita/deshabilita aquí
-        } else { // Si es efectivo u otro método
+        if (paymentMethodSelect.value === '2') {
+            checkCardBalance();
+        } else {
             cobrarBtn.disabled = (cambio < 0 || total <= 0);
         }
-        
         changeAmountSpan.textContent = (cambio >= 0 && paymentMethodSelect.value !== '2') ? `$${cambio.toFixed(2)}` : '$0.00';
-    
     }
-    
-    // ================== INICIO DE LA CORRECCIÓN ==================
+
     cobrarBtn.addEventListener('click', async () => {
-        const total = parseFloat(totalAmountInput.value);
-        if (total <= 0) {
-            //showNotification('No hay productos en el ticket.', 'error'); return;
-        }
-        const saleData = {
-            sale_id: currentSaleId,
-            client_id: currentClientId,
-            payment_method_id: document.getElementById('payment-method-select').value,
-            total_amount: total
-        };
+    const total = parseFloat(totalAmountInput.value);
+    if (total <= 0) return;
 
-        try {
-            cobrarBtn.disabled = true;
-            cobrarBtn.textContent = 'Procesando...';
-            const response = await fetch(`${API_URL}?resource=pos_finalize_sale`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(saleData)
-            });
-            const result = await response.json();
-            if (result.success) {
-                //showNotification('Venta finalizada con éxito.', 'success');
-                
-                // BUG FIX: En lugar de llamar a startOrResumeSale(), que crea una nueva venta,
-                // simplemente limpiamos las variables para preparar la siguiente venta.
-                // La nueva venta se creará automáticamente en la base de datos cuando se agregue el primer producto.
-                currentTicket = [];
-                currentSaleId = null;
-                currentClientId = null;
-                currentClientName = 'Público en General';
-                resetPOS();
+    cobrarBtn.disabled = true;
+    cobrarBtn.textContent = 'Procesando...';
 
-            } else {
-                showNotification(result.error || 'Error al finalizar la venta.', 'error');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showNotification('Error de conexión al finalizar venta.', 'error');
-        } finally {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Aquí se recolectan los datos necesarios para la venta.
+    const saleData = {
+        sale_id: currentSaleId,
+        client_id: currentClientId,
+        payment_method_id: paymentMethodSelect.value,
+        total_amount: total,
+        card_number: cardNumberInput.value.trim() // Se incluye el número de tarjeta si existe
+    };
+    // --- FIN DE LA CORRECCIÓN ---
+
+    try {
+        const response = await fetch(`${API_URL}?resource=pos_finalize_sale`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(saleData) // Ahora saleData contiene la información correcta
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showPOSNotificationModal('Éxito', 'Venta finalizada correctamente.', 'success');
+            closeCheckoutModal(); // Cierra el modal de pago
+            await startOrResumeSale();
+        } else {
+            showPOSNotificationModal('Error', result.error || 'Error al finalizar la venta.', 'error');
             cobrarBtn.disabled = false;
             cobrarBtn.textContent = 'Cobrar y Finalizar';
         }
-    });
+    } catch (error) {
+        showPOSNotificationModal('Error de Conexión', 'No se pudo finalizar la venta.', 'error');
+        cobrarBtn.disabled = false;
+        cobrarBtn.textContent = 'Cobrar y Finalizar';
+    }
+});
+
 
     cancelSaleBtn.addEventListener('click', async () => {
         if (!currentSaleId || currentTicket.length === 0) {
-            currentTicket = []; resetPOS(); return;
+            await startOrResumeSale();
+            return;
         };
         if (confirm('¿Estás seguro de que quieres cancelar esta venta?')) {
             try {
@@ -286,48 +548,34 @@ function initializePOS() {
                 });
                 const result = await response.json();
                 if (result.success) {
-                    showNotification('Venta cancelada.', 'info');
-                    
-                    // BUG FIX: Igual que al cobrar, solo reseteamos el estado.
-                    currentTicket = [];
-                    currentSaleId = null;
-                    currentClientId = null;
-                    currentClientName = 'Público en General';
-                    resetPOS();
-
+                    showPOSNotificationModal('Información', 'Venta cancelada.', 'info');
+                    await startOrResumeSale();
                 } else {
-                    showNotification(result.error || 'No se pudo cancelar la venta.', 'error');
+                    showPOSNotificationModal('Error', result.error || 'No se pudo cancelar la venta.', 'error');
                 }
             } catch (error) {
-                showNotification('Error de conexión.', 'error');
+                showPOSNotificationModal('Error de Conexión', 'No se pudo cancelar la venta.', 'error');
             }
         }
     });
-    // =================== FIN DE LA CORRECCIÓN ===================
 
-
-clientSearchInput.addEventListener('input', async function() {
+    clientSearchInput.addEventListener('input', async function() {
         const query = this.value;
-        if (query.length < 2) { 
-            clientSearchResults.innerHTML = ''; 
-            return; 
+        if (query.length < 2) {
+            clientSearchResults.innerHTML = '';
+            return;
         }
         try {
             const response = await fetch(`${API_URL}?resource=pos_search_clients&query=${encodeURIComponent(query)}`);
             const clients = await response.json();
-            clientSearchResults.innerHTML = ''; // Limpiar resultados anteriores
-            
+            clientSearchResults.innerHTML = '';
             if (clients.length > 0) {
                 clients.forEach(client => {
                     const div = document.createElement('div');
                     div.className = 'client-result-item';
                     div.textContent = `${client.nombre} ${client.apellido || ''} (${client.nombre_usuario})`;
-                    
-                    // --- CORRECCIÓN CLAVE ---
-                    // Guardamos los datos del cliente directamente en el elemento HTML
                     div.dataset.clientId = client.id_cliente;
                     div.dataset.clientName = `${client.nombre} ${client.apellido || ''}`;
-                    
                     clientSearchResults.appendChild(div);
                 });
             } else {
@@ -337,23 +585,49 @@ clientSearchInput.addEventListener('input', async function() {
             console.error('Error buscando clientes:', error);
         }
     });
-     // ...después del listener para clientSearchInput...
-    paymentMethodSelect.addEventListener('change', toggleCardPaymentFields);
-    assignClientBtn.addEventListener('click', () => { 
-        clientModal.style.display = 'block';
-        // Limpiamos el campo de tarjeta si se cambia de cliente
-        toggleCardPaymentFields(); 
+    
+    clientSearchResults.addEventListener('click', function(event) {
+        const selectedClient = event.target.closest('.client-result-item');
+        if (selectedClient) {
+            currentClientId = selectedClient.dataset.clientId;
+            currentClientName = selectedClient.dataset.clientName;
+            clientNameSpan.textContent = currentClientName;
+            clientModal.style.display = 'none';
+            toggleCardPaymentFields(); 
+        }
     });
 
+    paymentMethodSelect.addEventListener('change', toggleCardPaymentFields);
+    assignClientBtn.addEventListener('click', () => {
+        clientModal.style.display = 'block';
+        clientSearchInput.focus();
+    });
 
+    document.querySelector('#assign-client-modal .close-button').addEventListener('click', () => {
+        clientModal.style.display = 'none';
+    });
 
-    // Este listener se activa cuando el usuario escribe el número de tarjeta
+    function toggleCardPaymentFields() {
+        const isCardPayment = paymentMethodSelect.value === '2';
+        const isClientAssigned = currentClientId != 1;
+        if (isCardPayment && isClientAssigned) {
+            cardPaymentDetails.style.display = 'block';
+            pagaConInput.disabled = true;
+        } else {
+            cardPaymentDetails.style.display = 'none';
+            cardNumberInput.value = '';
+            cardBalanceFeedback.textContent = '';
+            pagaConInput.disabled = false;
+        }
+        updateChange();
+    }
+
     cardNumberInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         cardBalanceFeedback.textContent = 'Verificando...';
         debounceTimer = setTimeout(() => {
             checkCardBalance();
-        }, 500); // Espera 500ms después de la última tecla presionada
+        }, 500);
     });
 
     async function checkCardBalance() {
@@ -364,31 +638,28 @@ clientSearchInput.addEventListener('input', async function() {
             cobrarBtn.disabled = true;
             return;
         }
-
         try {
             const response = await fetch(`${API_URL}?resource=pos_check_card_balance&card_number=${encodeURIComponent(cardNumber)}`);
             const result = await response.json();
-
             if (result.success) {
-                if (parseInt(result.card.id_cliente) !== parseInt(currentClientId)) {
-                    cardBalanceFeedback.style.color = '#e74c3c'; // Rojo
+                if (parseInt(currentClientId) !== 1 && parseInt(result.card.id_cliente) !== parseInt(currentClientId)) {
+                    cardBalanceFeedback.style.color = '#e74c3c';
                     cardBalanceFeedback.textContent = 'Esta tarjeta no pertenece al cliente seleccionado.';
                     cobrarBtn.disabled = true;
                     return;
                 }
-
                 const balance = parseFloat(result.card.saldo);
                 if (balance >= total) {
-                    cardBalanceFeedback.style.color = '#2ecc71'; // Verde
+                    cardBalanceFeedback.style.color = '#2ecc71';
                     cardBalanceFeedback.textContent = `Saldo disponible: $${balance.toFixed(2)}`;
                     cobrarBtn.disabled = false;
                 } else {
-                    cardBalanceFeedback.style.color = '#e74c3c'; // Rojo
+                    cardBalanceFeedback.style.color = '#e74c3c';
                     cardBalanceFeedback.textContent = `Saldo insuficiente: $${balance.toFixed(2)}`;
                     cobrarBtn.disabled = true;
                 }
             } else {
-                cardBalanceFeedback.style.color = '#e74c3c'; // Rojo
+                cardBalanceFeedback.style.color = '#e74c3c';
                 cardBalanceFeedback.textContent = result.error;
                 cobrarBtn.disabled = true;
             }
@@ -398,9 +669,6 @@ clientSearchInput.addEventListener('input', async function() {
             cobrarBtn.disabled = true;
         }
     }
-    startOrResumeSale();
 
-    function showNotification(message, type = 'info') {
-        alert(`[${type.toUpperCase()}] ${message}`);
-    }
+    startOrResumeSale();
 }

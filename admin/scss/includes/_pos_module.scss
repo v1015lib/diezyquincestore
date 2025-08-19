@@ -1,150 +1,939 @@
-// Estilos para el Módulo POS
+// Variables existentes (solo estas están disponibles)
+$primary-color: #0C0A4E;
+$secondary-color: #1e40af;
+$tcolor2: #ffffff;
+$text-color: #334155;
+$border-color: #e2e8f0;
+
+// Mixins profesionales
+@mixin button-base {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    user-select: none;
+    white-space: nowrap;
+    
+    &:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+}
+
+@mixin shadow($level: 'md') {
+    @if $level == 'sm' {
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    } @else if $level == 'md' {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    } @else if $level == 'lg' {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    } @else if $level == 'xl' {
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+}
+
+// Contenedor principal del POS
 .pos-container {
     display: flex;
-    gap: 20px;
-    height: calc(100vh - 120px); // Ajusta según la altura de tu header/footer
+    flex-direction: column;
+    height: calc(100vh - 145px);
+    max-height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    
+    * input, 
+    * select {
+        font-size: 0.875rem;
+        padding: 0.75rem 1rem;
+        border: 2px solid $border-color;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        
+        &::placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+        
+        &:focus {
+            outline: none;
+            border-color: $primary-color;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transform: translateY(-1px);
+        }
+        
+        &:hover:not(:disabled) {
+            border-color: #cbd5e1;
+        }
+    }
+    
+    select {
+        margin: 0.5rem 0;
+        flex-grow: 0.2;
+        font-size: 0.875rem;
+        color: $primary-color;
+        background: #ffffff;
+        cursor: pointer;
+        
+        // Flecha personalizada
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1em;
+        
+        &:hover {
+            border-color: $primary-color;
+        }
+    }
 }
 
+// Header del POS
 .pos-main-content {
-    flex: 3;
+    flex: 1;
     display: flex;
     flex-direction: column;
-}
-
-.pos-sidebar {
-    flex: 1;
-    background-color: #f9f9f9;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+    padding: 1.5rem;
+    gap: 1.5rem;
 }
 
 .pos-header {
-    margin-bottom: 20px;
-    position: relative;
-    .search-container {
+    background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
+    padding: 1.5rem 2rem;
+    border-radius: 16px;
+    @include shadow('lg');
+    margin-bottom: 0;
+    
+    .pos-input-container {
         display: flex;
         align-items: center;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        padding: 5px 10px;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 1rem;
+        @include shadow('md');
+        transition: all 0.3s ease;
+        
+        &:focus-within {
+            @include shadow('xl');
+            transform: translateY(-2px);
+        }
+        
+        i {
+            color: $primary-color;
+            font-size: 1.25rem;
+            margin-right: 1rem;
+        }
+        
         input {
             border: none;
             outline: none;
             width: 100%;
-            margin-left: 10px;
+            flex-grow: 1;
+            color: $primary-color;
+            font-size: 1rem;
+            background: transparent;
+            padding: 0;
+            
+            &:focus {
+                border: none;
+                box-shadow: none;
+                transform: none;
+            }
+        }
+        
+        button {
+            flex-shrink: 0;
+            margin-left: 1rem;
         }
     }
-    #search-results-container {
-        position: absolute;
-        width: 100%;
-        background: white;
-        border: 1px solid #ccc;
-        border-top: none;
-        max-height: 200px;
+}
+
+// Ticket de venta
+.pos-ticket {
+    flex-grow: 1;
+    background: #ffffff;
+    border-radius: 12px;
+    @include shadow('md');
+    border: 1px solid $border-color;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    overflow: hidden;
+    
+    h3 {
+        color: $primary-color;
+        // --- MEJORA: Fuente fluida con clamp() ---
+        font-size: clamp(1.1rem, 2.5vw, 1.25rem);
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid $border-color;
+    }
+    
+    .ticket-table-container {
+        flex: 1;
         overflow-y: auto;
-        z-index: 1000;
-        .search-result-item {
-            padding: 10px;
-            cursor: pointer;
+        border: 1px solid $border-color;
+        border-radius: 8px;
+        background: #ffffff;
+        
+        &::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        &::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        &::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        
+        th {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #334155;
+            font-weight: 600;
+            padding: 1rem 0.75rem;
+            text-align: left;
+            border-bottom: 2px solid #cbd5e1;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            // --- MEJORA: Fuente más pequeña para móviles ---
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
+        }
+        
+        td {
+            padding: 0.875rem 0.75rem;
+            border-bottom: 1px solid $border-color;
+            vertical-align: middle;
+             // --- MEJORA: Fuente más pequeña para móviles ---
+            font-size: clamp(0.8rem, 2.2vw, 0.875rem);
+            
+            &:first-child {
+                font-weight: 500;
+                color: #1e293b;
+            }
+        }
+        
+        tbody tr {
+            transition: all 0.2s ease;
+            
             &:hover {
-                background-color: #f0f0f0;
+                background: #f9fafb;
+            }
+            
+            &.active-row {
+                background: linear-gradient(135deg, rgba(12, 10, 78, 0.05) 0%, rgba(30, 64, 175, 0.05) 100%);
+                border-left: 4px solid $primary-color;
+            }
+        }
+        
+        .quantity-input {
+            width: 60px;
+            text-align: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+        }
+        
+        .remove-item {
+            @include button-base;
+            background: #dc2626;
+            color: #ffffff;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            
+            &:hover:not(:disabled) {
+                background: #b91c1c;
+                transform: translateY(-1px);
+            }
+        }
+        
+        .price-offer {
+            color: #059669;
+            font-weight: 700;
+        }
+        
+        .price-wholesale {
+            color: #0ea5e9;
+            font-weight: 700;
+        }
+    }
+}
+
+// Footer de acciones
+.pos-actions-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+    border-top: 2px solid $border-color;
+    @include shadow('lg');
+    flex-shrink: 0;
+    
+    .pos-total-summary {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        
+        span {
+            font-size: 0.875rem;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        strong {
+            // --- MEJORA: Fuente fluida con clamp() ---
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            color: $primary-color;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    }
+}
+
+// Estilos de botones profesionales
+.btn {
+    @include button-base;
+    
+    &:active {
+        transform: translateY(1px);
+    }
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
+    color: $tcolor2;
+    @include shadow('md');
+    
+    &:hover:not(:disabled) {
+        background: linear-gradient(135deg, lighten($primary-color, 10%) 0%, lighten($secondary-color, 10%) 100%);
+        @include shadow('lg');
+        transform: translateY(-2px);
+    }
+}
+
+.btn-secondary {
+    background: #ffffff;
+    color: #334155;
+    border: 2px solid #cbd5e1;
+    
+    &:hover:not(:disabled) {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        transform: translateY(-1px);
+    }
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+    color: $tcolor2;
+    @include shadow('md');
+    
+    &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        @include shadow('lg');
+        transform: translateY(-2px);
+    }
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
+    color: $tcolor2;
+    @include shadow('md');
+    
+    &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+        @include shadow('lg');
+        transform: translateY(-2px);
+    }
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+}
+
+// Estilos de modales profesionales
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    
+    &.show {
+        display: flex;
+        animation: modalFadeIn 0.3s ease-out;
+    }
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(8px);
+    }
+}
+
+.modal-content {
+    margin: auto;
+    background: #ffffff;
+    border-radius: 16px;
+    @include shadow('xl');
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto; // --- MEJORA: scroll si el contenido es muy largo ---
+    position: relative;
+    animation: modalSlideIn 0.3s ease-out;
+    border: 1px solid $border-color;
+    display: flex; // --- MEJORA: Flexbox para estructura interna ---
+    flex-direction: column;
+    
+    h2 {
+        font-size: clamp(1.2rem, 3vw, 1.5rem); // --- MEJORA: Fuente fluida ---
+        font-weight: 700;
+        color: $primary-color;
+        padding: 1.5rem 2rem;
+        margin: 0;
+        border-bottom: 2px solid $border-color;
+        flex-shrink: 0;
+    }
+
+    .modal-body { // --- MEJORA: Contenedor para el cuerpo del modal ---
+        padding: 1.5rem 2rem;
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+    
+    .modal-footer { // --- MEJORA: Contenedor para el pie del modal ---
+        padding: 1rem 2rem;
+        border-top: 1px solid $border-color;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        background-color: #f8fafc;
+    }
+
+    .close-button {
+        position: absolute;
+        top: 1.5rem;
+        right: 2rem;
+        font-size: 1.5rem;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+        
+        &:hover {
+            color: #dc2626;
+            background: #f1f5f9;
+            transform: scale(1.1);
+        }
+    }
+    
+    .search-container {
+        display: flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 2px solid $border-color;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0 0 1.5rem 0; // Ajustado
+        transition: all 0.2s ease;
+       
+        &:focus-within {
+            border-color: $primary-color;
+            @include shadow('md');
+        }
+        
+        i {
+            color: $primary-color;
+            margin-right: 1rem;
+            font-size: 1.125rem;
+        }
+        
+        input {
+            border: none;
+            outline: none;
+            width: 100%;
+            background: transparent;
+            color: #1e293b;
+            font-size: 1rem;
+            padding: 0;
+            
+            &:focus {
+                border: none;
+                box-shadow: none;
+                transform: none;
             }
         }
     }
 }
 
-.pos-ticket {
-    flex-grow: 1;
-    .ticket-table-container {
-        max-height: 400px;
-        overflow-y: auto;
-        border: 1px solid #ddd;
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-2rem) scale(0.95);
+        opacity: 0;
     }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-lg {
+    max-width: 900px;
+}
+
+.modal-sm {
+    max-width: 400px;
+}
+
+// Resultados de búsqueda
+#client-search-results, 
+#modal-search-results-container {
+    max-height: 40vh; // Altura máxima para evitar modales gigantes
+    overflow-y: auto;
+    margin: .5rem 0;
+    border-top: 1px solid $border-color;
+    
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 3px;
+    }
+    
+    .client-result-item, 
+    .search-result-item {
+        padding: 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid $border-color;
+        transition: all 0.2s ease;
+        
+        &:hover {
+            background: linear-gradient(135deg, rgba($primary-color, 0.1) 0%, rgba($secondary-color, 0.1) 100%);
+            color: $primary-color;
+            transform: translateX(4px);
         }
-        .quantity-input {
-            width: 50px;
-            text-align: center;
-        }
-        .remove-item {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            border-radius: 3px;
+        
+        &:last-child {
+            border-bottom: none;
         }
     }
 }
 
-.checkout-container {
-    .client-info {
-        margin-bottom: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+// Estilos para el modal de búsqueda de productos
+#modal-search-results-container {
+    border: 1px solid $border-color;
+    border-radius: 8px;
+    overflow: hidden;
+    
+    .search-result-header {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: #334155;
+        font-weight: 600;
+        font-size: 0.875rem;
+        padding: 1rem;
+        border-bottom: 2px solid #cbd5e1;
     }
-    .payment-details > div {
-        margin-bottom: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        label { font-weight: bold; }
-        input, select {
-            width: 50%;
+    
+    .search-result-item {
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+}
+
+.search-result-header,
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+}
+
+.col-product {
+    flex: 2.5;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.col-department {
+    flex: 1.5;
+    color: #64748b;
+    padding-left: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.col-price {
+    flex: 1;
+    text-align: right;
+    font-weight: 700;
+    padding-left: 1rem;
+    color: #059669;
+}
+
+.col-stock {
+    flex: 0.8;
+    text-align: right;
+    color: #64748b;
+    padding-left: 1rem;
+    font-weight: 500;
+}
+
+// Modal de notificación
+.modal-content.modal-sm {
+    text-align: center;
+    padding: 2rem;
+    
+    #pos-notification-title {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        
+        &.error-title { color: #dc2626; }
+        &.success-title { color: #059669; }
+        &.warning-title { color: #f59e0b; }
+    }
+    
+    p {
+        font-size: 1rem;
+        color: #64748b;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+    
+    .modal-footer {
+        border-top: none;
+        padding: 0;
+        justify-content: center;
+    }
+}
+
+// Estilos para el checkout modal
+#checkout-modal {
+    .modal-content {
+        padding: 0;
+        border: none;
+        overflow: hidden;
+        max-width: 1000px;
+        width: 95%;
+        
+        h2 {
+            background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
+            color: $tcolor2;
+            margin: 0;
+            padding: 1.5rem 2rem;
+            border-bottom: none;
         }
     }
+    
+    .checkout-modal-body {
+        display: flex;
+        min-height: 60vh;
+    }
+    
+    .checkout-ticket-summary {
+        flex: 1 1 55%;
+        padding: 2rem;
+        background: #f8fafc;
+        max-height: 60vh;
+        overflow-y: auto;
+        border-right: 2px solid $border-color;
+        
+        h4 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: $primary-color;
+            font-weight: 700;
+            font-size: clamp(1rem, 2.5vw, 1.125rem);
+            border-bottom: 2px solid #cbd5e1;
+            padding-bottom: 0.75rem;
+        }
+        
+        &::-webkit-scrollbar { width: 8px; }
+        &::-webkit-scrollbar-track { background: $border-color; }
+        &::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+    }
+    
+    #checkout-ticket-list .ticket-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem 0;
+        border-bottom: 1px solid #cbd5e1;
+        font-size: 0.95rem;
+        
+        .item-name {
+            flex-grow: 1;
+            color: $text-color;
+            font-weight: 500;
+        }
+        
+        .item-details {
+            flex-shrink: 0;
+            text-align: right;
+            font-weight: 700;
+            color: $primary-color;
+        }
+    }
+    
+    .checkout-payment-section {
+        flex: 1 1 45%;
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        
+        h4 {
+            margin-top: 0;
+            margin-bottom: 2rem;
+            color: $primary-color;
+            font-weight: 700;
+            font-size: clamp(1rem, 2.5vw, 1.125rem);
+        }
+    }
+    
+    .client-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        @include shadow('sm');
+        
+        #client-name {
+            flex-grow: 1;
+            font-weight: 600;
+            color: $primary-color;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 1rem;
+        }
+        
+        #assign-client-btn {
+            flex-shrink: 0;
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+        }
+    }
+    
+    .payment-details {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        flex-grow: 1;
+        
+        > div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            
+            label, strong {
+                font-size: 1rem;
+                font-weight: 600;
+                color: #334155;
+            }
+            
+            input, select {
+                border: 2px solid #cbd5e1;
+                border-radius: 8px;
+                padding: 0.75rem;
+                font-size: 1rem;
+                text-align: right;
+                max-width: 180px;
+                transition: all 0.2s ease;
+                
+                &:focus {
+                    border-color: $primary-color;
+                    @include shadow('md');
+                }
+            }
+        }
+    }
+    
+    #card-payment-details {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 1rem;
+        background: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 2px solid $border-color;
+        
+        input {
+            max-width: 100% !important;
+        }
+        
+        #card-balance-feedback {
+            text-align: right;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+    }
+    
+    .total-section input {
+        font-size: clamp(1.8rem, 5vw, 2.5rem) !important;
+        font-weight: 800 !important;
+        color: $primary-color !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        
+        &:focus {
+            border: none !important;
+            box-shadow: none !important;
+        }
+    }
+    
+    .change-section span {
+        font-size: clamp(1.5rem, 4vw, 2rem) !important;
+        font-weight: 800 !important;
+        color: #059669 !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .payment-details input:disabled {
+        background: #e2e8f0 !important;
+        color: #64748b !important;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+    
     #cobrar-btn {
         width: 100%;
-        padding: 15px;
-        font-size: 1.2em;
-        background-color: #2ecc71;
-        border: none;
-        color: white;
-        cursor: pointer;
-        &:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
+        padding: 1.5rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-top: auto;
+        @include shadow('lg');
+        
+        &:hover:not(:disabled) {
+            transform: translateY(-3px);
+            @include shadow('xl');
         }
     }
 }
 
-// Estilos del Modal
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1001;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
+// --- MEJORA: INICIO DE BLOQUE RESPONSIVO ---
+
+// Para tablets y pantallas medianas
+@media (max-width: 992px) {
+    #checkout-modal .checkout-modal-body {
+        flex-direction: column;
+    }
+    #checkout-modal .checkout-ticket-summary {
+        border-right: none;
+        border-bottom: 2px solid $border-color;
+        max-height: 40vh;
+    }
+    .pos-main-content {
+        padding: 1rem;
+    }
+    .pos-header {
+        padding: 1rem;
+    }
 }
 
-.modal-content {
-  background-color: #fefefe;
-  margin: 15% auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 50%;
-  max-width: 500px;
-}
-#client-search-results {
-    max-height: 200px;
-    overflow-y: auto;
-    .client-result-item {
-        padding: 8px;
-        cursor: pointer;
-        &:hover {
-            background-color: #f0f0f0;
+// Para móviles
+@media (max-width: 768px) {
+    .pos-container {
+        height: auto; // Altura automática en móviles
+    }
+    
+    .pos-actions-footer {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    #product-search-modal .modal-content {
+        width: 95vw;
+        max-height: 85vh;
+    }
+
+    .modal-content {
+        width: 95%;
+        margin: 1rem;
+
+        h2 { padding: 1rem 1.5rem; }
+        .modal-body { padding: 1rem 1.5rem; }
+        .modal-footer { padding: 0.75rem 1.5rem; }
+        .close-button { top: 1rem; right: 1.5rem; }
+    }
+
+    #checkout-modal .checkout-payment-section,
+    #checkout-modal .checkout-ticket-summary {
+        padding: 1.5rem;
+    }
+
+    #checkout-modal .payment-details > div {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+
+        input, select {
+            width: 100%;
+            max-width: none;
+            text-align: left;
+        }
+
+        strong {
+            align-self: flex-end;
         }
     }
 }
+// --- FIN DE BLOQUE RESPONSIVO ---

@@ -105,3 +105,217 @@
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+// admin/scss/includes/_responsive.scss
+
+// (Estilos existentes)
+
+// --- Para Tablets y Móviles (hasta 991px) ---
+@media (max-width: 991px) {
+    // (Reglas existentes)
+
+    /* --- INICIO DE MODIFICACIONES POS --- */
+    .pos-container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .pos-main-content {
+        order: 2;
+    }
+
+    .pos-sidebar {
+        order: 1;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    /* --- FIN DE MODIFICACIONES POS --- */
+}
+
+// --- Para Móviles (hasta 480px) ---
+@media (max-width: 480px) {
+    // (Reglas existentes)
+
+    /* --- INICIO DE MODIFICACIONES POS --- */
+    .pos-header .pos-input-container {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: stretch;
+    }
+
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    /* --- FIN DE MODIFICACIONES POS --- */
+}
+
+// Estilos para que el panel de administración sea responsivo
+
+// --- Para Tablets y Móviles (hasta 991px) ---
+@media (max-width: 991px) {
+    .dashboard-sidemenu {
+        position: fixed;
+        left: -100%; // El menú está oculto por defecto
+        height: 100%;
+        transition: left 0.3s ease-in-out !important; // Asegura una transición suave
+
+        &.active {
+            left: 0; // La clase .active lo hace visible
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+    }
+
+    .dashboard-header .dashboard-menu-toggle {
+        display: block; // Muestra el botón de hamburguesa
+    }
+
+    .dashboard-content {
+        padding: 1.5rem; // Reduce el padding en pantallas más pequeñas
+    }
+}
+
+// --- Para Móviles (hasta 480px) ---
+@media (max-width: 480px) {
+    .dashboard-content {
+        padding: 1rem;
+    }
+
+    .module-header h2 {
+        font-size: 1.5rem; // Reduce el tamaño del título principal del módulo
+    }
+
+    .action-ribbon {
+        // En móvil, los botones de la cinta ocupan todo el ancho
+        flex-direction: column;
+        align-items: stretch;
+
+        .action-btn {
+            text-align: center;
+        }
+    }
+}
+// Al final de admin/scss/includes/_dashboard_base.scss
+
+// --- ESTILOS PARA EL MENÚ LATERAL COLAPSABLE (SOLO EN DESKTOP) ---
+
+@media (min-width: 992px) {
+    .dashboard-sidemenu {
+        transition: width 0.3s ease-in-out; // Transición suave para el ancho
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+
+
+        }
+
+        .menu-icon {
+            font-size: 1.2rem;
+            width: 24px; // Ancho fijo para el icono
+            text-align: center;
+        }
+    }
+
+    // Estilos del pie de página del menú (donde va el botón)
+    .sidemenu-footer {
+        margin-top: auto; // Empuja el footer hacia abajo
+        padding: 1rem;
+        filter: invert(1);
+    }
+
+    #sidemenu-collapse-btn {
+        background: none;
+        border: none;
+        width: 100%;
+        color: $tcolor2;
+        cursor: pointer;
+        font-size: 1.5rem;
+        transition: transform 0.3s ease-in-out;
+    }
+
+    // --- ESTADO COLAPSADO ---
+    .sidemenu-collapsed {
+        width: 80px; // Ancho del menú cuando está colapsado
+
+        .menu-text, .dashboard-sidemenu-header h3 {
+            // Ocultamos el texto
+            opacity: 0;
+            visibility: hidden;
+            width: 0;
+            white-space: nowrap;
+        }
+        
+        .nav-link {
+            color: white;
+            justify-content: center;
+        }
+
+        #sidemenu-collapse-btn {
+            transform: rotate(180deg); // Gira la flecha
+        }
+    }
+}
+
+
+
+
+
+
+
+// admin/scss/includes/_responsive.scss
+
+// (Estilos existentes)
+
+// --- Para Tablets y Móviles (hasta 991px) ---
+@media (max-width: 991px) {
+    // (Reglas existentes)
+
+    /* --- INICIO DE MODIFICACIONES POS --- */
+    .pos-container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .pos-main-content {
+        order: 2;
+    }
+
+    .pos-sidebar {
+        order: 1;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    /* --- FIN DE MODIFICACIONES POS --- */
+}
+
+// --- Para Móviles (hasta 480px) ---
+@media (max-width: 480px) {
+    // (Reglas existentes)
+
+    /* --- INICIO DE MODIFICACIONES POS --- */
+    .pos-header .pos-input-container {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: stretch;
+    }
+
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    /* --- FIN DE MODIFICACIONES POS --- */
+}
