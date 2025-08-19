@@ -36,7 +36,7 @@ CREATE TABLE `carritos_compra` (
   CONSTRAINT `fk_carrito_cliente` FOREIGN KEY (`id_cliente`) REFERENCES `clientes` (`id_cliente`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_carrito_estado` FOREIGN KEY (`estado_id`) REFERENCES `estados` (`id_estado`) ON UPDATE CASCADE,
   CONSTRAINT `fk_carrito_metodo_pago` FOREIGN KEY (`id_metodo_pago`) REFERENCES `metodos_pago` (`id_metodo_pago`) ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=208 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,7 +45,6 @@ CREATE TABLE `carritos_compra` (
 
 LOCK TABLES `carritos_compra` WRITE;
 /*!40000 ALTER TABLE `carritos_compra` DISABLE KEYS */;
-INSERT INTO `carritos_compra` VALUES (199,101,'2025-08-15 15:59:28','2025-08-15 16:05:45',23,1),(200,101,'2025-08-15 16:05:46','2025-08-15 16:06:12',23,1),(201,101,'2025-08-15 16:06:12','2025-08-15 17:01:07',23,1),(202,101,'2025-08-11 15:15:00','2025-08-11 15:15:00',23,1),(203,101,'2025-08-13 22:45:00','2025-08-13 22:45:00',23,1),(204,101,'2025-08-14 17:00:00','2025-08-14 17:00:00',23,1),(205,101,'2025-08-15 17:01:08','2025-08-15 17:01:15',23,1),(206,101,'2025-08-15 17:01:16','2025-08-15 17:01:23',23,1),(207,101,'2025-08-15 17:01:24','2025-08-15 17:01:24',1,1);
 /*!40000 ALTER TABLE `carritos_compra` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -98,7 +97,7 @@ CREATE TABLE `clientes` (
 
 LOCK TABLES `clientes` WRITE;
 /*!40000 ALTER TABLE `clientes` DISABLE KEYS */;
-INSERT INTO `clientes` VALUES (101,'len89','Lennin','Juarez','leninpaacios055@gmail.com','68345121','$2y$10$Vv0N6ZeJAXSH61OAqoNO7efg/zs1JBKKxn2K1XUS/HZnoVAqjQWWW',1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2025-08-14 16:49:14'),(103,'van789','Vannesa','Barahona','vane64@gmail.com','12459865','$2y$10$MbjK5Vpq4MV9JzrDLKO85eQaaGOv.P9PiwGGfjoLnOdy32J.UgPVa',1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,NULL,'2025-08-17 17:20:32');
+INSERT INTO `clientes` VALUES (1,'publico_general','Público en','General','sin@correo.com','00000000',NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2025-08-18 22:58:02'),(103,'van789','Vannesa','Barahona','vane64@gmail.com','12459865','$2y$10$MbjK5Vpq4MV9JzrDLKO85eQaaGOv.P9PiwGGfjoLnOdy32J.UgPVa',1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,NULL,'2025-08-17 17:20:32');
 /*!40000 ALTER TABLE `clientes` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -152,7 +151,7 @@ CREATE TABLE `detalle_carrito` (
   KEY `fk_detalle_carrito_producto` (`id_producto`),
   CONSTRAINT `fk_detalle_carrito_carrito` FOREIGN KEY (`id_carrito`) REFERENCES `carritos_compra` (`id_carrito`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_detalle_carrito_producto` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_producto`) ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1345 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -161,7 +160,6 @@ CREATE TABLE `detalle_carrito` (
 
 LOCK TABLES `detalle_carrito` WRITE;
 /*!40000 ALTER TABLE `detalle_carrito` DISABLE KEYS */;
-INSERT INTO `detalle_carrito` VALUES (1331,199,1774,1,0.40),(1332,199,1933,1,6.50),(1333,199,2165,1,7.25),(1334,200,1774,1,0.40),(1335,200,1933,1,6.50),(1336,200,2165,1,7.25),(1337,202,1933,1,6.50),(1338,202,1559,5,0.25),(1339,203,1829,10,2.00),(1340,204,1878,2,2.25),(1341,204,1605,1,2.00),(1342,201,1332,1,1.25),(1343,205,263,1,0.30),(1344,206,1385,1,0.35);
 /*!40000 ALTER TABLE `detalle_carrito` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -184,7 +182,7 @@ CREATE TABLE `detalle_ventas` (
   KEY `fk_detalle_venta_producto` (`id_producto`),
   CONSTRAINT `fk_detalle_venta_producto` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_producto`) ON UPDATE CASCADE,
   CONSTRAINT `fk_detalle_venta_venta` FOREIGN KEY (`id_venta`) REFERENCES `ventas` (`id_venta`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=123 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -193,6 +191,7 @@ CREATE TABLE `detalle_ventas` (
 
 LOCK TABLES `detalle_ventas` WRITE;
 /*!40000 ALTER TABLE `detalle_ventas` DISABLE KEYS */;
+INSERT INTO `detalle_ventas` VALUES (3,3,443,1,0.20,0.20),(4,4,349,1,0.35,0.35),(6,6,443,1,0.20,0.20),(8,7,1173,1,0.50,0.50),(10,8,443,15,0.20,3.00),(11,9,443,1,0.20,0.20),(12,10,1994,1,4.50,4.50),(13,10,1878,1,2.25,2.25),(14,11,2078,1,10.00,10.00),(15,13,1682,1,2.50,2.50);
 /*!40000 ALTER TABLE `detalle_ventas` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -475,7 +474,7 @@ CREATE TABLE `registros_actividad` (
   PRIMARY KEY (`id_registro`),
   KEY `idx_usuario` (`id_usuario`),
   CONSTRAINT `fk_actividad_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=65 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -484,7 +483,7 @@ CREATE TABLE `registros_actividad` (
 
 LOCK TABLES `registros_actividad` WRITE;
 /*!40000 ALTER TABLE `registros_actividad` DISABLE KEYS */;
-INSERT INTO `registros_actividad` VALUES (4,1,'Cliente Creado','Se creó el cliente: Vannesa Barahona (Usuario: van789)','2025-08-17 17:20:32'),(5,3,'Producto Modificado','Actualización rápida en \'3d Folder Con Bandas Elasticas Oficio\': campo \'nombre_producto\' cambió a \'3d Folder Con Bandas Elasticas\'.','2025-08-17 18:33:30'),(6,1,'Producto Modificado','Actualización rápida en \'3d Folder Con Bandas Elasticas\': campo \'nombre_producto\' cambió a \'3d Folder Con Bandas Elasticas oficio\'.','2025-08-17 19:00:23'),(7,1,'Producto Modificado','Se actualizó el producto (formulario): \'3d Folder Con Bandas Elasticas\' (Código: 270)','2025-08-17 19:00:28'),(8,3,'Producto Modificado','Actualización rápida en \'3d Folder Con Bandas Elasticas\': campo \'nombre_producto\' cambió a \'3d Folder Con Bandas Elasticas oficio\'.','2025-08-17 19:00:52'),(9,3,'Producto Modificado','Se actualizó el producto (formulario): \'3d Folder Con Bandas Elasticas\' (Código: 270)','2025-08-17 19:01:01'),(10,3,'Producto Modificado','Se actualizó el producto (formulario): \'Abaco froma de Caracol Abacus Plastico\' (Código: 6975408541001)','2025-08-17 19:04:56'),(11,3,'Creación de Tarjetas','Se crearon 1 nuevas tarjetas sin asignar.','2025-08-17 19:05:08'),(12,3,'Tarjeta Asignada','Se asignó la tarjeta 2210151035269 al cliente van789','2025-08-17 19:05:34'),(13,3,'Tarjeta Eliminada','Se eliminó la tarjeta sin asignar: 2210151794052','2025-08-17 19:05:55'),(14,3,'Producto Modificado','Se actualizó el producto (formulario): \'3d Folder Con Bandas Elasticas Oficio\' (Código: 270)','2025-08-17 19:09:17'),(15,3,'Producto Creado','Se creó el nuevo producto: Producto Prueba (Código: 123456789)','2025-08-17 19:10:50'),(16,3,'Producto Eliminado','Se eliminó el producto: Producto Prueba (Código: 123456789)','2025-08-17 19:11:04');
+INSERT INTO `registros_actividad` VALUES (55,1,'Venta POS Finalizada','Se finalizó la venta POS No. 3 con un total de $ 0.2.','2025-08-18 23:07:00'),(56,1,'Venta POS Finalizada','Se finalizó la venta POS No. 4 con un total de $ 0.35.','2025-08-18 23:07:39'),(57,1,'Venta POS Finalizada','Se finalizó la venta POS No. 6 con un total de $ 0.2.','2025-08-18 23:12:41'),(58,1,'Venta POS Finalizada','Se finalizó la venta POS No. 7 con un total de $ 0.5.','2025-08-18 23:13:25'),(59,1,'Venta POS Finalizada','Se finalizó la venta POS No. 8 con un total de $ 3.','2025-08-18 23:26:52'),(60,1,'Venta POS Finalizada','Se finalizó la venta POS No. 9 con un total de $ 0.2.','2025-08-18 23:27:37'),(61,3,'Venta POS Finalizada','Se finalizó la venta POS No. 10 con un total de $ 6.75.','2025-08-18 23:29:27'),(62,3,'Recarga de Tarjeta','Recarga de $10.00 a la tarjeta 2210151035269 (Cliente: van789)','2025-08-18 23:53:00'),(63,3,'Venta POS Finalizada','Se finalizó la venta POS No. 11 con un total de $ 10.','2025-08-19 00:20:57'),(64,1,'Venta POS Finalizada','Se finalizó la venta POS No. 13 con un total de $ 2.5.','2025-08-19 00:22:06');
 /*!40000 ALTER TABLE `registros_actividad` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -524,7 +523,7 @@ CREATE TABLE `tarjetas_recargables` (
 
 LOCK TABLES `tarjetas_recargables` WRITE;
 /*!40000 ALTER TABLE `tarjetas_recargables` DISABLE KEYS */;
-INSERT INTO `tarjetas_recargables` VALUES (379,103,'2210151035269',0.00,1,'2025-08-17 19:05:08','2025-08-17 19:05:34',3,NULL);
+INSERT INTO `tarjetas_recargables` VALUES (379,103,'2210151035269',10.00,1,'2025-08-17 19:05:08','2025-08-17 19:05:34',3,NULL);
 /*!40000 ALTER TABLE `tarjetas_recargables` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -604,7 +603,7 @@ CREATE TABLE `usuarios` (
 
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
-INSERT INTO `usuarios` VALUES (1,'administrador','admin','$2y$10$JKkG.1GU3cqDn3PhOKtd5OwVJ6amqwEKMjX0STYzVE.Fdyw8DLb9K',NULL),(3,'empleado','tatianarosales','$2y$10$uRzVYyzNbwnTmHJWhtP4heIqy1VZDBY9uNY5zkl3ARxtF6ls1LZ9q','{\"dashboard\":true,\"productos\":true,\"departamentos\":true,\"clientes\":true,\"tarjetas\":true,\"inventario\":true,\"estadisticas\":false,\"web_admin\":false,\"utilidades\":false}');
+INSERT INTO `usuarios` VALUES (1,'administrador','admin','$2y$10$JKkG.1GU3cqDn3PhOKtd5OwVJ6amqwEKMjX0STYzVE.Fdyw8DLb9K',NULL),(3,'empleado','tatianarosales','$2y$10$uRzVYyzNbwnTmHJWhtP4heIqy1VZDBY9uNY5zkl3ARxtF6ls1LZ9q','{\"dashboard\":true,\"productos\":true,\"departamentos\":true,\"clientes\":true,\"tarjetas\":true,\"inventario\":true,\"estadisticas\":false,\"web_admin\":false,\"utilidades\":false,\"pos\":true}');
 /*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -623,16 +622,19 @@ CREATE TABLE `ventas` (
   `id_metodo_pago` int(11) NOT NULL,
   `fecha_venta` timestamp NOT NULL DEFAULT current_timestamp(),
   `monto_total` decimal(10,2) NOT NULL,
+  `estado_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`id_venta`),
   KEY `fk_venta_cliente` (`id_cliente`),
   KEY `fk_venta_tarjeta` (`id_tarjeta_recargable`),
   KEY `fk_venta_metodo_pago` (`id_metodo_pago`),
   KEY `fk_venta_usuario` (`id_usuario_venta`),
+  KEY `fk_venta_estado` (`estado_id`),
   CONSTRAINT `fk_venta_cliente` FOREIGN KEY (`id_cliente`) REFERENCES `clientes` (`id_cliente`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_venta_estado` FOREIGN KEY (`estado_id`) REFERENCES `estados` (`id_estado`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_venta_metodo_pago` FOREIGN KEY (`id_metodo_pago`) REFERENCES `metodos_pago` (`id_metodo_pago`) ON UPDATE CASCADE,
   CONSTRAINT `fk_venta_tarjeta` FOREIGN KEY (`id_tarjeta_recargable`) REFERENCES `tarjetas_recargables` (`id_tarjeta`) ON UPDATE CASCADE,
   CONSTRAINT `fk_venta_usuario` FOREIGN KEY (`id_usuario_venta`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=290 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -641,7 +643,7 @@ CREATE TABLE `ventas` (
 
 LOCK TABLES `ventas` WRITE;
 /*!40000 ALTER TABLE `ventas` DISABLE KEYS */;
-INSERT INTO `ventas` VALUES (289,101,1,NULL,1,'2024-08-15 16:15:51',12.50);
+INSERT INTO `ventas` VALUES (3,1,1,NULL,1,'2025-08-18 23:07:00',0.20,29),(4,103,1,NULL,1,'2025-08-18 23:07:39',0.35,29),(6,1,1,NULL,1,'2025-08-18 23:12:41',0.20,29),(7,1,1,NULL,1,'2025-08-18 23:13:25',0.50,29),(8,103,1,NULL,1,'2025-08-18 23:26:52',3.00,29),(9,1,1,NULL,1,'2025-08-18 23:27:37',0.20,29),(10,1,3,NULL,1,'2025-08-18 23:29:27',6.75,29),(11,103,3,NULL,2,'2025-08-19 00:20:57',10.00,29),(12,1,3,NULL,1,'2025-08-19 00:21:29',0.00,8),(13,103,1,NULL,2,'2025-08-19 00:22:06',2.50,29);
 /*!40000 ALTER TABLE `ventas` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -654,4 +656,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-08-18 12:54:27
+-- Dump completed on 2025-08-18 18:22:38

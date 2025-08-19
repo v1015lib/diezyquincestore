@@ -52,7 +52,29 @@ case 'admin/userSalesStats':
         echo json_encode(['success' => false, 'error' => 'Error al obtener estadísticas por usuario: ' . $e->getMessage()]);
     }
     break;
+case 'pos_check_card_balance':
+    if ($method === 'GET' && isset($_GET['card_number'])) {
+        try {
+            $card_number = trim($_GET['card_number']);
+            $stmt = $pdo->prepare(
+                "SELECT id_cliente, saldo, estado_id 
+                 FROM tarjetas_recargables 
+                 WHERE numero_tarjeta = :card_number"
+            );
+            $stmt->execute([':card_number' => $card_number]);
+            $card = $stmt->fetch(PDO::FETCH_ASSOC);
 
+            if ($card) {
+                echo json_encode(['success' => true, 'card' => $card]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Tarjeta no encontrada.']);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
+        }
+    }
+    break;
 case 'admin/activityLog':
     if ($method == 'GET') {
         $filter_date = $_GET['date'] ?? date('Y-m-d');

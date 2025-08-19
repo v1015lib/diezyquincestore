@@ -18,7 +18,43 @@ function initializePOS() {
     const closeModalBtn = clientModal.querySelector('.close-button');
     const clientSearchInput = document.getElementById('client-search');
     const clientSearchResults = document.getElementById('client-search-results');
+    const paymentMethodSelect = document.getElementById('payment-method-select');
+    const cardPaymentDetails = document.getElementById('card-payment-details');
+    const cardNumberInput = document.getElementById('card-number-input');
+    const cardBalanceFeedback = document.getElementById('card-balance-feedback');
+    let debounceTimer;
     const API_URL = '../api/index.php';
+
+// --- NUEVO MANEJADOR DE CLICS PARA LA SELECCIÓN DE CLIENTE ---
+    clientSearchResults.addEventListener('click', function(event) {
+        const selectedClient = event.target.closest('.client-result-item');
+        if (selectedClient) {
+            // Leemos los datos guardados en el elemento en lugar de una variable
+            currentClientId = selectedClient.dataset.clientId;
+            currentClientName = selectedClient.dataset.clientName;
+            
+            clientNameSpan.textContent = currentClientName;
+            clientModal.style.display = 'none';
+            
+            // Importante: Volvemos a verificar el estado del campo de la tarjeta
+            toggleCardPaymentFields(); 
+        }
+    });
+    function toggleCardPaymentFields() {
+        const isCardPayment = paymentMethodSelect.value === '2';
+        const isClientAssigned = currentClientId !== null;
+
+        if (isCardPayment && isClientAssigned) {
+            cardPaymentDetails.style.display = 'block';
+            pagaConInput.disabled = true; // Deshabilitamos "Paga con" para pagos con tarjeta
+        } else {
+            cardPaymentDetails.style.display = 'none';
+            cardNumberInput.value = '';
+            cardBalanceFeedback.textContent = '';
+            pagaConInput.disabled = false;
+        }
+        updateChange(); // Actualizamos el estado del botón cobrar
+    }
 
     async function startOrResumeSale() {
         try {
@@ -180,15 +216,22 @@ function initializePOS() {
         const total = parseFloat(totalAmountInput.value);
         const pagaCon = parseFloat(pagaConInput.value) || 0;
         const cambio = pagaCon - total;
-        cobrarBtn.disabled = (cambio < 0 || total <= 0);
-        changeAmountSpan.textContent = (cambio >= 0) ? `$${cambio.toFixed(2)}` : '$0.00';
+
+        if (paymentMethodSelect.value === '2') { // Si es pago con tarjeta
+            checkCardBalance(); // El botón se habilita/deshabilita aquí
+        } else { // Si es efectivo u otro método
+            cobrarBtn.disabled = (cambio < 0 || total <= 0);
+        }
+        
+        changeAmountSpan.textContent = (cambio >= 0 && paymentMethodSelect.value !== '2') ? `$${cambio.toFixed(2)}` : '$0.00';
+    
     }
     
     // ================== INICIO DE LA CORRECCIÓN ==================
     cobrarBtn.addEventListener('click', async () => {
         const total = parseFloat(totalAmountInput.value);
         if (total <= 0) {
-            showNotification('No hay productos en el ticket.', 'error'); return;
+            //showNotification('No hay productos en el ticket.', 'error'); return;
         }
         const saleData = {
             sale_id: currentSaleId,
@@ -207,7 +250,7 @@ function initializePOS() {
             });
             const result = await response.json();
             if (result.success) {
-                showNotification('Venta finalizada con éxito.', 'success');
+                //showNotification('Venta finalizada con éxito.', 'success');
                 
                 // BUG FIX: En lugar de llamar a startOrResumeSale(), que crea una nueva venta,
                 // simplemente limpiamos las variables para preparar la siguiente venta.
@@ -262,30 +305,29 @@ function initializePOS() {
     });
     // =================== FIN DE LA CORRECCIÓN ===================
 
-    assignClientBtn.addEventListener('click', () => clientModal.style.display = 'block');
-    closeModalBtn.addEventListener('click', () => clientModal.style.display = 'none');
-    window.addEventListener('click', e => {
-        if (e.target === clientModal) clientModal.style.display = 'none';
-    });
-    
-     clientSearchInput.addEventListener('input', async function() {
+
+clientSearchInput.addEventListener('input', async function() {
         const query = this.value;
-        if (query.length < 2) { clientSearchResults.innerHTML = ''; return; }
+        if (query.length < 2) { 
+            clientSearchResults.innerHTML = ''; 
+            return; 
+        }
         try {
             const response = await fetch(`${API_URL}?resource=pos_search_clients&query=${encodeURIComponent(query)}`);
             const clients = await response.json();
-            clientSearchResults.innerHTML = '';
+            clientSearchResults.innerHTML = ''; // Limpiar resultados anteriores
+            
             if (clients.length > 0) {
                 clients.forEach(client => {
                     const div = document.createElement('div');
                     div.className = 'client-result-item';
                     div.textContent = `${client.nombre} ${client.apellido || ''} (${client.nombre_usuario})`;
-                    div.addEventListener('click', () => {
-                        currentClientId = client.id_cliente;
-                        currentClientName = `${client.nombre} ${client.apellido || ''}`;
-                        clientNameSpan.textContent = currentClientName;
-                        clientModal.style.display = 'none';
-                    });
+                    
+                    // --- CORRECCIÓN CLAVE ---
+                    // Guardamos los datos del cliente directamente en el elemento HTML
+                    div.dataset.clientId = client.id_cliente;
+                    div.dataset.clientName = `${client.nombre} ${client.apellido || ''}`;
+                    
                     clientSearchResults.appendChild(div);
                 });
             } else {
@@ -295,7 +337,67 @@ function initializePOS() {
             console.error('Error buscando clientes:', error);
         }
     });
+     // ...después del listener para clientSearchInput...
+    paymentMethodSelect.addEventListener('change', toggleCardPaymentFields);
+    assignClientBtn.addEventListener('click', () => { 
+        clientModal.style.display = 'block';
+        // Limpiamos el campo de tarjeta si se cambia de cliente
+        toggleCardPaymentFields(); 
+    });
 
+
+
+    // Este listener se activa cuando el usuario escribe el número de tarjeta
+    cardNumberInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        cardBalanceFeedback.textContent = 'Verificando...';
+        debounceTimer = setTimeout(() => {
+            checkCardBalance();
+        }, 500); // Espera 500ms después de la última tecla presionada
+    });
+
+    async function checkCardBalance() {
+        const cardNumber = cardNumberInput.value.trim();
+        const total = parseFloat(totalAmountInput.value);
+        if (!cardNumber) {
+            cardBalanceFeedback.textContent = '';
+            cobrarBtn.disabled = true;
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}?resource=pos_check_card_balance&card_number=${encodeURIComponent(cardNumber)}`);
+            const result = await response.json();
+
+            if (result.success) {
+                if (parseInt(result.card.id_cliente) !== parseInt(currentClientId)) {
+                    cardBalanceFeedback.style.color = '#e74c3c'; // Rojo
+                    cardBalanceFeedback.textContent = 'Esta tarjeta no pertenece al cliente seleccionado.';
+                    cobrarBtn.disabled = true;
+                    return;
+                }
+
+                const balance = parseFloat(result.card.saldo);
+                if (balance >= total) {
+                    cardBalanceFeedback.style.color = '#2ecc71'; // Verde
+                    cardBalanceFeedback.textContent = `Saldo disponible: $${balance.toFixed(2)}`;
+                    cobrarBtn.disabled = false;
+                } else {
+                    cardBalanceFeedback.style.color = '#e74c3c'; // Rojo
+                    cardBalanceFeedback.textContent = `Saldo insuficiente: $${balance.toFixed(2)}`;
+                    cobrarBtn.disabled = true;
+                }
+            } else {
+                cardBalanceFeedback.style.color = '#e74c3c'; // Rojo
+                cardBalanceFeedback.textContent = result.error;
+                cobrarBtn.disabled = true;
+            }
+        } catch (error) {
+            cardBalanceFeedback.style.color = '#e74c3c';
+            cardBalanceFeedback.textContent = 'Error de conexión al verificar.';
+            cobrarBtn.disabled = true;
+        }
+    }
     startOrResumeSale();
 
     function showNotification(message, type = 'info') {

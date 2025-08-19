@@ -43,13 +43,25 @@
                     <label for="total-amount">Total a Pagar:</label>
                     <input type="text" id="total-amount" value="0.00" readonly>
                 </div>
-                <div class="payment-method">
+<div class="payment-method">
                     <label for="payment-method-select">Método de Pago:</label>
                     <select id="payment-method-select" class="form-control">
                         <option value="1">Efectivo</option>
                         <option value="2">Tarjeta Interna</option>
                         <option value="3">Transferencia</option>
                     </select>
+                </div>
+
+                <div id="card-payment-details" style="display:none;">
+                    <div class="card-number-input">
+                        <label for="card-number-input">N° de Tarjeta:</label>
+                        <input type="text" id="card-number-input" class="form-control" placeholder="Ingrese o escanee la tarjeta...">
+                    </div>
+                    <div id="card-balance-feedback" style="text-align: right; font-weight: bold; margin-top: 5px;"></div>
+                </div>
+                <div class="amount-paid">
+                    <label for="paga-con">Paga con:</label>
+                    <input type="number" id="paga-con" class="form-control" placeholder="0.00">
                 </div>
                 <div class="amount-paid">
                     <label for="paga-con">Paga con:</label>
