@@ -35,6 +35,15 @@ function initializePOS() {
     const checkoutModal = document.getElementById('checkout-modal');
     const checkoutTicketList = document.getElementById('checkout-ticket-list');
     const footerTotalAmount = document.getElementById('footer-total-amount');
+    // --- LÓGICA DEL HISTORIAL DE VENTAS ---
+    const openHistoryModalBtn = document.getElementById('open-history-modal-btn');
+    const salesHistoryModal = document.getElementById('sales-history-modal');
+    const salesHistoryDateInput = document.getElementById('sales-history-date');
+    const salesSummaryTbody = document.querySelector('#sales-history-summary-table tbody');
+    const saleDetailHeader = document.getElementById('sale-detail-header');
+    const saleDetailItems = document.getElementById('sale-detail-items');
+    const saleDetailFooter = document.getElementById('sale-detail-footer');
+    const ticketHistorySearchInput = document.getElementById('ticket-history-search-input');
 
     let debounceTimer;
     const API_URL = '../api/index.php';
@@ -340,21 +349,26 @@ function initializePOS() {
         }
     });
 
-    function closeProductSearchModal() {
-        productSearchModal.style.display = 'none';
-        modalSearchInput.value = '';
-        modalSearchResultsContainer.innerHTML = '';
+function closeProductSearchModal() {
+    productSearchModal.style.display = 'none';
+    modalSearchInput.value = '';
+
+    // CORRECCIÓN: Buscamos la lista interna y solo borramos su contenido.
+    const resultsList = document.getElementById('modal-search-results-list');
+    if (resultsList) {
+        resultsList.innerHTML = ''; // Esto vacía la lista sin eliminarla.
     }
+}
 
 modalSearchInput.addEventListener('input', function() {
     clearTimeout(debounceTimer);
     const query = this.value;
     
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Apuntamos directamente a la lista donde van los resultados, no al contenedor principal.
+
+
     const resultsList = document.getElementById('modal-search-results-list');
     if (!resultsList) return; // Seguridad por si no encuentra el elemento
-    // --- FIN DE LA CORRECCIÓN ---
+
 
     if (query.length < 2) {
         resultsList.innerHTML = ''; // Ahora solo se limpia la lista, no toda la estructura.
@@ -668,6 +682,193 @@ function renderSearchResults(products, container) {
             cardBalanceFeedback.textContent = 'Error de conexión al verificar.';
             cobrarBtn.disabled = true;
         }
+    }
+    // Función para formatear la fecha a YYYY-MM-DD
+    const formatDate = (date) => date.toISOString().split('T')[0];
+
+async function fetchAndRenderSalesHistory(date) {
+    salesSummaryTbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+    clearSaleDetails();
+
+    try {
+        const response = await fetch(`${API_URL}?resource=pos_get_sales_history&date=${date}`);
+        const result = await response.json();
+        
+        salesSummaryTbody.innerHTML = '';
+        if(result.success && result.sales.length > 0) {
+            result.sales.forEach(sale => {
+                const row = document.createElement('tr');
+                row.dataset.saleId = sale.id_venta;
+                row.style.cursor = 'pointer';
+                // Añadimos una clase si la venta está cancelada (estado 16)
+                if (sale.estado_id == 16) {
+                    row.classList.add('sale-canceled');
+                }
+                row.innerHTML = `
+                    <td>${sale.id_venta}</td>
+                    <td>${new Date(sale.fecha_venta).toLocaleTimeString()}</td>
+                    <td>${sale.cantidad_items}</td>
+                    <td>$${parseFloat(sale.monto_total).toFixed(2)}</td>
+                `;
+                salesSummaryTbody.appendChild(row);
+            });
+        } else {
+            salesSummaryTbody.innerHTML = '<tr><td colspan="4">No hay ventas para esta fecha.</td></tr>';
+        }
+    } catch (error) {
+        salesSummaryTbody.innerHTML = '<tr><td colspan="4" style="color:red;">Error al cargar el historial.</td></tr>';
+    }
+}
+async function fetchAndRenderSaleDetails(saleId) {
+    clearSaleDetails();
+    saleDetailHeader.innerHTML = `<p>Cargando detalles para la venta #${saleId}...</p>`;
+
+    try {
+        const response = await fetch(`${API_URL}?resource=pos_get_sale_details&sale_id=${saleId}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const details = result.details;
+            saleDetailHeader.innerHTML = `
+                <strong>Ticket:</strong> #${details.id_venta} | 
+                <strong>Cliente:</strong> ${details.nombre_cliente} | 
+                <strong>Pago:</strong> ${details.metodo_pago}
+            `;
+            
+            // Añadimos la marca de agua si la venta está cancelada
+            const watermarkHtml = details.estado_id == 16 
+                ? '<div class="watermark">VENTA CANCELADA</div>' 
+                : '';
+            
+            let itemsHtml = `
+                ${watermarkHtml}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cant.</th>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            details.items.forEach(item => {
+                itemsHtml += `
+                    <tr>
+                        <td>${item.cantidad}</td>
+                        <td>${item.nombre_producto}</td>
+                        <td>$${parseFloat(item.precio_unitario).toFixed(2)}</td>
+                        <td>$${parseFloat(item.subtotal).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            itemsHtml += `</tbody></table>`;
+            saleDetailItems.innerHTML = itemsHtml;
+            
+            // El botón de cancelar solo se muestra si la venta NO está cancelada
+            if (details.estado_id != 16) {
+                saleDetailFooter.innerHTML = `<button id="reverse-sale-btn" class="btn btn-danger" data-sale-id="${saleId}">Cancelar Venta</button>`;
+            }
+
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        saleDetailHeader.innerHTML = `<p style="color:red;">Error al cargar detalles.</p>`;
+    }
+}
+    
+    function clearSaleDetails() {
+        saleDetailHeader.innerHTML = '<p>Selecciona una venta para ver los detalles.</p>';
+        saleDetailItems.innerHTML = '';
+        saleDetailFooter.innerHTML = '';
+    }
+
+    async function handleReverseSale(saleId) {
+        if (!confirm(`¿Estás seguro de que quieres CANCELAR la venta #${saleId}? Esta acción devolverá los productos al inventario y no se puede deshacer.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}?resource=pos_reverse_sale`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sale_id: saleId })
+            });
+            const result = await response.json();
+            if(result.success){
+                alert(result.message);
+                // Refrescar la vista del historial
+                fetchAndRenderSalesHistory(salesHistoryDateInput.value);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    if(openHistoryModalBtn) {
+        openHistoryModalBtn.addEventListener('click', () => {
+            salesHistoryModal.style.display = 'block';
+            salesHistoryDateInput.value = formatDate(new Date());
+            fetchAndRenderSalesHistory(salesHistoryDateInput.value);
+        });
+    }
+    
+    if(salesHistoryModal) {
+        salesHistoryModal.querySelector('.close-button').addEventListener('click', () => {
+            salesHistoryModal.style.display = 'none';
+        });
+
+        salesHistoryDateInput.addEventListener('change', () => {
+            fetchAndRenderSalesHistory(salesHistoryDateInput.value);
+        });
+
+        salesSummaryTbody.addEventListener('click', (e) => {
+            const row = e.target.closest('tr');
+            if(row && row.dataset.saleId) {
+                // Resaltar fila seleccionada
+                salesSummaryTbody.querySelectorAll('tr').forEach(r => r.classList.remove('active-row'));
+                row.classList.add('active-row');
+                fetchAndRenderSaleDetails(row.dataset.saleId);
+            }
+        });
+
+        saleDetailFooter.addEventListener('click', (e) => {
+            if(e.target.id === 'reverse-sale-btn') {
+                handleReverseSale(e.target.dataset.saleId);
+            }
+        });
+    }
+       if (ticketHistorySearchInput) {
+        ticketHistorySearchInput.addEventListener('input', () => {
+            const searchTerm = ticketHistorySearchInput.value.toLowerCase();
+            const rows = salesSummaryTbody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                // Aseguramos que la fila tenga un saleId para no afectar los mensajes de "cargando" o "no hay ventas"
+                const saleId = row.dataset.saleId;
+                if (saleId) {
+                    if (saleId.toLowerCase().includes(searchTerm)) {
+                        row.style.display = ''; // Muestra la fila si coincide
+                    } else {
+                        row.style.display = 'none'; // Oculta la fila si no coincide
+                    }
+                }
+            });
+        });
+    }
+
+    // Asegúrate de limpiar el buscador cuando se abre el modal
+    if (openHistoryModalBtn) {
+        openHistoryModalBtn.addEventListener('click', () => {
+            if (ticketHistorySearchInput) {
+                ticketHistorySearchInput.value = ''; // Limpia el campo de búsqueda
+            }
+            // El resto de la función para abrir el modal...
+        });
     }
 
     startOrResumeSale();

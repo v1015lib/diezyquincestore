@@ -7,7 +7,8 @@
             <div class="pos-input-container">
                 <i class="fas fa-barcode"></i>
                 <input type="text" id="pos-product-input" placeholder="Ingresar código de producto o usar atajos de teclado...">
-                <button id="open-search-modal-btn" class="btn btn-primary">Buscar Producto (F1)</button>
+                <button id="open-search-modal-btn" class="btn btn-primary">Buscar Producto</button>
+                <button id="open-history-modal-btn" class="btn btn-primary">Histiorial Venta</button>
             </div>
         </div>
         <div class="pos-ticket">
@@ -129,6 +130,51 @@
         </div>
         <div class="modal-footer" style="justify-content: flex-end;">
             <button id="pos-notification-ok-btn" class="modal-btn modal-btn-primary">Aceptar</button>
+        </div>
+    </div>
+</div>
+
+
+
+<div id="sales-history-modal" class="modal" style="display:none;">
+    <div class="modal-content modal-lg">
+        <span class="close-button">&times;</span>
+        <h2>Historial de Ventas</h2>
+        <div class="sales-history-body">
+            <div class="sales-summary-column">
+                <div class="history-search-container">
+                    <input type="number" id="ticket-history-search-input" placeholder="Buscar por # de Ticket...">
+                </div>
+                <h4>Ventas del Día</h4>
+                <div class="history-table-container">
+                    <table id="sales-history-summary-table">
+                        <thead>
+                            <tr>
+                                <th># Venta</th>
+                                <th>Fecha</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            </tbody>
+                    </table>
+                </div>
+                <div class="history-filter-container">
+                    <label for="sales-history-date">Filtrar por fecha:</label>
+                    <input type="date" id="sales-history-date">
+                </div>
+            </div>
+
+            <div class="sales-detail-column">
+                <div id="sale-detail-header">
+                    <p>Selecciona una venta para ver los detalles.</p>
+                </div>
+                <div id="sale-detail-items" class="details-table-container">
+                    </div>
+                <div id="sale-detail-footer">
+                    </div>
+            </div>
         </div>
     </div>
 </div>

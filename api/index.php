@@ -32,8 +32,204 @@ try {
     switch ($resource) {
 
 
+case 'pos_get_sale_by_id':
+    if ($method === 'GET' && isset($_GET['sale_id'])) {
+        try {
+            $sale_id = filter_var($_GET['sale_id'], FILTER_VALIDATE_INT);
+            if (!$sale_id) {
+                throw new Exception("Número de ticket no válido.");
+            }
+
+            // Primero, verifica si la venta existe y no está ya en proceso por otro usuario
+            $stmt_check = $pdo->prepare("SELECT id_venta, estado_id FROM ventas WHERE id_venta = :sale_id");
+            $stmt_check->execute([':sale_id' => $sale_id]);
+            $sale_status = $stmt_check->fetch(PDO::FETCH_ASSOC);
+
+            if (!$sale_status) {
+                throw new Exception("El ticket #${sale_id} no fue encontrado.");
+            }
+            if ($sale_status['estado_id'] === 8) { // 8 = En Proceso
+                throw new Exception("El ticket #${sale_id} ya está siendo procesado en otra terminal.");
+            }
+            if ($sale_status['estado_id'] !== 29) { // 29 = Venta Realizada
+                 throw new Exception("El ticket #${sale_id} no es una venta finalizada y no se puede cargar.");
+            }
+
+            // Obtener los detalles de los productos de esa venta
+            $stmt_items = $pdo->prepare("
+                SELECT 
+                    p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, 
+                    p.precio_oferta, p.precio_mayoreo, p.stock_actual, p.usa_inventario, 
+                    dv.cantidad, p.stock_actual as stock_actual_inicial
+                FROM detalle_ventas dv
+                JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE dv.id_venta = :sale_id
+            ");
+            $stmt_items->execute([':sale_id' => $sale_id]);
+            $ticket_items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'sale_id' => $sale_id, 'ticket_items' => $ticket_items]);
+
+        } catch (Exception $e) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+    break;
+
+case 'pos_get_sales_history':
+    if ($method === 'GET' && isset($_GET['date'])) {
+        try {
+            $filter_date = $_GET['date'];
+            // MODIFICACIÓN: Se incluyen ventas finalizadas (29) y canceladas (16)
+            $stmt = $pdo->prepare("
+                SELECT 
+                    v.id_venta,
+                    v.fecha_venta,
+                    c.nombre_usuario AS nombre_cliente,
+                    (SELECT COUNT(*) FROM detalle_ventas dv WHERE dv.id_venta = v.id_venta) AS cantidad_items,
+                    v.monto_total,
+                    v.estado_id 
+                FROM ventas v
+                JOIN clientes c ON v.id_cliente = c.id_cliente
+                WHERE DATE(v.fecha_venta) = :filter_date AND v.estado_id IN (29, 16)
+                ORDER BY v.fecha_venta DESC
+            ");
+            $stmt->execute([':filter_date' => $filter_date]);
+            $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'sales' => $sales]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener el historial de ventas: ' . $e->getMessage()]);
+        }
+    }
+    break;
 
 
+case 'pos_get_sale_details':
+    if ($method === 'GET' && isset($_GET['sale_id'])) {
+        try {
+            $sale_id = $_GET['sale_id'];
+            
+            // MODIFICACIÓN: Se añade v.estado_id a la consulta
+            $stmt_sale = $pdo->prepare("
+                SELECT 
+                    v.id_venta,
+                    c.nombre_usuario AS nombre_cliente,
+                    mp.nombre_metodo AS metodo_pago,
+                    v.estado_id
+                FROM ventas v
+                JOIN clientes c ON v.id_cliente = c.id_cliente
+                JOIN metodos_pago mp ON v.id_metodo_pago = mp.id_metodo_pago
+                WHERE v.id_venta = :sale_id
+            ");
+            $stmt_sale->execute([':sale_id' => $sale_id]);
+            $sale_details = $stmt_sale->fetch(PDO::FETCH_ASSOC);
+
+            if (!$sale_details) {
+                throw new Exception('Venta no encontrada.');
+            }
+
+            $stmt_items = $pdo->prepare("
+                SELECT 
+                    dv.cantidad,
+                    p.nombre_producto,
+                    dv.precio_unitario,
+                    dv.subtotal
+                FROM detalle_ventas dv
+                JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE dv.id_venta = :sale_id
+            ");
+            $stmt_items->execute([':sale_id' => $sale_id]);
+            $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+            $sale_details['items'] = $items;
+
+            echo json_encode(['success' => true, 'details' => $sale_details]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener los detalles de la venta: ' . $e->getMessage()]);
+        }
+    }
+    break;
+
+case 'pos_reverse_sale':
+    if ($method === 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $saleId = $data['sale_id'] ?? null;
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$saleId || !$userId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Datos incompletos o sesión no válida.']);
+            break;
+        }
+        
+        $pdo->beginTransaction();
+        try {
+            // 1. Obtener los items y la info de la venta
+            $stmt_items = $pdo->prepare("
+                SELECT dv.id_producto, dv.cantidad, p.usa_inventario, p.stock_actual
+                FROM detalle_ventas dv
+                JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE dv.id_venta = :sale_id
+            ");
+            $stmt_items->execute([':sale_id' => $saleId]);
+            $items_to_reverse = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+            // =================== INICIO DE LA NUEVA LÓGICA ===================
+            // Preparamos la consulta para insertar en el historial de movimientos
+            $stmt_log_movement = $pdo->prepare(
+                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+                 VALUES (:product_id, 12, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas)" // Usamos el estado 12 = 'Devuelto'
+            );
+            // =================== FIN DE LA NUEVA LÓGICA ===================
+
+            // 2. Revertir el stock para cada producto que usa inventario
+            $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + :quantity WHERE id_producto = :product_id");
+            foreach ($items_to_reverse as $item) {
+                if ($item['usa_inventario']) {
+                    $stock_anterior = $item['stock_actual'];
+                    $stock_nuevo = $stock_anterior + $item['cantidad'];
+
+                    // Actualizamos el stock en la tabla de productos
+                    $stmt_update_stock->execute([
+                        ':quantity' => $item['cantidad'],
+                        ':product_id' => $item['id_producto']
+                    ]);
+
+                    // =================== INICIO DE LA NUEVA LÓGICA ===================
+                    // Insertamos el registro de la devolución en el historial de inventario
+                    $stmt_log_movement->execute([
+                        ':product_id' => $item['id_producto'],
+                        ':cantidad' => $item['cantidad'], // La cantidad es positiva porque es una entrada/devolución
+                        ':stock_anterior' => $stock_anterior,
+                        ':stock_nuevo' => $stock_nuevo,
+                        ':user_id' => $userId,
+                        ':notas' => "Reversión por cancelación de Venta POS No. {$saleId}"
+                    ]);
+                    // =================== FIN DE LA NUEVA LÓGICA ===================
+                }
+            }
+
+            // 3. Cambiar el estado de la venta a 'Cancelada' (ID 16)
+            $stmt_cancel = $pdo->prepare("UPDATE ventas SET estado_id = 16 WHERE id_venta = :sale_id AND estado_id = 29");
+            $stmt_cancel->execute([':sale_id' => $saleId]);
+
+            // 4. Registrar la acción en el log de actividad principal
+            logActivity($pdo, $userId, 'Venta POS Cancelada', "Se canceló y revirtió la venta POS No. {$saleId}. El stock fue restaurado y registrado en movimientos.");
+
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Venta cancelada y stock revertido correctamente.']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al cancelar la venta: ' . $e->getMessage()]);
+        }
+    }
+    break;
+/*************************************************************************************************/
 case 'pos_get_product_by_code':
     if (isset($_GET['code'])) {
         $code = trim($_GET['code']);
@@ -537,19 +733,19 @@ case 'admin/getSalesStats':
         $endDate->modify('+1 day');
         $endDateTimeForQuery = $endDateStr . ' 23:59:59';
 
-        // ... (Validación de fechas sin cambios) ...
-
         $stats = [
             'total_revenue' => '0.00',
             'sales_by_payment' => [],
             'daily_sales' => [],
-            'average_sale' => '0.00' // <-- Se añade el nuevo campo al array inicial
+            'average_sale' => '0.00'
         ];
-
+        
+        // =================== INICIO DE LA CORRECCIÓN ===================
+        // Se añade "v.estado_id = 29" para asegurar que solo las ventas finalizadas (no las canceladas) se incluyan en el cálculo.
         $unifiedSalesQuery = "
             SELECT v.fecha_venta AS fecha_transaccion, v.monto_total AS monto_transaccion, v.id_metodo_pago AS id_metodo_pago_transaccion
             FROM ventas v
-            WHERE v.fecha_venta BETWEEN :startDate AND :endDateTimeForQuery
+            WHERE v.estado_id = 29 AND v.fecha_venta BETWEEN :startDate AND :endDateTimeForQuery
             UNION ALL
             SELECT cc.fecha_creacion AS fecha_transaccion, SUM(dc.cantidad * dc.precio_unitario) AS monto_transaccion, cc.id_metodo_pago AS id_metodo_pago_transaccion
             FROM carritos_compra cc
@@ -557,10 +753,11 @@ case 'admin/getSalesStats':
             WHERE cc.estado_id = 23 AND cc.fecha_creacion BETWEEN :startDate AND :endDateTimeForQuery
             GROUP BY cc.id_carrito
         ";
+        // =================== FIN DE LA CORRECCIÓN ===================
 
         $stmt_revenue = $pdo->prepare("SELECT COALESCE(SUM(monto_transaccion), 0) FROM ({$unifiedSalesQuery}) AS combined_sales");
         $stmt_revenue->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
-        $totalRevenue = $stmt_revenue->fetchColumn(); // Guardamos el valor numérico
+        $totalRevenue = $stmt_revenue->fetchColumn();
         $stats['total_revenue'] = number_format($totalRevenue, 2);
         
         $stmt_payment = $pdo->prepare("SELECT m.nombre_metodo, COUNT(*) as count FROM ({$unifiedSalesQuery}) AS combined_sales JOIN metodos_pago m ON combined_sales.id_metodo_pago_transaccion = m.id_metodo_pago GROUP BY m.nombre_metodo");
@@ -568,21 +765,16 @@ case 'admin/getSalesStats':
         $salesByPayment = $stmt_payment->fetchAll(PDO::FETCH_ASSOC);
         $stats['sales_by_payment'] = $salesByPayment;
 
-        // --- INICIO DE LA LÓGICA PARA EL PROMEDIO ---
         $totalSalesCount = 0;
-        // Se suma el conteo de cada método de pago para obtener el total de ventas
         foreach ($salesByPayment as $paymentMethod) {
             $totalSalesCount += $paymentMethod['count'];
         }
 
-        // Se calcula el promedio, evitando la división por cero
         if ($totalSalesCount > 0) {
             $average = $totalRevenue / $totalSalesCount;
             $stats['average_sale'] = number_format($average, 2);
         }
-        // --- FIN DE LA LÓGICA PARA EL PROMEDIO ---
 
-        // (El resto de la lógica para el gráfico no cambia)
         $stmt_daily_raw = $pdo->prepare("SELECT DATE(fecha_transaccion) as fecha, SUM(monto_transaccion) as daily_total FROM ({$unifiedSalesQuery}) AS combined_sales GROUP BY DATE(fecha_transaccion) ORDER BY fecha ASC");
         $stmt_daily_raw->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
         $salesData = $stmt_daily_raw->fetchAll(PDO::FETCH_ASSOC);

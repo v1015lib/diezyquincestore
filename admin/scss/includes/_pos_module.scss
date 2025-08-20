@@ -1,939 +1,490 @@
-// Variables existentes (solo estas están disponibles)
-$primary-color: #0C0A4E;
-$secondary-color: #1e40af;
-$tcolor2: #ffffff;
-$text-color: #334155;
-$border-color: #e2e8f0;
+// admin/scss/includes/_pos_module.scss
 
-// Mixins profesionales
-@mixin button-base {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 8px;
+// --- ESTILOS BASE PARA BOTONES DEL POS ---
+.btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    font-size: 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    text-decoration: none;
-    user-select: none;
-    white-space: nowrap;
-    
-    &:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    text-align: center;
+    transition: all 0.2s ease;
+
+    &.btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
     }
-    
+
+    &.btn-primary {
+        background-color: $secondary-color;
+        color: white;
+        border-color: darken($secondary-color, 10%);
+        &:hover {
+            background-color: darken($secondary-color, 10%);
+        }
+    }
+
+    &.btn-success {
+        background-color: #28a745;
+        color: white;
+        border-color: darken(#28a745, 10%);
+        &:hover {
+            background-color: darken(#28a745, 10%);
+        }
+    }
+
+    &.btn-danger {
+        background-color: #dc3545;
+        color: white;
+        border-color: darken(#dc3545, 10%);
+        &:hover {
+            background-color: darken(#dc3545, 10%);
+        }
+    }
+
+    // --- ESTADO DESHABILITADO PARA TODOS LOS BOTONES ---
     &:disabled {
-        opacity: 0.5;
+        background-color: #e9ecef;
+        color: #6c757d;
+        border-color: $border-color;
         cursor: not-allowed;
-        transform: none !important;
+        opacity: 0.65;
     }
 }
 
-@mixin shadow($level: 'md') {
-    @if $level == 'sm' {
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    } @else if $level == 'md' {
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    } @else if $level == 'lg' {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    } @else if $level == 'xl' {
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    }
-}
 
-// Contenedor principal del POS
+// --- Contenedor Principal del POS ---
 .pos-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 145px);
-    max-height: 100vh;
-    overflow: hidden;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    
-    * input, 
-    * select {
-        font-size: 0.875rem;
-        padding: 0.75rem 1rem;
-        border: 2px solid $border-color;
-        border-radius: 8px;
-        background: #ffffff;
-        color: #1e293b;
-        transition: all 0.2s ease;
-        
-        &::placeholder {
-            color: #94a3b8;
-            font-weight: 400;
-        }
-        
-        &:focus {
-            outline: none;
-            border-color: $primary-color;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transform: translateY(-1px);
-        }
-        
-        &:hover:not(:disabled) {
-            border-color: #cbd5e1;
-        }
-    }
-    
-    select {
-        margin: 0.5rem 0;
-        flex-grow: 0.2;
-        font-size: 0.875rem;
-        color: $primary-color;
-        background: #ffffff;
-        cursor: pointer;
-        
-        // Flecha personalizada
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 0.75rem center;
-        background-size: 1em;
-        
-        &:hover {
-            border-color: $primary-color;
-        }
-    }
+    height: calc(100vh - 145px); // Ajusta la altura para ocupar el espacio disponible
+    background-color: $background-color;
 }
 
-// Header del POS
+// --- Contenido Principal (Buscador y Ticket) ---
 .pos-main-content {
-    flex: 1;
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 1.5rem;
-    gap: 1.5rem;
+    padding: 0.5rem;
+    gap: 0.5rem;
 }
 
+// --- Encabezado con el input de búsqueda ---
 .pos-header {
-    background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
-    padding: 1.5rem 2rem;
-    border-radius: 16px;
-    @include shadow('lg');
-    margin-bottom: 0;
-    
     .pos-input-container {
         display: flex;
+        gap: 0.5rem;
         align-items: center;
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 1rem;
-        @include shadow('md');
-        transition: all 0.3s ease;
-        
-        &:focus-within {
-            @include shadow('xl');
-            transform: translateY(-2px);
-        }
-        
-        i {
-            color: $primary-color;
-            font-size: 1.25rem;
-            margin-right: 1rem;
-        }
-        
-        input {
-            border: none;
-            outline: none;
-            width: 100%;
+
+        input[type="text"] {
             flex-grow: 1;
-            color: $primary-color;
+            padding: 0.75rem;
+            border: 1px solid $border-color;
+            border-radius: 4px;
             font-size: 1rem;
-            background: transparent;
-            padding: 0;
-            
             &:focus {
-                border: none;
-                box-shadow: none;
-                transform: none;
+                outline: none;
+                border-color: $primary-color;
             }
-        }
-        
-        button {
-            flex-shrink: 0;
-            margin-left: 1rem;
         }
     }
 }
 
-// Ticket de venta
+// --- Ticket de Venta ---
 .pos-ticket {
     flex-grow: 1;
-    background: #ffffff;
-    border-radius: 12px;
-    @include shadow('md');
-    border: 1px solid $border-color;
     display: flex;
     flex-direction: column;
-    padding: 1.5rem;
     overflow: hidden;
-    
+    border: 1px solid $border-color;
+    background-color: #fff;
+    border-radius: 4px;
+
     h3 {
-        color: $primary-color;
-        // --- MEJORA: Fuente fluida con clamp() ---
-        font-size: clamp(1.1rem, 2.5vw, 1.25rem);
-        font-weight: 700;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 2px solid $border-color;
+        padding: 0.5rem;
+        margin: 0;
+        font-size: 1rem;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid $border-color;
     }
-    
-    .ticket-table-container {
-        flex: 1;
-        overflow-y: auto;
-        border: 1px solid $border-color;
-        border-radius: 8px;
-        background: #ffffff;
-        
-        &::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        &::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        
-        &::-webkit-scrollbar-thumb {
-            background: #94a3b8;
-            border-radius: 4px;
-        }
-    }
-    
-    table {
+}
+
+.ticket-table-container {
+    flex-grow: 1;
+    overflow-y: auto;
+
+    #ticket-table {
         width: 100%;
         border-collapse: collapse;
-        
-        th {
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            color: #334155;
-            font-weight: 600;
-            padding: 1rem 0.75rem;
+        font-size: 0.9rem;
+
+        th, td {
+            padding: 0.4rem;
             text-align: left;
-            border-bottom: 2px solid #cbd5e1;
+            border-bottom: 1px solid $border-color;
+        }
+        thead th {
             position: sticky;
             top: 0;
-            z-index: 10;
-            // --- MEJORA: Fuente más pequeña para móviles ---
-            font-size: clamp(0.75rem, 2vw, 0.875rem);
+            background-color: #f8f9fa;
+            font-weight: 600;
         }
-        
-        td {
-            padding: 0.875rem 0.75rem;
-            border-bottom: 1px solid $border-color;
-            vertical-align: middle;
-             // --- MEJORA: Fuente más pequeña para móviles ---
-            font-size: clamp(0.8rem, 2.2vw, 0.875rem);
-            
-            &:first-child {
-                font-weight: 500;
-                color: #1e293b;
-            }
-        }
-        
-        tbody tr {
-            transition: all 0.2s ease;
-            
-            &:hover {
-                background: #f9fafb;
-            }
-            
-            &.active-row {
-                background: linear-gradient(135deg, rgba(12, 10, 78, 0.05) 0%, rgba(30, 64, 175, 0.05) 100%);
-                border-left: 4px solid $primary-color;
-            }
-        }
-        
         .quantity-input {
             width: 60px;
             text-align: center;
-            padding: 0.5rem;
-            border-radius: 6px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid $border-color;
+            border-radius: 4px;
         }
-        
         .remove-item {
-            @include button-base;
-            background: #dc2626;
-            color: #ffffff;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.75rem;
-            
-            &:hover:not(:disabled) {
-                background: #b91c1c;
-                transform: translateY(-1px);
-            }
+             background-color: #f8d7da;
+             color: #721c24;
         }
-        
-        .price-offer {
-            color: #059669;
-            font-weight: 700;
+        tr.active-row {
+            background-color: lighten($primary-color, 70%);
+            td { font-weight: bold; }
         }
-        
-        .price-wholesale {
-            color: #0ea5e9;
-            font-weight: 700;
-        }
+        .price-offer { color: #28a745; font-weight: bold; }
+        .price-wholesale { color: #007bff; font-weight: bold; }
     }
 }
 
-// Footer de acciones
+// --- Pie de página con acciones y total ---
 .pos-actions-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 2rem;
-    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
-    border-top: 2px solid $border-color;
-    @include shadow('lg');
+    padding: 0.5rem;
+    background-color: #fff;
+    border-top: 1px solid $border-color;
     flex-shrink: 0;
-    
+    gap: 0.5rem;
+
     .pos-total-summary {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        
+        text-align: right;
+        font-size: 1.2rem;
         span {
-            font-size: 0.875rem;
-            color: #64748b;
-            font-weight: 500;
-            margin-bottom: 0.25rem;
+            color: $secondary-color;
+            font-size: 1rem;
         }
-        
         strong {
-            // --- MEJORA: Fuente fluida con clamp() ---
-            font-size: clamp(1.8rem, 5vw, 2.5rem);
             color: $primary-color;
-            font-weight: 800;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-left: 0.5rem;
         }
     }
 }
 
-// Estilos de botones profesionales
-.btn {
-    @include button-base;
-    
-    &:active {
-        transform: translateY(1px);
-    }
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
-    color: $tcolor2;
-    @include shadow('md');
-    
-    &:hover:not(:disabled) {
-        background: linear-gradient(135deg, lighten($primary-color, 10%) 0%, lighten($secondary-color, 10%) 100%);
-        @include shadow('lg');
-        transform: translateY(-2px);
-    }
-}
-
-.btn-secondary {
-    background: #ffffff;
-    color: #334155;
-    border: 2px solid #cbd5e1;
-    
-    &:hover:not(:disabled) {
-        background: #f8fafc;
-        border-color: #94a3b8;
-        transform: translateY(-1px);
-    }
-}
-
-.btn-success {
-    background: linear-gradient(135deg, #059669 0%, #34d399 100%);
-    color: $tcolor2;
-    @include shadow('md');
-    
-    &:hover:not(:disabled) {
-        background: linear-gradient(135deg, #047857 0%, #059669 100%);
-        @include shadow('lg');
-        transform: translateY(-2px);
-    }
-}
-
-.btn-danger {
-    background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
-    color: $tcolor2;
-    @include shadow('md');
-    
-    &:hover:not(:disabled) {
-        background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
-        @include shadow('lg');
-        transform: translateY(-2px);
-    }
-}
-
-.btn-sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-}
-
-// Estilos de modales profesionales
+// --- ESTILOS GENERALES PARA TODOS LOS MODALES DEL POS ---
 .modal {
     display: none;
     position: fixed;
     z-index: 2000;
     left: 0;
-    right: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    align-items: center;
-    justify-content: center;
-    
-    &.show {
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+    padding: 1rem;
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 1rem;
+        border: 1px solid #888;
+        width: 95%;
+        border-radius: 8px;
+        position: relative;
         display: flex;
-        animation: modalFadeIn 0.3s ease-out;
-    }
-}
-
-@keyframes modalFadeIn {
-    from {
-        opacity: 0;
-        backdrop-filter: blur(0px);
-    }
-    to {
-        opacity: 1;
-        backdrop-filter: blur(8px);
-    }
-}
-
-.modal-content {
-    margin: auto;
-    background: #ffffff;
-    border-radius: 16px;
-    @include shadow('xl');
-    width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto; // --- MEJORA: scroll si el contenido es muy largo ---
-    position: relative;
-    animation: modalSlideIn 0.3s ease-out;
-    border: 1px solid $border-color;
-    display: flex; // --- MEJORA: Flexbox para estructura interna ---
-    flex-direction: column;
-    
-    h2 {
-        font-size: clamp(1.2rem, 3vw, 1.5rem); // --- MEJORA: Fuente fluida ---
-        font-weight: 700;
-        color: $primary-color;
-        padding: 1.5rem 2rem;
-        margin: 0;
-        border-bottom: 2px solid $border-color;
-        flex-shrink: 0;
-    }
-
-    .modal-body { // --- MEJORA: Contenedor para el cuerpo del modal ---
-        padding: 1.5rem 2rem;
-        overflow-y: auto;
-        flex-grow: 1;
-    }
-    
-    .modal-footer { // --- MEJORA: Contenedor para el pie del modal ---
-        padding: 1rem 2rem;
-        border-top: 1px solid $border-color;
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        flex-shrink: 0;
-        background-color: #f8fafc;
+        flex-direction: column;
     }
 
     .close-button {
+        color: #aaa;
         position: absolute;
-        top: 1.5rem;
-        right: 2rem;
-        font-size: 1.5rem;
-        color: #94a3b8;
-        cursor: pointer;
-        padding: 0.5rem;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-        
-        &:hover {
-            color: #dc2626;
-            background: #f1f5f9;
-            transform: scale(1.1);
-        }
-    }
-    
-    .search-container {
-        display: flex;
-        align-items: center;
-        background: #f8fafc;
-        border: 2px solid $border-color;
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 0 0 1.5rem 0; // Ajustado
-        transition: all 0.2s ease;
-       
-        &:focus-within {
-            border-color: $primary-color;
-            @include shadow('md');
-        }
-        
-        i {
-            color: $primary-color;
-            margin-right: 1rem;
-            font-size: 1.125rem;
-        }
-        
-        input {
-            border: none;
-            outline: none;
-            width: 100%;
-            background: transparent;
-            color: #1e293b;
-            font-size: 1rem;
-            padding: 0;
-            
-            &:focus {
-                border: none;
-                box-shadow: none;
-                transform: none;
-            }
+        top: 0.5rem;
+        right: 1rem;
+        font-size: 28px;
+        font-weight: bold;
+        &:hover, &:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
         }
     }
 }
 
-@keyframes modalSlideIn {
-    from {
-        transform: translateY(-2rem) scale(0.95);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0) scale(1);
-        opacity: 1;
-    }
-}
-
-.modal-lg {
-    max-width: 900px;
-}
-
-.modal-sm {
-    max-width: 400px;
-}
-
-// Resultados de búsqueda
-#client-search-results, 
-#modal-search-results-container {
-    max-height: 40vh; // Altura máxima para evitar modales gigantes
-    overflow-y: auto;
-    margin: .5rem 0;
-    border-top: 1px solid $border-color;
-    
-    &::-webkit-scrollbar {
-        width: 6px;
-    }
-    
-    &::-webkit-scrollbar-track {
-        background: #f1f5f9;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-        background: #94a3b8;
-        border-radius: 3px;
-    }
-    
-    .client-result-item, 
-    .search-result-item {
-        padding: 1rem;
-        cursor: pointer;
-        border-bottom: 1px solid $border-color;
-        transition: all 0.2s ease;
-        
-        &:hover {
-            background: linear-gradient(135deg, rgba($primary-color, 0.1) 0%, rgba($secondary-color, 0.1) 100%);
-            color: $primary-color;
-            transform: translateX(4px);
-        }
-        
-        &:last-child {
-            border-bottom: none;
-        }
-    }
-}
-
-// Estilos para el modal de búsqueda de productos
-#modal-search-results-container {
-    border: 1px solid $border-color;
-    border-radius: 8px;
-    overflow: hidden;
-    
-    .search-result-header {
-        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-        color: #334155;
-        font-weight: 600;
-        font-size: 0.875rem;
-        padding: 1rem;
-        border-bottom: 2px solid #cbd5e1;
-    }
-    
-    .search-result-item {
-        font-size: 0.875rem;
-        transition: all 0.2s ease;
-    }
-}
-
-.search-result-header,
-.search-result-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1rem;
-}
-
-.col-product {
-    flex: 2.5;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.col-department {
-    flex: 1.5;
-    color: #64748b;
-    padding-left: 1rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.col-price {
-    flex: 1;
-    text-align: right;
-    font-weight: 700;
-    padding-left: 1rem;
-    color: #059669;
-}
-
-.col-stock {
-    flex: 0.8;
-    text-align: right;
-    color: #64748b;
-    padding-left: 1rem;
-    font-weight: 500;
-}
-
-// Modal de notificación
-.modal-content.modal-sm {
-    text-align: center;
-    padding: 2rem;
-    
-    #pos-notification-title {
-        font-size: 1.25rem;
-        margin-bottom: 1rem;
-        
-        &.error-title { color: #dc2626; }
-        &.success-title { color: #059669; }
-        &.warning-title { color: #f59e0b; }
-    }
-    
-    p {
-        font-size: 1rem;
-        color: #64748b;
-        margin-bottom: 2rem;
-        line-height: 1.6;
-    }
-    
-    .modal-footer {
-        border-top: none;
-        padding: 0;
-        justify-content: center;
-    }
-}
-
-// Estilos para el checkout modal
+// --- Modal de Finalizar Compra (Checkout) ---
 #checkout-modal {
-    .modal-content {
-        padding: 0;
-        border: none;
-        overflow: hidden;
-        max-width: 1000px;
-        width: 95%;
-        
-        h2 {
-            background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
-            color: $tcolor2;
-            margin: 0;
-            padding: 1.5rem 2rem;
-            border-bottom: none;
-        }
-    }
-    
+    .modal-content { max-width: 900px; }
     .checkout-modal-body {
         display: flex;
-        min-height: 60vh;
+        flex-direction: column;
+        gap: 1rem;
     }
-    
     .checkout-ticket-summary {
-        flex: 1 1 55%;
-        padding: 2rem;
-        background: #f8fafc;
-        max-height: 60vh;
-        overflow-y: auto;
-        border-right: 2px solid $border-color;
-        
-        h4 {
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            color: $primary-color;
-            font-weight: 700;
-            font-size: clamp(1rem, 2.5vw, 1.125rem);
-            border-bottom: 2px solid #cbd5e1;
-            padding-bottom: 0.75rem;
-        }
-        
-        &::-webkit-scrollbar { width: 8px; }
-        &::-webkit-scrollbar-track { background: $border-color; }
-        &::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
-    }
-    
-    #checkout-ticket-list .ticket-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 1rem 0;
-        border-bottom: 1px solid #cbd5e1;
-        font-size: 0.95rem;
-        
-        .item-name {
-            flex-grow: 1;
-            color: $text-color;
-            font-weight: 500;
-        }
-        
-        .item-details {
-            flex-shrink: 0;
-            text-align: right;
-            font-weight: 700;
-            color: $primary-color;
-        }
-    }
-    
-    .checkout-payment-section {
-        flex: 1 1 45%;
-        padding: 2rem;
-        display: flex;
-        flex-direction: column;
-        background: #ffffff;
-        
-        h4 {
-            margin-top: 0;
-            margin-bottom: 2rem;
-            color: $primary-color;
-            font-weight: 700;
-            font-size: clamp(1rem, 2.5vw, 1.125rem);
-        }
-    }
-    
-    .client-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        margin-bottom: 2rem;
-        @include shadow('sm');
-        
-        #client-name {
-            flex-grow: 1;
-            font-weight: 600;
-            color: $primary-color;
-            text-align: left;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 1rem;
-        }
-        
-        #assign-client-btn {
-            flex-shrink: 0;
-            padding: 0.5rem 1rem;
-            font-size: 0.8rem;
-        }
-    }
-    
-    .payment-details {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-        flex-grow: 1;
-        
-        > div {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            
-            label, strong {
-                font-size: 1rem;
-                font-weight: 600;
-                color: #334155;
-            }
-            
-            input, select {
-                border: 2px solid #cbd5e1;
-                border-radius: 8px;
-                padding: 0.75rem;
-                font-size: 1rem;
-                text-align: right;
-                max-width: 180px;
-                transition: all 0.2s ease;
-                
-                &:focus {
-                    border-color: $primary-color;
-                    @include shadow('md');
-                }
-            }
-        }
-    }
-    
-    #card-payment-details {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 1rem;
-        background: #f8fafc;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 2px solid $border-color;
-        
-        input {
-            max-width: 100% !important;
-        }
-        
-        #card-balance-feedback {
-            text-align: right;
-            font-weight: 700;
-            margin-top: 0.5rem;
-        }
-    }
-    
-    .total-section input {
-        font-size: clamp(1.8rem, 5vw, 2.5rem) !important;
-        font-weight: 800 !important;
-        color: $primary-color !important;
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        
-        &:focus {
-            border: none !important;
-            box-shadow: none !important;
-        }
-    }
-    
-    .change-section span {
-        font-size: clamp(1.5rem, 4vw, 2rem) !important;
-        font-weight: 800 !important;
-        color: #059669 !important;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    .payment-details input:disabled {
-        background: #e2e8f0 !important;
-        color: #64748b !important;
-        cursor: not-allowed;
-        opacity: 0.7;
-    }
-    
-    #cobrar-btn {
-        width: 100%;
-        padding: 1.5rem;
-        font-size: 1.25rem;
-        font-weight: 700;
-        margin-top: auto;
-        @include shadow('lg');
-        
-        &:hover:not(:disabled) {
-            transform: translateY(-3px);
-            @include shadow('xl');
-        }
-    }
-}
-
-// --- MEJORA: INICIO DE BLOQUE RESPONSIVO ---
-
-// Para tablets y pantallas medianas
-@media (max-width: 992px) {
-    #checkout-modal .checkout-modal-body {
-        flex-direction: column;
-    }
-    #checkout-modal .checkout-ticket-summary {
-        border-right: none;
-        border-bottom: 2px solid $border-color;
         max-height: 40vh;
+        overflow-y: auto;
+        border: 1px solid $border-color;
+        padding: 0.5rem;
+        border-radius: 4px;
+        background-color: #f8f9fa;
     }
-    .pos-main-content {
-        padding: 1rem;
+    .ticket-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.2rem 0;
+        font-size: 0.9rem;
     }
-    .pos-header {
-        padding: 1rem;
+    .checkout-payment-section {
+        .client-info { margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;}
+        .payment-details {
+            display: grid;
+            gap: 0.75rem;
+            
+            .total-section input {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: $primary-color;
+                text-align: right;
+                border: none;
+                background: none;
+            }
+            #paga-con { text-align: right; }
+            .change-section {
+                font-size: 1.2rem;
+                text-align: right;
+                color: #28a745;
+                font-weight: bold;
+            }
+            #card-balance-feedback {
+                text-align: right;
+                font-weight: bold;
+            }
+        }
+        #cobrar-btn {
+            width: 100%;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 1.2rem;
+        }
     }
 }
 
-// Para móviles
-@media (max-width: 768px) {
-    .pos-container {
-        height: auto; // Altura automática en móviles
+
+// --- Modal de Búsqueda de Productos ---
+#product-search-modal {
+    .modal-content { max-height: 80vh; }
+    #modal-search-results-container {
+        flex-grow: 1;
+        overflow-y: auto;
+        border: 1px solid $border-color;
+    }
+    .search-result-header, .search-result-item {
+        display: grid;
+        grid-template-columns: 2fr 1fr 0.5fr 0.5fr;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border-bottom: 1px solid $border-color;
+        align-items: center;
+    }
+    .search-result-header {
+        font-weight: bold;
+        background-color: #f8f9fa;
+        position: sticky;
+        top: 0;
+    }
+    .search-result-item {
+        cursor: pointer;
+        &:hover { background-color: lighten($primary-color, 70%); }
+    }
+    .col-price, .col-stock { text-align: right; }
+}
+
+// --- Modal de Asignar Cliente ---
+#assign-client-modal {
+    .modal-content { max-width: 500px; }
+    #client-search-results {
+        max-height: 40vh;
+        overflow-y: auto;
+        margin-top: 0.5rem;
+    }
+    .client-result-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid $border-color;
+        cursor: pointer;
+        &:hover { background-color: lighten($primary-color, 70%); }
+        &:last-child { border-bottom: none; }
+    }
+}
+// Pega esto al final de admin/scss/includes/_pos_module.scss
+
+// --- Estilos para el Modal de Historial de Ventas ---
+#sales-history-modal {
+    .modal-content {
+        max-width: 1200px;
+        width: 95%;
+    }
+    .sales-history-body {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 1rem;
+        height: 65vh;
+        overflow: hidden;
+    }
+
+    .sales-summary-column, .sales-detail-column {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        overflow: hidden;
+        border: 1px solid $border-color;
+        border-radius: 4px;
+        padding: 0.5rem;
+    }
+
+    h4 {
+        margin: 0 0 0.5rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid $border-color;
+    }
+
+    .history-table-container, .details-table-container {
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+
+    #sales-history-summary-table, #sale-detail-items table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        
+        th, td {
+            padding: 0.4rem;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            background-color: #f8f9fa;
+        }
+        tbody tr:hover {
+            background-color: lighten($primary-color, 70%);
+        }
+        tbody tr.active-row {
+            background-color: lighten($primary-color, 60%);
+            font-weight: bold;
+        }
+    }
+
+    .history-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid $border-color;
+
+        input[type="date"] {
+            padding: 0.3rem;
+            border: 1px solid $border-color;
+            border-radius: 4px;
+        }
     }
     
+    #sale-detail-header {
+        font-size: 0.9rem;
+    }
+
+    #sale-detail-footer {
+        padding-top: 0.5rem;
+        border-top: 1px solid $border-color;
+        text-align: right;
+    }
+}
+// --- Modal de Notificación ---
+#pos-notification-modal {
+    .modal-content { max-width: 400px; }
+    #pos-notification-title {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+        &.error-title { color: #721c24; }
+    }
+    .modal-footer {
+        padding-top: 0.5rem;
+        margin-top: 0.5rem;
+    }
+}
+
+// --- Media Queries para Responsividad ---
+@media (max-width: $breakpoint-tablet) {
+    .pos-container { height: auto; }
+    .pos-header .pos-input-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
     .pos-actions-footer {
         flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
+        align-items: stretch;
+        .btn { width: 100%; }
+        .pos-total-summary { text-align: center; }
     }
-
-    #product-search-modal .modal-content {
-        width: 95vw;
-        max-height: 85vh;
+    .modal .modal-content {
+        width: 100%;
+        margin: auto;
+        padding: 0.75rem;
     }
+}
 
-    .modal-content {
-        width: 95%;
-        margin: 1rem;
-
-        h2 { padding: 1rem 1.5rem; }
-        .modal-body { padding: 1rem 1.5rem; }
-        .modal-footer { padding: 0.75rem 1.5rem; }
-        .close-button { top: 1rem; right: 1.5rem; }
+@media (min-width: ($breakpoint-tablet + 1px)) {
+    #checkout-modal .checkout-modal-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
     }
+}
 
-    #checkout-modal .checkout-payment-section,
-    #checkout-modal .checkout-ticket-summary {
-        padding: 1.5rem;
-    }
+// Pega esto al final de admin/scss/includes/_pos_module.scss
 
-    #checkout-modal .payment-details > div {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
+// --- Estilos para Ventas Canceladas en el Historial ---
+#sales-history-summary-table {
+    tbody tr.sale-canceled {
+        background-color: #f8d7da;
+        color: #721c24;
+        text-decoration: line-through;
+        opacity: 0.7;
 
-        input, select {
-            width: 100%;
-            max-width: none;
-            text-align: left;
-        }
-
-        strong {
-            align-self: flex-end;
+        &:hover {
+            opacity: 1;
+            background-color: #f5c6cb;
         }
     }
 }
-// --- FIN DE BLOQUE RESPONSIVO ---
+
+.details-table-container {
+    position: relative; // Necesario para la marca de agua
+}
+
+.watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 3rem;
+    font-weight: 900;
+    color: rgba(220, 53, 69, 0.15); // Rojo muy transparente
+    pointer-events: none; // Para que no interfiera con el mouse
+    z-index: 10;
+}
+.history-search-container {
+    padding-bottom: 0.5rem;
+    
+    input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid $border-color;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+}
