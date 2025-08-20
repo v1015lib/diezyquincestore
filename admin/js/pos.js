@@ -3,7 +3,7 @@ function initializePOS() {
     let currentSaleId = null;
     let currentClientId = 1;
     let currentClientName = 'Público en General';
-    // VARIABLE CLAVE: Almacena el índice de la fila activa para los atajos
+    let cardOwnerId = null; 
     let activeTicketRowIndex = -1; 
 
     // Referencias a elementos del DOM (sin cambios)
@@ -512,14 +512,27 @@ function renderSearchResults(products, container) {
     cobrarBtn.disabled = true;
     cobrarBtn.textContent = 'Procesando...';
 
-    // --- INICIO DE LA CORRECCIÓN ---
+
+
+
+
+
+
+
+
+    const finalClientId = (paymentMethodSelect.value === '2' && cardOwnerId) 
+        ? cardOwnerId 
+        : currentClientId;
+
+
+
     // Aquí se recolectan los datos necesarios para la venta.
-    const saleData = {
+ const saleData = {
         sale_id: currentSaleId,
-        client_id: currentClientId,
+        client_id: finalClientId, // Se usa el ID del cliente correcto
         payment_method_id: paymentMethodSelect.value,
         total_amount: total,
-        card_number: cardNumberInput.value.trim() // Se incluye el número de tarjeta si existe
+        card_number: cardNumberInput.value.trim()
     };
     // --- FIN DE LA CORRECCIÓN ---
 
@@ -621,20 +634,21 @@ function renderSearchResults(products, container) {
         clientModal.style.display = 'none';
     });
 
-    function toggleCardPaymentFields() {
-        const isCardPayment = paymentMethodSelect.value === '2';
-        const isClientAssigned = currentClientId != 1;
-        if (isCardPayment && isClientAssigned) {
-            cardPaymentDetails.style.display = 'block';
-            pagaConInput.disabled = true;
-        } else {
-            cardPaymentDetails.style.display = 'none';
-            cardNumberInput.value = '';
-            cardBalanceFeedback.textContent = '';
-            pagaConInput.disabled = false;
-        }
-        updateChange();
+function toggleCardPaymentFields() {
+    const isCardPayment = paymentMethodSelect.value === '2';
+    // Se elimina la restricción de tener un cliente asignado
+    if (isCardPayment) {
+        cardPaymentDetails.style.display = 'block';
+        pagaConInput.disabled = true; // El monto se tomará del saldo
+    } else {
+        cardPaymentDetails.style.display = 'none';
+        cardNumberInput.value = '';
+        cardBalanceFeedback.textContent = '';
+        pagaConInput.disabled = false;
+        cardOwnerId = null; // Limpiamos el ID del dueño de la tarjeta
     }
+    updateChange();
+}
 
     cardNumberInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
@@ -642,47 +656,59 @@ function renderSearchResults(products, container) {
         debounceTimer = setTimeout(() => {
             checkCardBalance();
         }, 500);
+
+
     });
 
-    async function checkCardBalance() {
-        const cardNumber = cardNumberInput.value.trim();
-        const total = parseFloat(totalAmountInput.value);
-        if (!cardNumber) {
-            cardBalanceFeedback.textContent = '';
-            cobrarBtn.disabled = true;
-            return;
-        }
-        try {
-            const response = await fetch(`${API_URL}?resource=pos_check_card_balance&card_number=${encodeURIComponent(cardNumber)}`);
-            const result = await response.json();
-            if (result.success) {
-                if (parseInt(currentClientId) !== 1 && parseInt(result.card.id_cliente) !== parseInt(currentClientId)) {
-                    cardBalanceFeedback.style.color = '#e74c3c';
-                    cardBalanceFeedback.textContent = 'Esta tarjeta no pertenece al cliente seleccionado.';
-                    cobrarBtn.disabled = true;
-                    return;
-                }
-                const balance = parseFloat(result.card.saldo);
-                if (balance >= total) {
-                    cardBalanceFeedback.style.color = '#2ecc71';
-                    cardBalanceFeedback.textContent = `Saldo disponible: $${balance.toFixed(2)}`;
-                    cobrarBtn.disabled = false;
-                } else {
-                    cardBalanceFeedback.style.color = '#e74c3c';
-                    cardBalanceFeedback.textContent = `Saldo insuficiente: $${balance.toFixed(2)}`;
-                    cobrarBtn.disabled = true;
-                }
+
+
+
+
+ async function checkCardBalance() {
+    const cardNumber = cardNumberInput.value.trim();
+    const total = parseFloat(totalAmountInput.value);
+    
+    // Reseteamos el ID del dueño de la tarjeta en cada nueva verificación
+    cardOwnerId = null; 
+
+    if (!cardNumber) {
+        cardBalanceFeedback.textContent = '';
+        cobrarBtn.disabled = true;
+        return;
+    }
+    try {
+        const response = await fetch(`${API_URL}?resource=pos_check_card_balance&card_number=${encodeURIComponent(cardNumber)}`);
+        const result = await response.json();
+        if (result.success) {
+            // Guardamos el ID del cliente dueño de la tarjeta
+            cardOwnerId = parseInt(result.card.id_cliente); 
+            
+            const balance = parseFloat(result.card.saldo);
+            if (balance >= total) {
+                cardBalanceFeedback.style.color = '#2ecc71';
+                cardBalanceFeedback.textContent = `Saldo disponible: $${balance.toFixed(2)}`;
+                cobrarBtn.disabled = false;
             } else {
                 cardBalanceFeedback.style.color = '#e74c3c';
-                cardBalanceFeedback.textContent = result.error;
+                cardBalanceFeedback.textContent = `Saldo insuficiente: $${balance.toFixed(2)}`;
                 cobrarBtn.disabled = true;
             }
-        } catch (error) {
+        } else {
             cardBalanceFeedback.style.color = '#e74c3c';
-            cardBalanceFeedback.textContent = 'Error de conexión al verificar.';
+            cardBalanceFeedback.textContent = result.error;
             cobrarBtn.disabled = true;
         }
+    } catch (error) {
+        cardBalanceFeedback.style.color = '#e74c3c';
+        cardBalanceFeedback.textContent = 'Error de conexión al verificar.';
+        cobrarBtn.disabled = true;
     }
+}
+
+
+
+
+
     // Función para formatear la fecha a YYYY-MM-DD
     const formatDate = (date) => date.toISOString().split('T')[0];
 

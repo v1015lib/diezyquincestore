@@ -674,21 +674,22 @@ case 'pos_add_item':
 
 // Reemplaza este case en tu archivo /api/index.php
 
+// Reemplaza este case en tu archivo: api/index.php
+
 case 'pos_finalize_sale':
     if ($method === 'POST' && isset($inputData['sale_id'], $inputData['client_id'], $inputData['payment_method_id'], $inputData['total_amount'])) {
         
         $saleId = $inputData['sale_id'];
-        $clientId = $inputData['client_id'];
+        $clientId = $inputData['client_id']; // ID del cliente (puede ser el dueño de la tarjeta)
         $paymentMethodId = $inputData['payment_method_id'];
         $totalAmount = $inputData['total_amount'];
         $cardNumber = $inputData['card_number'] ?? null;
-        // CORRECCIÓN: Asegurarse de que la variable de sesión sea 'id_usuario'
         $userId = $_SESSION['id_usuario'] ?? 1; 
 
         $pdo->beginTransaction();
 
         try {
-            // 1. Actualizar el estado de la venta a 'Venta Realizada' (ID 29)
+            // 1. Actualizar la venta con el ID del cliente correcto (el dueño de la tarjeta si aplica)
             $stmt = $pdo->prepare("UPDATE ventas SET id_cliente = :id_cliente, id_metodo_pago = :id_metodo_pago, monto_total = :monto_total, estado_id = 29, id_usuario_venta = :id_usuario_venta WHERE id_venta = :id_venta");
             $stmt->execute([
                 ':id_cliente' => $clientId,
@@ -698,25 +699,27 @@ case 'pos_finalize_sale':
                 ':id_usuario_venta' => $userId
             ]);
 
-            // Lógica para pago con Tarjeta Interna (sin cambios)
+            // --- Lógica para pago con Tarjeta Interna (MODIFICADA) ---
             if ($paymentMethodId == 2) { 
                 if (empty($cardNumber)) throw new Exception('El número de tarjeta es obligatorio.');
+                
                 $stmtCard = $pdo->prepare("SELECT id_tarjeta, saldo, id_cliente FROM tarjetas_recargables WHERE numero_tarjeta = :numero_tarjeta FOR UPDATE");
                 $stmtCard->execute([':numero_tarjeta' => $cardNumber]);
                 $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
+
                 if (!$card) throw new Exception('La tarjeta proporcionada no existe.');
-                if ($clientId != 1 && $card['id_cliente'] != $clientId) throw new Exception('Esta tarjeta no pertenece al cliente seleccionado.');
+                // SE ELIMINA LA VALIDACIÓN DE PERTENENCIA. Ahora cualquier tarjeta con saldo puede pagar.
                 if ($card['saldo'] < $totalAmount) throw new Exception('Saldo insuficiente en la tarjeta.');
+                
                 $newBalance = $card['saldo'] - $totalAmount;
                 $stmtUpdate = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :saldo WHERE id_tarjeta = :id_tarjeta");
                 $stmtUpdate->execute([':saldo' => $newBalance, ':id_tarjeta' => $card['id_tarjeta']]);
+                
                 $stmtVenta = $pdo->prepare("UPDATE ventas SET id_tarjeta_recargable = :id_tarjeta WHERE id_venta = :id_venta");
                 $stmtVenta->execute([':id_tarjeta' => $card['id_tarjeta'], ':id_venta' => $saleId]);
             }
 
-            // --- INICIO DE LA NUEVA LÓGICA DE INVENTARIO ---
-
-            // 2. Obtener todos los productos del ticket que gestionan inventario
+            // --- Lógica de inventario y logging (sin cambios) ---
             $stmt_items = $pdo->prepare("
                 SELECT dv.id_producto, dv.cantidad, p.stock_actual, p.usa_inventario
                 FROM detalle_ventas dv
@@ -726,38 +729,24 @@ case 'pos_finalize_sale':
             $stmt_items->execute([':sale_id' => $saleId]);
             $items_to_update = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
 
-            // 3. Preparar las consultas para actualizar stock y registrar el movimiento
             $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :quantity WHERE id_producto = :product_id");
             $stmt_log_movement = $pdo->prepare(
                 "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
                  VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas)"
             );
 
-            // 4. Recorrer cada producto y aplicar los cambios
             foreach ($items_to_update as $item) {
                 $quantity_sold = $item['cantidad'];
                 $stock_anterior = $item['stock_actual'];
                 $stock_nuevo = $stock_anterior - $quantity_sold;
-
-                // Descontar del stock principal del producto
-                $stmt_update_stock->execute([
-                    ':quantity' => $quantity_sold,
-                    ':product_id' => $item['id_producto']
-                ]);
-                
-                // Registrar el movimiento de salida
+                $stmt_update_stock->execute([':quantity' => $quantity_sold, ':product_id' => $item['id_producto']]);
                 $stmt_log_movement->execute([
-                    ':product_id' => $item['id_producto'],
-                    ':cantidad' => -$quantity_sold, // Se registra como un número negativo
-                    ':stock_anterior' => $stock_anterior,
-                    ':stock_nuevo' => $stock_nuevo,
-                    ':user_id' => $userId,
-                    ':notas' => "Venta POS No. {$saleId}"
+                    ':product_id' => $item['id_producto'], ':cantidad' => -$quantity_sold, 
+                    ':stock_anterior' => $stock_anterior, ':stock_nuevo' => $stock_nuevo,
+                    ':user_id' => $userId, ':notas' => "Venta POS No. {$saleId}"
                 ]);
             }
-            // --- FIN DE LA NUEVA LÓGICA DE INVENTARIO ---
-
-            // Registrar en el log de actividad principal (sin cambios)
+            
             logActivity($pdo, $userId, 'Venta POS Finalizada', "Se finalizó la venta POS No. {$saleId} con un total de $ {$totalAmount}.");
 
             $pdo->commit();
