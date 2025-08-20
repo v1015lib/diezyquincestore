@@ -636,7 +636,84 @@
     white-space: nowrap;
 
 }
+// Al final del archivo
 
+/* ==========================================================================
+   ESTILOS PARA EL MÓDULO "MI TARJETA"
+   ========================================================================== */
+
+.card-summary-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.card-info-widget, .card-balance-widget {
+    background-color: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    text-align: center;
+
+    h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    p {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 600;
+        color: $primary-color;
+    }
+}
+
+.card-balance-widget p {
+    color: #28a745; // Verde para el saldo
+}
+
+.transaction-history-container {
+    h2 {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+    }
+    .table-responsive-wrapper {
+        overflow-x: auto;
+    }
+}
+
+.transaction-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+
+    th, td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    thead th {
+        background-color: #f8f9fa;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .transaction-amount {
+        font-weight: bold;
+        &.credit {
+            color: #28a745; // Verde para recargas
+        }
+        &.debit {
+            color: #dc3545; // Rojo para compras
+        }
+    }
+}
 
 /* --- MEJORA CLAVE PARA MÓVILES --- */
 @media (max-width: 425px) {

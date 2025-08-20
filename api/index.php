@@ -32,8 +32,172 @@ try {
     switch ($resource) {
 
 
-// api/index.php
 
+
+
+// ... otros case ...
+
+// --- INICIO DEL NUEVO BLOQUE ---
+case 'checkout-with-card':
+    if ($method === 'POST') {
+        if (!isset($_SESSION['id_cliente'])) {
+            throw new Exception('Debes iniciar sesión para pagar con tarjeta.');
+        }
+
+        $id_cliente = (int)$_SESSION['id_cliente'];
+        
+        $pdo->beginTransaction();
+        try {
+            // 1. Obtener el carrito, sus items y el total (sin cambios)
+            $stmt_cart = $pdo->prepare(
+                "SELECT cc.id_carrito, dc.id_producto, dc.cantidad, dc.precio_unitario
+                 FROM carritos_compra cc
+                 JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                 WHERE cc.id_cliente = :cliente_id AND cc.estado_id = 1"
+            );
+            $stmt_cart->execute([':cliente_id' => $id_cliente]);
+            $cart_items = $stmt_cart->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($cart_items)) {
+                throw new Exception("Tu lista de productos está vacía.");
+            }
+
+            $total_a_pagar = 0;
+            $id_carrito = $cart_items[0]['id_carrito'];
+            foreach ($cart_items as $item) {
+                $total_a_pagar += $item['cantidad'] * $item['precio_unitario'];
+            }
+
+            // 2. Obtener la tarjeta y verificar el saldo (sin cambios)
+            $stmt_card = $pdo->prepare("SELECT id_tarjeta, saldo FROM tarjetas_recargables WHERE id_cliente = :cliente_id AND estado_id = 1 FOR UPDATE");
+            $stmt_card->execute([':cliente_id' => $id_cliente]);
+            $tarjeta = $stmt_card->fetch(PDO::FETCH_ASSOC);
+
+            if (!$tarjeta || (float)$tarjeta['saldo'] < $total_a_pagar) {
+                throw new Exception("Saldo insuficiente para completar esta compra.");
+            }
+
+            // 3. Deducir el saldo de la tarjeta (sin cambios)
+            $nuevo_saldo = (float)$tarjeta['saldo'] - $total_a_pagar;
+            $stmt_update_saldo = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :nuevo_saldo WHERE id_tarjeta = :id_tarjeta");
+            $stmt_update_saldo->execute([':nuevo_saldo' => $nuevo_saldo, ':id_tarjeta' => $tarjeta['id_tarjeta']]);
+
+            // 4. --- LÓGICA DE REGISTRO DE VENTA MEJORADA ---
+            // Se crea un registro en la tabla 'ventas'. Como id_usuario_venta es NULL, sabremos que es una venta web.
+            $stmt_venta = $pdo->prepare(
+                "INSERT INTO ventas (id_cliente, id_usuario_venta, id_tarjeta_recargable, id_metodo_pago, monto_total, estado_id, fecha_venta)
+                 VALUES (:id_cliente, NULL, :id_tarjeta, 2, :monto_total, 29, NOW())" // estado_id 29 = Venta Realizada
+            );
+            $stmt_venta->execute([
+                ':id_cliente' => $id_cliente,
+                ':id_tarjeta' => $tarjeta['id_tarjeta'],
+                ':monto_total' => $total_a_pagar
+            ]);
+            $id_nueva_venta = $pdo->lastInsertId();
+
+            // Copiamos los detalles del carrito a la nueva venta
+            $stmt_detalle = $pdo->prepare(
+                "INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal)
+                 VALUES (:id_venta, :id_producto, :cantidad, :precio_unitario, :subtotal)"
+            );
+            foreach ($cart_items as $item) {
+                $stmt_detalle->execute([
+                    ':id_venta' => $id_nueva_venta,
+                    ':id_producto' => $item['id_producto'],
+                    ':cantidad' => $item['cantidad'],
+                    ':precio_unitario' => $item['precio_unitario'],
+                    ':subtotal' => $item['cantidad'] * $item['precio_unitario']
+                ]);
+            }
+
+            // 5. Se actualiza el estado del carrito a "Entregado"
+            $stmt_update_cart = $pdo->prepare("UPDATE carritos_compra SET estado_id = 10 WHERE id_carrito = :id_carrito");
+            $stmt_update_cart->execute([':id_carrito' => $id_carrito]);
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Pago realizado con éxito.']);
+
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+    break;
+// --- FIN DEL NUEVO BLOQUE ---
+
+// ... resto de los case ...
+
+/************************************************************************/
+case 'get-card-details':
+    if (!isset($_SESSION['id_cliente'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'No autorizado.']);
+        break;
+    }
+    $client_id = $_SESSION['id_cliente'];
+
+    try {
+        $stmt_card = $pdo->prepare("SELECT id_tarjeta, numero_tarjeta, saldo FROM tarjetas_recargables WHERE id_cliente = :client_id LIMIT 1");
+        $stmt_card->execute([':client_id' => $client_id]);
+        $card = $stmt_card->fetch(PDO::FETCH_ASSOC);
+
+        if (!$card) {
+            echo json_encode(['success' => true, 'card' => null, 'transactions' => []]);
+            break;
+        }
+
+        $transactions = [];
+
+        // --- INICIO DE LA LÓGICA DE HISTORIAL CORREGIDA ---
+        // Ahora obtenemos el id_usuario_venta para saber si fue una compra en web o en POS
+        $stmt_sales = $pdo->prepare(
+            "SELECT fecha_venta as fecha, id_venta, monto_total, id_usuario_venta 
+             FROM ventas 
+             WHERE id_tarjeta_recargable = :card_id 
+             ORDER BY fecha_venta DESC"
+        );
+        $stmt_sales->execute([':card_id' => $card['id_tarjeta']]);
+        while ($row = $stmt_sales->fetch(PDO::FETCH_ASSOC)) {
+            // Si no hay un empleado (id_usuario_venta es NULL), es una compra web.
+            $descripcion = is_null($row['id_usuario_venta'])
+                ? "Compra en Tienda Web (Pedido #" . $row['id_venta'] . ")"
+                : "Compra en Punto de Venta (Ticket #" . $row['id_venta'] . ")";
+
+            $transactions[] = [
+                'fecha' => $row['fecha'],
+                'descripcion' => $descripcion,
+                'monto' => - (float)$row['monto_total']
+            ];
+        }
+        // --- FIN DE LA LÓGICA DE HISTORIAL ---
+
+        // Obtener recargas (esto no cambia)
+        $stmt_recharges = $pdo->prepare("SELECT fecha, descripcion FROM registros_actividad WHERE tipo_accion = 'Recarga de Tarjeta' AND descripcion LIKE :card_pattern ORDER BY fecha DESC");
+        $stmt_recharges->execute([':card_pattern' => '%' . $card['numero_tarjeta'] . '%']);
+        while ($row = $stmt_recharges->fetch(PDO::FETCH_ASSOC)) {
+            preg_match('/\$([0-9,]+\.[0-9]{2})/', $row['descripcion'], $matches);
+            $amount = isset($matches[1]) ? (float)str_replace(',', '', $matches[1]) : 0;
+            $transactions[] = [
+                'fecha' => $row['fecha'],
+                'descripcion' => "Recarga de Saldo",
+                'monto' => $amount
+            ];
+        }
+
+        usort($transactions, fn($a, $b) => strtotime($b['fecha']) - strtotime($a['fecha']));
+
+        echo json_encode(['success' => true, 'card' => $card, 'transactions' => $transactions]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los datos de la tarjeta.']);
+    }
+    break;
+
+
+
+/***************************************************************/
 case 'admin/getWebOrders':
     // require_admin();
     try {

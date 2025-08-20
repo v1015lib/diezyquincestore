@@ -76,67 +76,74 @@ case 'ofertas':
     <p>Estos son los productos en oferta según tus departamentos de interés.</p>
     
     <div id="ofertas-container" class="product-grid">
+    </div>
+    <?php
+    break; 
+
+
+    case 'tarjeta':
+    include 'includes/dashboard_tarjeta.php';
+    break; 
+
+
+    case 'perfil':
+    default:
+    ?>
+    <h1>Mi Perfil</h1>
+    <p>Actualiza tu información personal y de seguridad.</p>
+
+    <div class="profile-forms-grid">
+
+        <div class="form-container-profile">
+            <h2>Datos Personales</h2>
+            <form id="profile-form" novalidate>
+
+                <div class="form-group">
+                    <label for="profile-nombre">Nombre</label>
+                    <input type="text" id="profile-nombre" name="nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="profile-apellido">Apellido</label>
+                    <input type="text" id="profile-apellido" name="apellido" required>
+                </div>
+                <div class="form-group">
+                    <label for="profile-nombre-usuario">Nombre de Usuario</label>
+                    <input type="text" id="profile-nombre-usuario" name="nombre_usuario" disabled>
+                    <small>El nombre de usuario no se puede cambiar.</small>
+                </div>
+                <div class="form-group">
+                    <label for="profile-email">Correo Electrónico</label>
+                    <input type="email" id="profile-email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="profile-telefono">Teléfono</label>
+                    <input type="tel" id="profile-telefono" name="telefono">
+                </div>
+                <button type="submit" class="submit-btn">Guardar Cambios</button>
+            </form>
         </div>
-<?php
-    break; // Fin del case 'ofertas'
-                        case 'perfil':
-                        default:
-                ?>
-                            <h1>Mi Perfil</h1>
-                            <p>Actualiza tu información personal y de seguridad.</p>
 
-                            <div class="profile-forms-grid">
+        <div class="form-container-pass">
+            <h2>Cambiar Contraseña</h2>
+            <form id="password-form" novalidate>
 
-                                <div class="form-container-profile">
-                                    <h2>Datos Personales</h2>
-                                    <form id="profile-form" novalidate>
-                                        
-                                        <div class="form-group">
-                                            <label for="profile-nombre">Nombre</label>
-                                            <input type="text" id="profile-nombre" name="nombre" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="profile-apellido">Apellido</label>
-                                            <input type="text" id="profile-apellido" name="apellido" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="profile-nombre-usuario">Nombre de Usuario</label>
-                                            <input type="text" id="profile-nombre-usuario" name="nombre_usuario" disabled>
-                                            <small>El nombre de usuario no se puede cambiar.</small>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="profile-email">Correo Electrónico</label>
-                                            <input type="email" id="profile-email" name="email" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="profile-telefono">Teléfono</label>
-                                            <input type="tel" id="profile-telefono" name="telefono">
-                                        </div>
-                                        <button type="submit" class="submit-btn">Guardar Cambios</button>
-                                    </form>
-                                </div>
-
-                                <div class="form-container-pass">
-                                    <h2>Cambiar Contraseña</h2>
-                                    <form id="password-form" novalidate>
-                                        
-                                        <div class="form-group">
-                                            <label for="current-password">Contraseña Actual</label>
-                                            <input type="password" id="current-password" name="current_password" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="new-password">Nueva Contraseña</label>
-                                            <input type="password" id="new-password" name="new_password" required>
-                                        </div>
-                                        <button type="submit" class="submit-btn">Actualizar Contraseña</button>
-                                    </form>
-                                </div>
-                            </div>
-                <?php
+                <div class="form-group">
+                    <label for="current-password">Contraseña Actual</label>
+                    <input type="password" id="current-password" name="current_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Nueva Contraseña</label>
+                    <input type="password" id="new-password" name="new_password" required>
+                </div>
+                <button type="submit" class="submit-btn">Actualizar Contraseña</button>
+            </form>
+        </div>
+    </div>
+    <?php
                             break; // Fin del case 'perfil'
-                    }
-                ?>
-            </div>
+                        }
+                        ?>
+                    </div>
         </main>
 
     </div>
@@ -150,7 +157,11 @@ case 'ofertas':
     <?php if ($view === 'ofertas'): ?>
         <script type="module" src="js/dashboards_offers.js"></script>
     <?php endif; ?>
-
+    <?php // --- INICIO DEL NUEVO BLOQUE --- ?>
+    <?php if ($view === 'tarjeta'): ?>
+        <script type="module" src="js/dashboard_card.js"></script>
+    <?php endif; ?>
+    <?php // --- FIN DEL NUEVO BLOQUE --- ?>
     <script type="module" src="js/dashboard.js"></script>
     <?php if ($view === 'perfil'): ?>
         <script type="module" src="js/dashboard_profile.js"></script>
@@ -161,5 +172,6 @@ case 'ofertas':
     <?php if ($view === 'pedidos'): ?>
         <script type="module" src="js/dashboard_orders.js"></script>
     <?php endif; ?>
+    
 </body>
 </html>

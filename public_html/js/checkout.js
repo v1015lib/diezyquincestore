@@ -1,46 +1,61 @@
-// js/checkout.js
+import { showNotification } from './notification_handler.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    const sendButton = document.getElementById('send-whatsapp-btn');
+    const whatsappBtn = document.getElementById('send-whatsapp-btn');
+    const payWithCardBtn = document.getElementById('pay-with-card-btn');
 
-    if (sendButton) {
-        sendButton.addEventListener('click', async (event) => {
-            // Prevenimos que el enlace se abra inmediatamente
-            event.preventDefault(); 
+    // Botón de Enviar por WhatsApp (Método Tradicional)
+    if (whatsappBtn) {
+        whatsappBtn.addEventListener('click', async (e) => {
+            // Prevenimos que se abra WhatsApp inmediatamente
+            e.preventDefault(); 
             
-            // Guardamos la URL de WhatsApp para usarla después
-            const whatsappUrl = sendButton.href;
+            whatsappBtn.textContent = 'Procesando...';
+            whatsappBtn.style.pointerEvents = 'none';
 
             try {
-                const response = await fetch('api/index.php?resource=cart-checkout', {
-                    method: 'POST'
-                });
-
-                if (!response.ok) {
-                    throw new Error('No se pudo finalizar la compra en el sistema.');
-                }
+                // Llama a la API para cambiar el estado del carrito a "En Proceso"
+                const response = await fetch('api/index.php?resource=cart-checkout', { method: 'POST' });
+                const result = await response.json();
                 
-                const data = await response.json();
-
-                if (data.success) {
-                    console.log('La lista se ha marcado como completado.');
-                    
-                    // Abrimos el enlace de WhatsApp en una nueva pestaña
-                    window.open(whatsappUrl, '_blank');
-                    
-                    // ======================================================
-                    // REDIRECCIÓN A LA PÁGINA DE INICIO (AÑADIDA AQUÍ)
-                    // ======================================================
-                    alert('¡Pedido enviado! Serás redirigido al inicio.');
-                    window.location.href = 'index.php';
-
+                if (result.success) {
+                    showNotification('¡Lista enviada! Serás redirigido a WhatsApp.', 'success');
+                    // Si la API responde bien, ahora sí abre WhatsApp y luego redirige
+                    setTimeout(() => {
+                        window.open(whatsappBtn.href, '_blank');
+                        window.location.href = 'dashboard.php?view=pedidos';
+                    }, 1500);
                 } else {
-                    alert('Hubo un problema al finalizar tu compra. Por favor, intenta de nuevo.');
+                    throw new Error(result.error || 'Ocurrió un error al enviar la lista.');
                 }
-
             } catch (error) {
-                console.error("Error en el checkout:", error);
-                alert('Error de conexión al finalizar la compra. Por favor, intenta de nuevo.');
+                showNotification(error.message, 'error');
+                whatsappBtn.textContent = '✔ Enviar Pedido por WhatsApp';
+                whatsappBtn.style.pointerEvents = 'auto';
+            }
+        });
+    }
+
+    // Nuevo Botón de Pagar con Tarjeta
+    if (payWithCardBtn) {
+        payWithCardBtn.addEventListener('click', async () => {
+            payWithCardBtn.disabled = true;
+            payWithCardBtn.textContent = 'Procesando Pago...';
+
+            try {
+                const response = await fetch('api/index.php?resource=checkout-with-card', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('¡Pago Exitoso! Tu pedido ha sido pagado y finalizado.', 'success');
+                    setTimeout(() => window.location.href = 'dashboard.php?view=pedidos', 2000);
+                } else {
+                    throw new Error(result.error || 'No se pudo completar el pago.');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+                payWithCardBtn.disabled = false;
+                payWithCardBtn.textContent = 'Pagar con Mi Tarjeta y Finalizar Pedido';
             }
         });
     }
