@@ -11,7 +11,7 @@ import { initializeModals } from './modal_handler.js';
 import { initializeCarousel } from './carrousel.js';
 import { initializeProductCarousels } from './product_carousel_handler.js';
 const API_BASE_URL = 'api/index.php';
-
+const layoutSettings = {};
 document.addEventListener('DOMContentLoaded', () => {
     setupMobileMenu();
     loadDepartments();

@@ -7,7 +7,6 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 //header('Access-Control-Allow-Origin: https://diezyquince.store'); 
 
-require_once __DIR__ . '/../config/config.php';
 
 // =================== INICIO DEL NUEVO BLOQUE ===================
 // Este bloque intercepta las peticiones de "pre-vuelo" (OPTIONS)
