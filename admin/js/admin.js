@@ -672,6 +672,31 @@ mainContent.addEventListener('click', async (event) => {
         }
         return;
     }
+
+    if (target.classList.contains('update-order-status-btn')) {
+        const cartId = target.dataset.cartId;
+        const newStatusId = target.dataset.newStatusId;
+        const actionText = target.textContent.trim();
+
+        if (confirm(`¿Estás seguro de que quieres "${actionText}" el pedido #${cartId}?`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/updateOrderStatus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cart_id: cartId, status_id: newStatusId })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                // Refresca la lista para mostrar el cambio de estado
+                fetchAndRenderWebOrders(); 
+            } catch (error) {
+                alert(`Error al actualizar el pedido: ${error.message}`);
+            }
+        }
+        return; // Detiene la ejecución para no interferir con otros listeners
+    }
+    
     
     // --- Lógica para el botón de editar Cliente ---
     if (target.classList.contains('edit-customer-btn')) {
@@ -820,33 +845,23 @@ async function loadModule(moduleName) {
         if (!response.ok) throw new Error('Módulo no encontrado.');
         mainContent.innerHTML = await response.text();
 
-        if (moduleName === 'dashboard') {
-            await loadActionContent('dashboard/log_actividad'); // CORREGIDO: Carga el resumen por defecto
-        } else if (moduleName === 'productos') {
-            await loadActionContent('productos/todos_los_productos');
-        } else if (moduleName === 'clientes') {
-            await loadActionContent('clientes/todos_los_clientes');
-        } else if (moduleName === 'departamentos') {
-            await loadActionContent('departamentos/gestion');
-        } else if (moduleName === 'utilidades') {
-            await loadActionContent('utilidades/copia_seguridad');
-        } else if (moduleName === 'tarjetas') {
-            await loadActionContent('tarjetas/gestion');
-        } else if (moduleName === 'inventario') {
-            await loadActionContent('inventario/agregar_stock');
-        } else if (moduleName === 'estadisticas') {
-            await loadActionContent('estadisticas/resumen');
-        }else if (moduleName === 'usuarios') {
-            await loadActionContent('usuarios/gestion');
-        }else if (moduleName === 'pos') {
-            await loadActionContent('pos/vista_principal');
+        // Determina qué acción cargar por defecto para cada módulo
+        let defaultAction = '';
+        switch (moduleName) {
+            case 'dashboard': defaultAction = 'dashboard/log_actividad'; break;
+            case 'productos': defaultAction = 'productos/todos_los_productos'; break;
+            case 'clientes': defaultAction = 'clientes/todos_los_clientes'; break;
+            case 'departamentos': defaultAction = 'departamentos/gestion'; break;
+            case 'utilidades': defaultAction = 'utilidades/copia_seguridad'; break;
+            case 'tarjetas': defaultAction = 'tarjetas/gestion'; break;
+            case 'inventario': defaultAction = 'inventario/agregar_stock'; break;
+            case 'estadisticas': defaultAction = 'estadisticas/resumen'; break;
+            case 'usuarios': defaultAction = 'usuarios/gestion'; break;
+            case 'pos': defaultAction = 'pos/vista_principal'; break; // <--- CORRECCIÓN AQUÍ
+            case 'web_admin': defaultAction = 'web_admin/sliders'; break;
         }
-        else if (moduleName === 'web_admin') {
-            await loadActionContent('web_admin/sliders');
-        const activeButton = mainContent.querySelector('.action-btn[data-action="web_admin/sliders"]');
-        if (activeButton) {
-                activeButton.classList.add('active');
-            }
+        if (defaultAction) {
+            await loadActionContent(defaultAction);
         }
     } catch (error) {
         mainContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
@@ -862,7 +877,7 @@ async function loadActionContent(actionPath) {
         if (!response.ok) throw new Error('Acción no encontrada.');
         actionContent.innerHTML = await response.text();
 
-        // Lógica post-carga para PRODUCTOS
+        // Llama a la función de inicialización correspondiente después de cargar el HTML
         if (actionPath === 'productos/todos_los_productos') {
             currentFilters.page = 1;
             await populateDepartmentFilter();
@@ -874,52 +889,48 @@ async function loadActionContent(actionPath) {
             initializeProductSearchForEdit();
         } else if (actionPath === 'productos/eliminar_producto') {
             initializeProductSearchForDelete();
-        }else if (actionPath === 'inventario/historial_movimientos') {
-            await populateMovementTypeFilter(); 
-            fetchAndRenderInventoryHistory();
-        }else if (actionPath === 'clientes/todos_los_clientes') {
-            await fetchAndRenderCustomers();
-        }else if (actionPath === 'clientes/nuevo_cliente') {
-            initializeAddCustomerForm();
-        }else if (actionPath.startsWith('web_admin/')) {
-            initializeWebAdminControls();
         } else if (actionPath === 'productos/crear_oferta') {
-                initializeOfferManagement();
-        } else if (actionPath === 'productos/ofertas_activas') { 
-                await fetchAndRenderActiveOffers();
-        }else if (actionPath === 'tarjetas/gestion') {
+            initializeOfferManagement();
+        } else if (actionPath === 'productos/ofertas_activas') {
+            await fetchAndRenderActiveOffers();
+        } else if (actionPath === 'clientes/todos_los_clientes') {
+            await fetchAndRenderCustomers();
+        } else if (actionPath === 'clientes/nuevo_cliente') {
+            initializeAddCustomerForm();
+        } else if (actionPath === 'departamentos/gestion') {
+            initializeDepartmentManagement();
+        } else if (actionPath === 'tarjetas/gestion') {
             initializeCardManagement();
         } else if (actionPath === 'tarjetas/reporte_clientes') {
             fetchAndRenderCardReport();
-        }else if (actionPath === 'tarjetas/reporte_clientes') {
-            fetchAndRenderCardReport();            
         } else if (actionPath === 'tarjetas/recargar') {
             initializeCardRecharge();
-        }else if (actionPath === 'departamentos/gestion') {
-            initializeDepartmentManagement();
-        }if (actionPath === 'utilidades/copia_seguridad') {
-            initializeBackupControls();
-        }else if (actionPath === 'inventario/agregar_stock') {
+        } else if (actionPath === 'inventario/agregar_stock') {
             initializeInventoryForm('stock');
         } else if (actionPath === 'inventario/ajuste_inventario') {
             initializeInventoryForm('adjust');
         } else if (actionPath === 'inventario/historial_movimientos') {
+            await populateMovementTypeFilter();
             fetchAndRenderInventoryHistory();
-        }else if (actionPath === 'estadisticas/resumen') {
+        } else if (actionPath === 'utilidades/copia_seguridad') {
+            initializeBackupControls();
+        } else if (actionPath === 'estadisticas/resumen') {
             loadStatisticsWidgets();
-        }else if (actionPath === 'dashboard/resumen') {
-            // No necesita acción extra, solo muestra el HTML.
         } else if (actionPath === 'dashboard/ventas_por_usuario') {
             await fetchAndRenderUserSales();
         } else if (actionPath === 'dashboard/log_actividad') {
             await fetchAndRenderActivityLog();
-        }else if (actionPath === 'usuarios/gestion') {
+        } else if (actionPath === 'usuarios/gestion') {
             initializeUserManagement();
-        }else if (actionPath === 'pos/vista_principal') { 
+        } else if (actionPath === 'pos/vista_principal') {
             initializePOS();
+        } else if (actionPath === 'pos/gestion_pedidos') { 
+            initializeWebOrderManagement();
+        } else if (actionPath.startsWith('web_admin/')) {
+            initializeWebAdminControls();
         }
     } catch (error) {
-        actionContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
+        actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
     }
 }
     // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
@@ -2314,7 +2325,31 @@ mainContent.addEventListener('click', async (event) => {
             }
         }
     }
-    // ... (El resto de tu listener de click puede continuar aquí)
+
+        if (target.classList.contains('update-order-status-btn')) {
+        const cartId = target.dataset.cartId;
+        const newStatusId = target.dataset.newStatusId;
+        const actionText = target.textContent.trim();
+
+        if (confirm(`¿Estás seguro de que quieres "${actionText}" el pedido #${cartId}?`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/updateOrderStatus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cart_id: cartId, status_id: newStatusId })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                // Refresca la lista para mostrar el cambio de estado
+                fetchAndRenderWebOrders(); 
+            } catch (error) {
+                alert(`Error al actualizar el pedido: ${error.message}`);
+            }
+        }
+        return; // Detiene la ejecución para no interferir con otros listeners
+    }
+
 });
 
 // Listener para guardar cambios al editar en línea
@@ -3239,7 +3274,58 @@ async function deleteUser(userId) {
         alert(`Error al eliminar: ${error.message}`);
     }
 }
+// En admin/js/admin.js, puedes agregarlas al final del archivo
 
+function initializeWebOrderManagement() {
+    fetchAndRenderWebOrders();
+}
+
+async function fetchAndRenderWebOrders() {
+    const tableBody = document.getElementById('web-orders-tbody');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="6">Cargando pedidos...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getWebOrders`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.orders.length > 0) {
+            result.orders.forEach(order => {
+                const row = document.createElement('tr');
+                let actionsHtml = '';
+                
+                // Define los botones de acción según el estado actual del pedido
+                switch (order.nombre_estado) {
+                    case 'En Proceso':
+                        actionsHtml = `
+                            <button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="10" style="background-color: #28a745;">Finalizar</button>
+                            <button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="11" style="background-color: #dc3545;">Cancelar</button>
+                        `;
+                        break;
+                    case 'Entregado': // Usamos 'Entregado' (ID 10) como "Finalizado"
+                    case 'Cancelado':
+                        actionsHtml = `<button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="8" style="background-color: #ffc107; color: black;">Revertir a "En Proceso"</button>`;
+                        break;
+                }
+
+                row.innerHTML = `
+                    <td>${order.numero_orden_cliente || order.id_carrito}</td>
+                    <td>${order.nombre_usuario}</td>
+                    <td>${new Date(order.fecha_creacion).toLocaleString('es-SV')}</td>
+                    <td>$${parseFloat(order.total).toFixed(2)}</td>
+                    <td><span class="status-badge">${order.nombre_estado}</span></td>
+                    <td>${actionsHtml}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="6">No hay pedidos web para gestionar.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="6" style="color:red;">Error al cargar los pedidos web.</td></tr>`;
+    }
+}
 
 });
 

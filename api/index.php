@@ -32,6 +32,82 @@ try {
     switch ($resource) {
 
 
+// api/index.php
+
+case 'admin/getWebOrders':
+    // require_admin();
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                cc.id_carrito,
+                cc.numero_orden_cliente,
+                c.nombre_usuario,
+                c.nombre,
+                c.apellido,
+                cc.fecha_creacion,
+                e.nombre_estado,
+                SUM(dc.cantidad * dc.precio_unitario) as total
+            FROM carritos_compra cc
+            JOIN clientes c ON cc.id_cliente = c.id_cliente
+            JOIN estados e ON cc.estado_id = e.id_estado
+            /* --- ESTA LÍNEA ES LA CORRECCIÓN CLAVE --- */
+            /* Asegura que solo se listen carritos con productos. */
+            JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+            WHERE cc.estado_id IN (8, 10, 11) -- 8: En Proceso, 10: Entregado, 11: Cancelado
+            GROUP BY cc.id_carrito -- Agrupamos para obtener un solo total por carrito
+            ORDER BY cc.fecha_creacion DESC
+        ");
+        $stmt->execute();
+        $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'orders' => $orders]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los pedidos web.']);
+    }
+    break;
+
+case 'admin/updateOrderStatus':
+    // require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    $cartId = filter_var($data['cart_id'] ?? 0, FILTER_VALIDATE_INT);
+    $statusId = filter_var($data['status_id'] ?? 0, FILTER_VALIDATE_INT);
+    $userId = $_SESSION['id_usuario'] ?? null;
+
+    if (!$cartId || !$statusId || !$userId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos incompletos o sesión no válida.']);
+        break;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("UPDATE carritos_compra SET estado_id = :status_id WHERE id_carrito = :cart_id");
+        $stmt->execute([':status_id' => $statusId, ':cart_id' => $cartId]);
+
+        // Log de la actividad
+        $stmt_status = $pdo->prepare("SELECT nombre_estado FROM estados WHERE id_estado = :status_id");
+        $stmt_status->execute([':status_id' => $statusId]);
+        $statusName = $stmt_status->fetchColumn();
+
+        logActivity($pdo, $userId, 'Gestión de Pedido Web', "El pedido web #${cartId} se marcó como '${statusName}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Estado del pedido actualizado.']);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudo actualizar el estado del pedido.']);
+    }
+    break;
+
+
+
+
+
+
+
+/********************************************************************************/
+
 case 'pos_get_sale_by_id':
     if ($method === 'GET' && isset($_GET['sale_id'])) {
         try {
@@ -456,7 +532,19 @@ case 'admin/activityLog':
                 FROM registros_actividad ra
                 JOIN usuarios u ON ra.id_usuario = u.id_usuario
                 WHERE DATE(ra.fecha) = :date4)
-                
+
+
+                UNION ALL
+
+                (SELECT
+                    c.nombre_usuario,
+                    'Pedido Web Recibido' as tipo_accion,
+                    CONCAT('Nuevo pedido en línea (#', cc.id_carrito, ')') as descripcion,
+                    cc.fecha_creacion as fecha
+                FROM carritos_compra cc
+                JOIN clientes c ON cc.id_cliente = c.id_cliente
+                WHERE cc.estado_id = 8 AND DATE(cc.fecha_creacion) = :date5)
+
                 ORDER BY fecha DESC
                 LIMIT 200";
 
@@ -465,7 +553,8 @@ case 'admin/activityLog':
             ':date1' => $filter_date,
             ':date2' => $filter_date,
             ':date3' => $filter_date,
-            ':date4' => $filter_date
+            ':date4' => $filter_date,
+            ':date5' => $filter_date
         ]);
 
         $log = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -3210,7 +3299,7 @@ case 'layout-settings':
  */
 function handleGetOrderHistory(PDO $pdo, int $client_id) {
     // **AQUÍ AGREGAMOS EL 23**: Lista de todos los estados que el cliente puede ver.
-    $historical_statuses = [2, 3, 7, 8, 9, 10, 13, 14, 17, 20, 23];
+    $historical_statuses = [2, 3, 7, 8, 9, 10, 11, 13, 14, 17, 20, 23];
     
     $in_clause = implode(',', array_fill(0, count($historical_statuses), '?'));
 
@@ -3240,7 +3329,10 @@ function handleGetOrderHistory(PDO $pdo, int $client_id) {
     foreach ($orders_raw as $order_raw) {
         $stmt_details->execute([':cart_id' => $order_raw['id_carrito']]);
         $items = $stmt_details->fetchAll(PDO::FETCH_ASSOC);
-        
+        if (empty($items)) {
+            continue;
+        }
+        //
         $total = 0;
         foreach ($items as $item) {
             $total += $item['cantidad'] * $item['precio_unitario'];
@@ -3316,26 +3408,59 @@ function handleReorderRequest(PDO $pdo, int $client_id, int $order_id) {
  * Procesa el checkout final, marcando el carrito como 'Pedido finalizado' (estado 23).
  */
 function handleCheckoutRequest(PDO $pdo) {
-    if (!isset($_SESSION['id_cliente'])) throw new Exception('Debes iniciar sesión para finalizar la compra.');
+    if (!isset($_SESSION['id_cliente'])) {
+        throw new Exception('Debes iniciar sesión para finalizar el envio de tu lista.');
+    }
     
     $client_id = $_SESSION['id_cliente'];
     $cart_id = getOrCreateCart($pdo, $client_id, false);
     
     if (!$cart_id) {
-        throw new Exception("Tu carrito está vacío. No hay nada que procesar.");
+        throw new Exception("Tu lista está vacía, no hay nada que procesar.");
     }
-    
-    // **AQUÍ ESTÁ LA MAGIA**: El estado inicial ahora será 23.
-    $stmt = $pdo->prepare("UPDATE carritos_compra SET estado_id = 23 WHERE id_carrito = :cart_id AND id_cliente = :client_id AND estado_id = 1");
-    $stmt->execute([':cart_id' => $cart_id, ':client_id' => $client_id]);
-    
-    if ($stmt->rowCount() > 0) {
-        echo json_encode(['success' => true, 'message' => 'Compra finalizada con éxito.']);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'No se pudo procesar la compra. Es posible que el carrito ya estuviera procesado.']);
+
+    // Iniciar transacción para garantizar la integridad de los datos
+    $pdo->beginTransaction();
+    try {
+        // 1. Obtener el número de orden más alto para este cliente
+        $stmt_max_order = $pdo->prepare(
+            "SELECT MAX(numero_orden_cliente) FROM carritos_compra WHERE id_cliente = :client_id"
+        );
+        $stmt_max_order->execute([':client_id' => $client_id]);
+        $max_order = $stmt_max_order->fetchColumn();
+        
+        // Si no tiene órdenes previas, este será el número 1. Si no, será el siguiente.
+        $new_order_number = ($max_order) ? $max_order + 1 : 1;
+
+        // 2. Actualizar el carrito para marcarlo como "En Proceso" y asignar el nuevo número de orden
+        $stmt = $pdo->prepare(
+            "UPDATE carritos_compra 
+             SET estado_id = 8, numero_orden_cliente = :order_number 
+             WHERE id_carrito = :cart_id AND id_cliente = :client_id AND estado_id = 1"
+        );
+        
+        $stmt->execute([
+            ':order_number' => $new_order_number,
+            ':cart_id'      => $cart_id,
+            ':client_id'    => $client_id
+        ]);
+
+        if ($stmt->rowCount() > 0) {
+            // Si todo fue bien, confirma los cambios en la base de datos
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Lista enviada con éxito.']);
+        } else {
+            // Si no se actualizó ninguna fila, algo salió mal (ej. el carrito ya estaba procesado)
+            throw new Exception('No se pudo procesar el envio de lista. Es posible que la lista ya estuviera procesada.');
+        }
+
+    } catch (Exception $e) {
+        // Si ocurre cualquier error, revierte todos los cambios
+        $pdo->rollBack();
+        // Lanza la excepción para que el manejador de errores principal la capture
+        throw $e; 
     }
 }
-
 function handleGetFavoriteDetailsRequest(PDO $pdo, int $client_id) {
     $stmt = $pdo->prepare("
         SELECT p.id_producto, p.nombre_producto, p.precio_venta, p.url_imagen

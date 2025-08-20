@@ -31,7 +31,12 @@ const renderOrderHistory = (orders) => {
                 <span class="order-item-price">$${parseFloat(item.precio_unitario).toFixed(2)}</span>
             </li>
         `).join('');
-
+                const isCanceled = order.status_name === 'Cancelado';
+        const reorderButtonHtml = `
+            <button class="submit-btn reorder-btn" data-order-id="${order.id_pedido}" ${isCanceled ? 'disabled' : ''}>
+                ${isCanceled ? 'Pedido Cancelado' : 'Repetir Pedido'}
+            </button>
+        `;
         const orderCardHtml = `
             <div class="order-card">
                 <div class="order-card-header">
@@ -48,9 +53,7 @@ const renderOrderHistory = (orders) => {
                 <div class="order-card-body">
                     <ul class="order-items-list">${itemsHtml}</ul>
                     <div class="order-card-footer">
-                        <button class="submit-btn reorder-btn" data-order-id="${order.id_pedido}">
-                            Repetir Pedido
-                        </button>
+                        ${reorderButtonHtml}
                     </div>
                 </div>
             </div>
