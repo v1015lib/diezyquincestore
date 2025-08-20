@@ -3278,15 +3278,49 @@ async function deleteUser(userId) {
 
 function initializeWebOrderManagement() {
     fetchAndRenderWebOrders();
+
+    // Event listeners para los nuevos filtros
+    const searchInput = document.getElementById('web-order-search-input');
+    const dateFilters = document.querySelectorAll('.web-order-filter');
+    let searchTimeout;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                fetchAndRenderWebOrders();
+            }, 300); // Espera 300ms antes de buscar
+        });
+    }
+
+    if (dateFilters) {
+        dateFilters.forEach(filter => {
+            filter.addEventListener('change', () => {
+                fetchAndRenderWebOrders();
+            });
+        });
+    }
 }
+
 
 async function fetchAndRenderWebOrders() {
     const tableBody = document.getElementById('web-orders-tbody');
     if (!tableBody) return;
+
+    // Obtener valores de los filtros
+    const searchTerm = document.getElementById('web-order-search-input')?.value || '';
+    const startDate = document.getElementById('start-date-filter-web')?.value || '';
+    const endDate = document.getElementById('end-date-filter-web')?.value || '';
+
     tableBody.innerHTML = '<tr><td colspan="6">Cargando pedidos...</td></tr>';
 
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getWebOrders`);
+        const params = new URLSearchParams({
+            search: searchTerm,
+            startDate: startDate,
+            endDate: endDate
+        });
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getWebOrders&${params.toString()}`);
         const result = await response.json();
 
         tableBody.innerHTML = '';
@@ -3294,19 +3328,15 @@ async function fetchAndRenderWebOrders() {
             result.orders.forEach(order => {
                 const row = document.createElement('tr');
                 let actionsHtml = '';
-                
-                // Define los botones de acción según el estado actual del pedido
-                switch (order.nombre_estado) {
-                    case 'En Proceso':
-                        actionsHtml = `
-                            <button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="10" style="background-color: #28a745;">Finalizar</button>
-                            <button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="11" style="background-color: #dc3545;">Cancelar</button>
-                        `;
-                        break;
-                    case 'Entregado': // Usamos 'Entregado' (ID 10) como "Finalizado"
-                    case 'Cancelado':
-                        actionsHtml = `<button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="8" style="background-color: #ffc107; color: black;">Revertir a "En Proceso"</button>`;
-                        break;
+                const orderStatus = order.nombre_estado;
+
+                if (orderStatus === 'En Proceso') {
+                    actionsHtml = `
+                        <button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="10" style="background-color: #28a745;">Finalizar</button>
+                        <button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="11" style="background-color: #dc3545;">Cancelar</button>
+                    `;
+                } else if (orderStatus === 'Entregado' || orderStatus === 'Cancelado') {
+                    actionsHtml = `<button class="action-btn btn-sm update-order-status-btn" data-cart-id="${order.id_carrito}" data-new-status-id="8" style="background-color: #ffc107; color: black;">Revertir a En Proceso</button>`;
                 }
 
                 row.innerHTML = `
@@ -3314,18 +3344,19 @@ async function fetchAndRenderWebOrders() {
                     <td>${order.nombre_usuario}</td>
                     <td>${new Date(order.fecha_creacion).toLocaleString('es-SV')}</td>
                     <td>$${parseFloat(order.total).toFixed(2)}</td>
-                    <td><span class="status-badge">${order.nombre_estado}</span></td>
+                    <td><span class="status-badge">${orderStatus}</span></td>
                     <td>${actionsHtml}</td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="6">No hay pedidos web para gestionar.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="6">No hay pedidos web para los filtros seleccionados.</td></tr>';
         }
     } catch (error) {
         tableBody.innerHTML = `<tr><td colspan="6" style="color:red;">Error al cargar los pedidos web.</td></tr>`;
     }
 }
+
 
 });
 

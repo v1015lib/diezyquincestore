@@ -198,11 +198,42 @@ case 'get-card-details':
 
 
 /***************************************************************/
+// ... dentro del switch en api/index.php ...
+
+// ... dentro del switch en api/index.php ...
+
 case 'admin/getWebOrders':
-    // require_admin();
+    // require_admin(); // Descomentar en producción
     try {
-        $stmt = $pdo->prepare("
-            SELECT 
+        // --- LÓGICA DE FILTRADO ---
+        $params = [];
+        $where_clauses = ["cc.estado_id IN (8, 10, 11)"]; // Condición base para mostrar solo pedidos relevantes
+
+        // Filtro de búsqueda por número de orden o nombre de cliente
+        if (!empty($_GET['search'])) {
+            $searchTerm = '%' . $_GET['search'] . '%';
+            // Se busca en el número de orden o en el nombre de usuario del cliente
+            $where_clauses[] = "(cc.numero_orden_cliente LIKE :search_term OR c.nombre_usuario LIKE :search_term)";
+            $params[':search_term'] = $searchTerm;
+        }
+
+        // Filtro por rango de fechas
+        if (!empty($_GET['startDate'])) {
+            $where_clauses[] = "DATE(cc.fecha_creacion) >= :startDate";
+            $params[':startDate'] = $_GET['startDate'];
+        }
+        if (!empty($_GET['endDate'])) {
+            $where_clauses[] = "DATE(cc.fecha_creacion) <= :endDate";
+            $params[':endDate'] = $_GET['endDate'];
+        }
+
+        // Unimos todas las condiciones de filtrado
+        $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+        // --- FIN DE LÓGICA DE FILTRADO ---
+
+        // Consulta SQL principal que ahora incluye los filtros
+        $sql = "
+            SELECT
                 cc.id_carrito,
                 cc.numero_orden_cliente,
                 c.nombre_usuario,
@@ -214,21 +245,23 @@ case 'admin/getWebOrders':
             FROM carritos_compra cc
             JOIN clientes c ON cc.id_cliente = c.id_cliente
             JOIN estados e ON cc.estado_id = e.id_estado
-            /* --- ESTA LÍNEA ES LA CORRECCIÓN CLAVE --- */
-            /* Asegura que solo se listen carritos con productos. */
             JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
-            WHERE cc.estado_id IN (8, 10, 11) -- 8: En Proceso, 10: Entregado, 11: Cancelado
-            GROUP BY cc.id_carrito -- Agrupamos para obtener un solo total por carrito
+            {$where_sql} -- Se aplica el WHERE dinámico aquí
+            GROUP BY cc.id_carrito
             ORDER BY cc.fecha_creacion DESC
-        ");
-        $stmt->execute();
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params); // Se ejecutan los parámetros de los filtros
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         echo json_encode(['success' => true, 'orders' => $orders]);
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error al obtener los pedidos web.']);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los pedidos web: ' . $e->getMessage()]);
     }
     break;
+
 
 case 'admin/updateOrderStatus':
     // require_admin();

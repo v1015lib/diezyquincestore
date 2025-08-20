@@ -43,7 +43,7 @@ body.page-checkout {
 .summary-table-container {
     flex-grow: 1;
     overflow-y: auto; // Ahora este scroll funcionará correctamente
-    padding: 1rem 2rem;
+    padding: .5rem;
 }
 
 .summary-table {
@@ -55,7 +55,7 @@ body.page-checkout {
         padding: .5rem 0;
         border-bottom: 1px solid #f1f1f1;
         text-align: left;
-        font-size: .8rem;
+        font-size:1rem;
         font-weight: 400;
 
     }
@@ -88,11 +88,41 @@ body.page-checkout {
 
 // Columna lateral (derecha en escritorio)
 .summary-sidebar {
-    padding: 2rem;
+    padding: 1rem;
 
     position: sticky;
     bottom: 0;
-}
+
+    .card-payment-option{
+
+        @media screen and (min-width: 480px) {
+            text-align: center;
+            
+        }
+        #pay-with-card-btn{
+            all: unset;
+            background: $primary-color;
+            color: $tcolor2;
+            padding: .5rem;
+            font-weight: 600;
+        }
+        h4,p{
+            font-weight: 600;
+        }
+        p{
+            color: green;
+        }
+        
+    }
+}.checkout-separator{
+            padding: .5rem;
+            font-weight: 900;
+            text-align: left;
+        @media screen and (min-width: 480px) {
+            text-align: center;
+            
+        }
+        }
 
 .summary-total {
     display: flex;
@@ -105,6 +135,10 @@ body.page-checkout {
     font-weight: 900;
 
 
+}
+
+.default-payment-option{
+    text-align: center;
 }
 
 .whatsapp-button {
@@ -167,7 +201,7 @@ body.page-checkout {
         box-shadow: none;
     }
     .summary-header, .summary-sidebar, .summary-table-container {
-        padding: 1.25rem;
+        padding: .55rem;
     }
     .summary-sidebar{
         position: sticky;
