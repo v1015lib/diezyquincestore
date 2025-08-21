@@ -11,8 +11,8 @@ import { initializeModals } from './modal_handler.js';
 import { initializeCarousel } from './carrousel.js';
 import { initializeProductCarousels } from './product_carousel_handler.js';
 const API_BASE_URL = 'api/index.php';
-const layoutSettings = {};
 document.addEventListener('DOMContentLoaded', () => {
+
     setupMobileMenu();
     loadDepartments();
     initializeCartView();
@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeModals();
     initializeCarousel('.carousel-container');
     initializeProductCarousels();
-
     const urlParams = new URLSearchParams(window.location.search);
     const searchTermFromUrl = urlParams.get('search');
 
@@ -34,7 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // CORRECCIÓN: Se asegura de aplicar el filtro de imagen también en las búsquedas desde URL
             hide_no_image: layoutSettings.hide_products_without_image
         });
-    } else {
+    } else {    
+
         // Esta parte ya estaba correcta
         loadProducts('product-list', 'pagination-controls', {
             sortBy: 'random',

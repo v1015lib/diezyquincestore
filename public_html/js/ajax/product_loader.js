@@ -1,4 +1,3 @@
-const layoutSettings = {};
 
 // public_html/js/ajax/product_loader.js
 export let currentProductParams = {};

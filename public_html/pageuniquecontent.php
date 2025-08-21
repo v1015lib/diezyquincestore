@@ -2,13 +2,19 @@
 // public_html/pageuniquecontent.php
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 
-// 1. Determinar los filtros a partir de la URL
+// --- INICIO: CÓDIGO AÑADIDO ---
+// 1. Obtener la configuración de la tienda desde la API
+$settings_json = @file_get_contents('http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/api/index.php?resource=layout-settings');
+$layout_settings = json_decode($settings_json, true)['settings'] ?? [];
+// --- FIN: CÓDIGO AÑADIDO ---
+
+
+// 2. Determinar los filtros a partir de la URL (esto ya existía)
 $filter_params = [];
 $page_title = "Nuestras Promociones";
 
 if (isset($_GET['department_id'])) {
     $filter_params['department_id'] = (int)$_GET['department_id'];
-    // (Opcional) Podrías hacer una consulta a la BD para obtener el nombre del depto y usarlo en el título
     $page_title = "Departamento"; 
 }
 
@@ -46,7 +52,7 @@ if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
         </div>
     </div>
 
-    <?php include 'includes/cart_panel.php'; // Reutilizamos el panel del carrito ?>
+    <?php include 'includes/cart_panel.php'; ?>
     <div id="notification-container" class="notification-container"></div>
     <div id="login-prompt-modal" class="modal-overlay hidden">
         <div class="modal-content">
@@ -60,6 +66,11 @@ if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
     </div>
 
     <script>
+        // --- INICIO: CÓDIGO AÑADIDO ---
+        // Ahora también se imprime la configuración global para que los scripts la usen
+        const layoutSettings = <?php echo json_encode($layout_settings); ?>;
+        // --- FIN: CÓDIGO AÑADIDO ---
+
         const productFilterParams = <?php echo json_encode($filter_params); ?>;
     </script>
     <script type="module" src="js/pageuniquecontent.js"></script>
