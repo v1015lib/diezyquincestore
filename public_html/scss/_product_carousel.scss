@@ -1,26 +1,35 @@
 @import 'vars';
 
 .product-carousel-section {
+
     max-width: 1200px;
-    margin: .2rem ;
+    margin:0 ;
     padding: .5rem;
+
     h2 {
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+
         color: $primary-color;
+
         text-align: center;
+        padding: .2rem;
+        font-weight: 900;
+        font-variant: all-small-caps;
     }
 }
 
 .product-carousel-container {
     position: relative;
     overflow: hidden; 
+
 }
 
 // Contenedor de slides que se moverá
 .product-carousel-slides {
+
     display: flex;
-    gap: .5rem; // Espacio entre tarjetas
+
+
     // El ancho y la transición son gestionados por JavaScript
 }
 

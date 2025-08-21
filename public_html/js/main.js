@@ -30,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadProducts('product-list', 'pagination-controls', {
             apiBaseUrl: API_BASE_URL,
             search: searchTermFromUrl,
-            // CORRECCIÓN: Se asegura de aplicar el filtro de imagen también en las búsquedas desde URL
             hide_no_image: layoutSettings.hide_products_without_image
         });
     } else {    

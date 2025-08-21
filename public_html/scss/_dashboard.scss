@@ -645,39 +645,44 @@
 .card-summary-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
+    gap: .5rem;
+    margin-bottom: .5rem;
+
 }
 
 .card-info-widget, .card-balance-widget {
-    background-color: #fff;
-    padding: 1.5rem;
+    background: darken($primary-color, 1%);
+    width: 300px;
+    margin: auto;
+    padding: 1rem;
     border-radius: 8px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     text-align: center;
 
     h4 {
         margin: 0 0 0.5rem 0;
-        font-size: 1rem;
-        color: #6c757d;
+        font-size: .8rem;
+        color: $tcolor2;
         font-weight: 500;
     }
 
     p {
         margin: 0;
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: 600;
-        color: $primary-color;
+        color: $tcolor2;
     }
 }
 
 .card-balance-widget p {
-    color: #28a745; // Verde para el saldo
+    color: #2DE22D; // Verde para el saldo
 }
 
 .transaction-history-container {
+    height: 50vh;
+    overflow-y: auto;
     h2 {
-        font-size: 1.3rem;
+        font-size: 1rem;
         margin-bottom: 1rem;
     }
     .table-responsive-wrapper {
@@ -693,9 +698,10 @@
     overflow: hidden;
 
     th, td {
-        padding: 1rem;
+        padding: .5rem;
         text-align: left;
         border-bottom: 1px solid #f0f0f0;
+
     }
     
     thead th {
@@ -711,6 +717,18 @@
         }
         &.debit {
             color: #dc3545; // Rojo para compras
+        }
+    }
+    td{
+        font-size: .7rem;
+        font-weight: 600;
+
+    }
+    tr{
+        padding: .5rem;
+        &:hover{
+            background: $primary-color;
+            color: white;
         }
     }
 }

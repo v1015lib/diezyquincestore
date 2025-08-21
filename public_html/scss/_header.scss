@@ -4,7 +4,7 @@
 .main-header {
     background-color: $primary-color;
     color: white;
-    padding: $spacing-unit;
+    padding: .5rem;
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -123,7 +123,7 @@
             li {
 
                 a { /*Link a mi cuenta*/
-
+                    font-size: .8rem;
                     color: $tcolor2;
                     text-decoration: none;
                     padding: 0.5rem;

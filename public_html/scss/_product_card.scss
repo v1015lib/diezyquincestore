@@ -60,13 +60,24 @@
             padding: .2rem;
             background: $primary-color;
             color: yellow;
-            font-size: 1.3rem;
+            font-size: 1rem;
             border-radius: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
+            font-weight: 600;
+            &::before{
+                content: "Ahorras:";
+                font-variant: none;
+                font-weight: 600;
+                background: $tcolor2;
+                color: $primary-color;
+                position: absolute;
+                font-size: .7rem;
+                top: -25%;
+                padding: .1rem;
+            }
         }
     }
 
@@ -100,15 +111,17 @@
     }
 
     .product-info {
+
         margin-top: .5rem;
+
         h3 {
             color: black;
             font-size: .8rem;
-            height: 100px;
+            height: 150px;
             font-weight: 600;
         }
         .department {
-            height: 40px;
+            height: 50px;
             font-size: .8rem;
             color: $primary-color;
             font-weight: 600;
@@ -125,10 +138,13 @@
                 font-size: inherit;
                 font-weight: 600;
                 color: red;
+
+                height: 1.5rem;
             }
             .price-older {
                 color: $primary-color;
                 font-weight: 900;
+
                 text-decoration: line-through;
             }
             .code {
@@ -142,7 +158,9 @@
             align-content: center;
             justify-content: center;
             align-items: center;
-            padding-bottom: 1rem;
+
+            margin: .8rem 0;
+            padding-bottom: .5rem;
             
             .quantity-input {
                 flex-grow: 1;
@@ -231,7 +249,6 @@
     display: flex;
     gap: 1rem;
 }
-
 
 
 

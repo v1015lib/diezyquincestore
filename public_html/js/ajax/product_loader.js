@@ -57,7 +57,8 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         // --- INICIO: CÓDIGO CORREGIDO ---
         // Ahora el departamento solo se muestra si la visibilidad general está permitida
         if (layoutSettings.show_product_department) {
-            departmentHtml = `<p class="department">Depto: ${product.nombre_departamento}</p>`;
+            departmentHtml = `<p class="department"> ${product.nombre_departamento}</p>`;
+            //Si se quier poner Depto:  despues de <p class="department">
         }
         // --- FIN: CÓDIGO CORREGIDO ---
 
@@ -84,8 +85,8 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
 
     if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
         const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
-        discountBadgeHtml = `<div class="discount-badge">-${discountPercent}%</div>`;
-    }
+        discountBadgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
+    }   //Antes de ${discountPercent} puede agregarse un "-" para que se vea -40% por ejemplo
 
     return `
         <div class="product-card" data-product-id="${product.id_producto}">
