@@ -10,9 +10,10 @@ import { initializeFavoritesHandler } from './favorites_handler.js';
 import { initializeModals } from './modal_handler.js';
 import { initializeCarousel } from './carrousel.js';
 import { initializeProductCarousels } from './product_carousel_handler.js';
+import { initializeShareHandler } from './share_handler.js';
 const API_BASE_URL = 'api/index.php';
 document.addEventListener('DOMContentLoaded', () => {
-
+    initializeShareHandler();
     setupMobileMenu();
     loadDepartments();
     initializeCartView();

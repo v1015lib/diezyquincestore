@@ -637,6 +637,34 @@ ul, li, a {
   height: -moz-fit-content;
   height: fit-content;
 }
+.product-card .share-btn {
+  position: absolute;
+  border: none;
+  background: white;
+  color: #D4A017;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #D4A017;
+  border-radius: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  font-size: 1rem;
+  font-weight: 900;
+  left: 5%;
+  bottom: 78%;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  cursor: pointer;
+}
 .product-card .product-image-container {
   width: 150px;
   height: 150px;
@@ -1345,6 +1373,116 @@ ul, li, a {
 }
 .modal-actions .btn-primary:hover {
   background-color: #050421;
+}
+
+/* --- ESTILOS PARA EL MODAL DE COMPARTIR --- */
+.share-modal-content {
+  max-width: 400px;
+  padding: 1.5rem;
+  position: relative;
+}
+.share-modal-content .modal-header {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+.share-modal-content .modal-header button {
+  all: unset;
+  padding: 0.5rem;
+  color: #0C0A4E;
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0.2rem;
+  font-weight: 900;
+  border-radius: 0.5rem;
+}
+.share-modal-content .share-options {
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr 1rem 1fr;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.share-modal-content .share-option {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #333;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.share-modal-content .share-option img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-bottom: 0.2rem;
+}
+.share-modal-content .share-option svg {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0.2rem;
+  fill: currentColor;
+}
+.share-modal-content .share-option:hover {
+  -webkit-transform: translateY(-3px);
+          transform: translateY(-3px);
+  -webkit-box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  border-color: #D4A017;
+}
+.share-modal-content .share-option.copy-link svg {
+  fill: #D4A017;
+}
+.share-modal-content .share-option.whatsapp {
+  color: #25D366;
+}
+.share-modal-content .share-option.whatsapp:hover {
+  border-color: #25D366;
+}
+.share-modal-content .share-option.whatsapp img {
+  background-color: #25D366;
+  padding: 5px;
+}
+.share-modal-content .share-option.facebook {
+  color: #1877F2;
+}
+.share-modal-content .share-option.facebook:hover {
+  border-color: #1877F2;
+}
+.share-modal-content .share-option.facebook img {
+  background-color: #1877F2;
+  padding: 5px;
+}
+.share-modal-content .share-option.twitter {
+  color: #1DA1F2;
+}
+.share-modal-content .share-option.twitter:hover {
+  border-color: #1DA1F2;
+}
+.share-modal-content .share-option.twitter img {
+  background-color: #1DA1F2;
+  padding: 5px;
 }
 
 .pagination {

@@ -34,6 +34,30 @@
     margin: .3rem;
     height: fit-content;
 
+
+
+
+    .share-btn {
+        position: absolute;
+        border: none;
+        background: white;
+        color: #D4A017;
+        width: 40px;
+        height: 40px;
+        border: 1px solid #D4A017;
+        border-radius: 100%;
+        display: flex;
+        font-size: 1rem;
+        font-weight: 900;
+        left: 5%;
+        bottom: 78%;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+
+    }
+
     .product-image-container {
         width: 150px;
         height: 150px;
@@ -302,3 +326,14 @@
     text-align: center;
     margin-top: 1rem;
 }
+
+
+
+
+
+
+
+
+
+
+

@@ -108,3 +108,113 @@
 }
 
 
+
+// public_html/scss/_modal.scss
+// ... (tus estilos de modal existentes)
+
+/* --- ESTILOS PARA EL MODAL DE COMPARTIR --- */
+.share-modal-content {
+    max-width: 400px;
+    padding: 1.5rem;
+    position: relative;
+    .modal-header {
+
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem; // Aumenté el margen inferior para más espacio
+        button{
+            all: unset;
+            padding: .5rem;
+
+            color: $primary-color;
+            position: absolute;
+            top: 0;
+            right: 0;
+            margin: .2rem;
+            font-weight: 900;
+            border-radius: .5rem;
+        }
+    }
+
+    .share-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .share-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center; // Centrar el contenido verticalmente
+        gap: 0.5rem;
+        padding: 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #333;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        transition: all 0.2s ease;
+        font-size: 0.9rem; // Aumenté un poco el tamaño de la fuente
+        font-weight: 500;
+        cursor: pointer;
+
+        img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-bottom: 0.2rem; // Un poco de espacio entre la imagen y el texto
+        }
+
+        svg {
+            width: 30px;
+            height: 30px;
+            margin-bottom: 0.2rem;
+            fill: currentColor; // Permite que el color se herede del color del texto
+        }
+
+        &:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            border-color: #D4A017;
+        }
+
+        &.copy-link svg {
+            fill: #D4A017; // Color específico para el ícono de copiar
+        }
+
+        &.whatsapp {
+            color: #25D366;
+            &:hover {
+                border-color: #25D366;
+            }
+            img {
+                background-color: #25D366;
+                padding: 5px;
+            }
+        }
+
+        &.facebook {
+            color: #1877F2;
+            &:hover {
+                border-color: #1877F2;
+            }
+            img {
+                background-color: #1877F2;
+                padding: 5px;
+            }
+        }
+
+        &.twitter {
+            color: #1DA1F2;
+            &:hover {
+                border-color: #1DA1F2;
+            }
+            img {
+                background-color: #1DA1F2;
+                padding: 5px;
+            }
+        }
+    }
+}
