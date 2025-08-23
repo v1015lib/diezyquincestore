@@ -8,7 +8,8 @@
 @import 'includes/procesador';
 @import 'includes/web_admin';
 @import 'includes/statistics';
-@import 'includes/_pos_module';
+@import 'includes/pos_module';
+@import 'includes/list';
 
 @import 'includes/responsive';
 
@@ -313,3 +314,43 @@
 
 
 
+// Estilos para el modal de permisos en la gestión de usuarios
+
+#permissions-modal {
+    .modal-content {
+        max-width: 600px; // Un poco más ancho para la cuadrícula
+    }
+
+    #permissions-checkbox-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); // Crea una cuadrícula responsiva
+        gap: 0.5rem 1rem; // Espaciado entre elementos
+
+        .setting-toggle {
+            padding: 0.5rem; // Padding más pequeño
+            border-bottom: none; // Quita la línea separadora
+            justify-content: flex-start; // Alinea a la izquierda
+
+            label {
+                font-size: 0.9rem; // Letra más pequeña
+                font-weight: 500;
+                margin-left: 0.5rem;
+            }
+
+            // Hacer el switch más pequeño
+            .switch {
+                width: 40px;
+                height: 22px;
+            }
+            .slider:before {
+                height: 16px;
+                width: 16px;
+                left: 3px;
+                bottom: 3px;
+            }
+            input:checked + .slider:before {
+                transform: translateX(18px);
+            }
+        }
+    }
+}

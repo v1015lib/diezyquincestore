@@ -31,12 +31,266 @@ try {
     switch ($resource) {
 
 
+// --- INICIO: MÓDULO DE LISTAS DE COMPRAS ---
 
 
 
-// ... otros case ...
 
-// --- INICIO DEL NUEVO BLOQUE ---
+case 'admin/deleteShoppingList':
+    $pdo->beginTransaction(); // Iniciar transacción
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$listId || !$userId) {
+            throw new Exception('ID de lista o de usuario no válido.');
+        }
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 1. Obtener el nombre de la lista ANTES de borrarla para el log.
+        $stmt_info = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
+        $stmt_info->execute([':id' => $listId]);
+        $listName = $stmt_info->fetchColumn();
+        if (!$listName) {
+            throw new Exception('La lista no se encontró o ya fue eliminada.');
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        $stmt = $pdo->prepare("DELETE FROM listas_compras WHERE id_lista = :id");
+        $stmt->execute([':id' => $listId]);
+        
+        if ($stmt->rowCount() > 0) {
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // 2. Registrar la acción en el log.
+            logActivity($pdo, $userId, 'Lista de Compras Eliminada', "Eliminó la lista de compras: '{$listName}'.");
+            // --- FIN DE LA MODIFICACIÓN ---
+            
+            $pdo->commit(); // Confirmar transacción
+            echo json_encode(['success' => true, 'message' => 'La lista de compras ha sido eliminada.']);
+        } else {
+            throw new Exception('No se pudo eliminar la lista.');
+        }
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack(); // Revertir en caso de error
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+
+case 'admin/getShoppingLists':
+    try {
+        $filter_date = $_GET['date'] ?? null;
+        
+        // Se añade el campo del proveedor a la consulta
+        $sql = "SELECT lc.id_lista, lc.nombre_lista, lc.fecha_creacion, u.nombre_usuario, p.nombre_proveedor 
+                FROM listas_compras lc
+                JOIN usuarios u ON lc.id_usuario_creador = u.id_usuario
+                LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor"; // LEFT JOIN para no ocultar listas sin proveedor
+        
+        $params = [];
+        if ($filter_date) {
+            $sql .= " WHERE lc.fecha_creacion = :filter_date";
+            $params[':filter_date'] = $filter_date;
+        }
+        
+        $sql .= " ORDER BY lc.fecha_creacion DESC, lc.id_lista DESC";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $lists = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'lists' => $lists]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las listas: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/createShoppingList':
+    $pdo->beginTransaction(); // Iniciar transacción
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listName = trim($data['nombre_lista'] ?? '');
+        $providerId = !empty($data['id_proveedor']) ? filter_var($data['id_proveedor'], FILTER_VALIDATE_INT) : null;
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (empty($listName) || !$userId) {
+            throw new Exception('El nombre de la lista es obligatorio y debes haber iniciado sesión.');
+        }
+        
+        $stmt = $pdo->prepare(
+            "INSERT INTO listas_compras (nombre_lista, fecha_creacion, id_usuario_creador, id_proveedor) 
+             VALUES (:name, CURDATE(), :user_id, :provider_id)"
+        );
+        $stmt->execute([':name' => $listName, ':user_id' => $userId, ':provider_id' => $providerId]);
+        
+        $newListId = $pdo->lastInsertId();
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        logActivity($pdo, $userId, 'Lista de Compras Creada', "Creó la nueva lista de compras: '{$listName}'.");
+        // --- FIN DE LA MODIFICACIÓN ---
+        
+        $pdo->commit(); // Confirmar transacción
+        echo json_encode(['success' => true, 'message' => 'Lista creada. Ahora puedes añadir productos.', 'newListId' => $newListId]);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack(); // Revertir en caso de error
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+case 'admin/getShoppingListDetails':
+    try {
+        $listId = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$listId) throw new Exception('ID de lista no válido.');
+
+        $stmt_list = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
+        $stmt_list->execute([':id' => $listId]);
+        $listName = $stmt_list->fetchColumn();
+
+        $stmt_items = $pdo->prepare("
+            SELECT lci.id_item_lista, p.nombre_producto, lci.precio_compra, lci.cantidad, lci.usar_stock_actual, p.stock_actual
+            FROM listas_compras_items lci
+            JOIN productos p ON lci.id_producto = p.id_producto
+            WHERE lci.id_lista = :id
+            ORDER BY p.nombre_producto ASC
+        ");
+        $stmt_items->execute([':id' => $listId]);
+        $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'listName' => $listName, 'items' => $items]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/addProductToList':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $productId = filter_var($data['id_producto'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$listId || !$productId || !$userId) throw new Exception('Datos incompletos.');
+
+        $stmt_prod = $pdo->prepare("SELECT precio_compra FROM productos WHERE id_producto = :id");
+        $stmt_prod->execute([':id' => $productId]);
+        $precio_compra = $stmt_prod->fetchColumn();
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO listas_compras_items (id_lista, id_producto, precio_compra, cantidad, usar_stock_actual) 
+             VALUES (:list_id, :product_id, :price, 1, FALSE)"
+        );
+        $stmt->execute([':list_id' => $listId, ':product_id' => $productId, ':price' => $precio_compra ?? 0.00]);
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        $stmt_info = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
+        $stmt_info->execute([':id' => $listId]);
+        $listName = $stmt_info->fetchColumn();
+
+        $stmt_prod_info = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
+        $stmt_prod_info->execute([':id' => $productId]);
+        $productName = $stmt_prod_info->fetchColumn();
+        
+        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$productName}' a la lista '{$listName}'.");
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
+    } catch (PDOException $e) {
+        // ... (código de manejo de error sin cambios)
+    }
+    break;
+
+case 'admin/updateListItem':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $itemId = filter_var($data['id_item_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $field = $data['field'] ?? '';
+        $value = $data['value']; // El valor puede ser número o booleano
+
+        if (!$itemId || !in_array($field, ['cantidad', 'usar_stock_actual'])) {
+            throw new Exception('Datos no válidos.');
+        }
+
+        $stmt = $pdo->prepare("UPDATE listas_compras_items SET {$field} = :value WHERE id_item_lista = :id");
+        $stmt->execute([':value' => $value, ':id' => $itemId]);
+        
+        echo json_encode(['success' => true, 'message' => 'Item actualizado.']);
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/removeProductFromList':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $itemId = filter_var($data['id_item_lista'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$itemId) throw new Exception('ID de item no válido.');
+        
+        $stmt = $pdo->prepare("DELETE FROM listas_compras_items WHERE id_item_lista = :id");
+        $stmt->execute([':id' => $itemId]);
+        
+        echo json_encode(['success' => true, 'message' => 'Producto eliminado de la lista.']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/copyShoppingList':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listIdToCopy = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+        if (!$listIdToCopy || !$userId) throw new Exception('Datos inválidos.');
+
+        // 1. Obtener datos de la lista original
+        $stmt_original = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
+        $stmt_original->execute([':id' => $listIdToCopy]);
+        $originalName = $stmt_original->fetchColumn();
+
+        // 2. Crear la nueva lista para el usuario actual
+        $newListName = $originalName . " (Copia)";
+        $stmt_new_list = $pdo->prepare(
+            "INSERT INTO listas_compras (nombre_lista, fecha_creacion, id_usuario_creador) 
+             VALUES (:name, CURDATE(), :user_id)"
+        );
+        $stmt_new_list->execute([':name' => $newListName, ':user_id' => $userId]);
+        $newListId = $pdo->lastInsertId();
+
+        // 3. Copiar los items de la lista original a la nueva
+        $stmt_copy_items = $pdo->prepare(
+            "INSERT INTO listas_compras_items (id_lista, id_producto, precio_compra, cantidad, usar_stock_actual)
+             SELECT :new_list_id, id_producto, precio_compra, cantidad, usar_stock_actual
+             FROM listas_compras_items
+             WHERE id_lista = :original_list_id"
+        );
+        $stmt_copy_items->execute([':new_list_id' => $newListId, ':original_list_id' => $listIdToCopy]);
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Lista copiada a tus listas del día de hoy.']);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+// --- FIN: MÓDULO DE LISTAS DE COMPRAS ---
+
+
+
+
+
+
+
+
+/*******************************************************************/
 case 'checkout-with-card':
     if ($method === 'POST') {
         if (!isset($_SESSION['id_cliente'])) {

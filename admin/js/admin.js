@@ -859,6 +859,8 @@ async function loadModule(moduleName) {
             case 'usuarios': defaultAction = 'usuarios/gestion'; break;
             case 'pos': defaultAction = 'pos/vista_principal'; break; // <--- CORRECCIÓN AQUÍ
             case 'web_admin': defaultAction = 'web_admin/sliders'; break;
+            case 'listas_compras': defaultAction = 'listas_compras/gestion'; break;
+
         }
         if (defaultAction) {
             await loadActionContent(defaultAction);
@@ -868,6 +870,8 @@ async function loadModule(moduleName) {
     }
 }
 // REEMPLAZA ESTA FUNCIÓN COMPLETA
+
+
 async function loadActionContent(actionPath) {
     const actionContent = document.getElementById('action-content');
     if (!actionContent) return;
@@ -928,12 +932,20 @@ async function loadActionContent(actionPath) {
             initializeWebOrderManagement();
         } else if (actionPath.startsWith('web_admin/')) {
             initializeWebAdminControls();
+        } else if (actionPath === 'listas_compras/gestion') {
+            initializeShoppingListManagement(); // <-- AÑADIDO
+        } else if (actionPath === 'listas_compras/crear_lista') {
+            initializeCreateShoppingListForm(); // <-- AÑADIDO
         }
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
     }
 }
-    // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
+
+
+
+
+   // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 
     // --- FUNCIONES AUXILIARES Y DE FORMULARIOS ---
 
@@ -1201,7 +1213,11 @@ async function loadActionContent(actionPath) {
         form.querySelector('#tipo_de_venta').value = product.tipo_de_venta;
         form.querySelector('#estado').value = product.estado;
         form.querySelector('#proveedor').value = product.proveedor;
-
+        codeInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault(); 
+            }
+        });
         if (product.url_imagen) {
             form.querySelector('#selected-image-url').value = product.url_imagen;
             form.querySelector('#image-preview').src = product.url_imagen;
@@ -3192,7 +3208,8 @@ function renderPermissionsModal(userId, username, permissions) {
         { id: 'estadisticas', label: 'Estadísticas' },
         { id: 'web_admin', label: 'Web Admin' },
         { id: 'utilidades', label: 'Utilidades' },
-        { id: 'pos', label: 'Punto de Venta' }
+        { id: 'pos', label: 'Punto de Venta' },
+        { id: 'listas_compras', label: 'Listas de Compras' } // <-- LÍNEA CORREGIDA
     ];
 
     container.innerHTML = modules.map(module => `
@@ -3357,6 +3374,318 @@ async function fetchAndRenderWebOrders() {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// --- INICIO: MÓDULO LISTAS DE COMPRAS ---
+
+function initializeShoppingListManagement() {
+    const dateFilter = document.getElementById('list-date-filter');
+    const listsTbody = document.getElementById('shopping-lists-tbody');
+
+    if (!dateFilter || !listsTbody) return;
+
+    dateFilter.valueAsDate = new Date();
+    fetchAndRenderShoppingLists(dateFilter.value);
+    dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
+
+    listsTbody.addEventListener('click', e => {
+        const target = e.target;
+        const listId = target.closest('tr')?.dataset.listId;
+        if (!listId) return;
+
+        if (target.classList.contains('view-list-btn')) {
+            loadAndRenderListView(listId);
+        } else if (target.classList.contains('copy-list-btn')) {
+            copyShoppingList(listId);
+        } else if (target.classList.contains('delete-list-btn')) { // <-- NUEVA LÓGICA
+            deleteShoppingList(listId, target.closest('tr'));
+        }
+    });
+}
+
+
+async function fetchAndRenderShoppingLists(date) {
+    const tableBody = document.getElementById('shopping-lists-tbody');
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando listas...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingLists&date=${date}`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.lists.length > 0) {
+            result.lists.forEach(list => {
+                const row = document.createElement('tr');
+                row.dataset.listId = list.id_lista;
+                // --- CAMBIO: Se añade la columna de proveedor y el botón de eliminar ---
+                row.innerHTML = `
+                    <td>${list.nombre_lista}</td>
+                    <td>${list.fecha_creacion}</td>
+                    <td>${list.nombre_usuario}</td>
+                    <td>${list.nombre_proveedor || '<em>N/A</em>'}</td>
+                    <td>
+                        <button class="action-btn btn-sm view-list-btn">Ver / Editar</button>
+                        <button class="action-btn btn-sm copy-list-btn">Copiar a Hoy</button>
+                        <button class="action-btn btn-sm delete-list-btn" >Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="5">No hay listas para la fecha seleccionada.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar las listas.</td></tr>';
+    }
+}
+
+async function initializeCreateShoppingListForm() { // <-- FUNCIÓN ACTUALIZADA
+    const form = document.getElementById('create-shopping-list-form');
+    const providerSelect = document.getElementById('id_proveedor');
+    if (!form || !providerSelect) return;
+
+    // Cargar proveedores en el dropdown
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getProviders`);
+        const result = await response.json();
+        if (result.success) {
+            result.providers.forEach(provider => {
+                const option = document.createElement('option');
+                option.value = provider.id_proveedor;
+                option.textContent = provider.nombre_proveedor;
+                providerSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        providerSelect.innerHTML = '<option value="">Error al cargar proveedores</option>';
+    }
+
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const listName = document.getElementById('nombre_lista').value;
+        const providerId = providerSelect.value; // Capturar el valor del proveedor
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/createShoppingList`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nombre_lista: listName,
+                    id_proveedor: providerId // Enviar el ID del proveedor
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                loadAndRenderListView(result.newListId);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    });
+}
+async function loadAndRenderListView(listId) {
+    const actionContent = document.getElementById('action-content');
+    try {
+        const response = await fetch(`actions/listas_compras/ver_lista.php`);
+        actionContent.innerHTML = await response.text();
+
+        const detailsResponse = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
+        const detailsResult = await detailsResponse.json();
+
+        if (detailsResult.success) {
+            document.getElementById('list-name-header').textContent = `Editando Lista: ${detailsResult.listName}`;
+            renderListItems(detailsResult.items);
+            initializeListViewInteractions(listId);
+        } else {
+            throw new Error(detailsResult.error);
+        }
+    } catch (error) {
+        actionContent.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+    }
+}
+
+function renderListItems(items) {
+    const itemsTbody = document.getElementById('list-items-tbody');
+    itemsTbody.innerHTML = '';
+    items.forEach(item => {
+        const row = document.createElement('tr');
+        // Guardamos el stock actual como un data-attribute para usarlo después
+        row.dataset.itemId = item.id_item_lista;
+        row.dataset.stockActual = item.stock_actual;
+
+        // Decidimos qué cantidad mostrar en el input
+        const displayQuantity = item.usar_stock_actual ? item.stock_actual : item.cantidad;
+
+        row.innerHTML = `
+            <td>${item.nombre_producto}</td>
+            <td>$${parseFloat(item.precio_compra).toFixed(3)}</td>
+            <td>
+                <input type="number" class="quantity-input" value="${displayQuantity}" min="0" ${item.usar_stock_actual ? 'disabled' : ''}>
+            </td>
+            <td>
+                <input type="checkbox" class="use-stock-checkbox" ${item.usar_stock_actual ? 'checked' : ''}>
+            </td>
+            <td>
+                <button class="action-btn btn-sm btn-danger remove-item-btn">Quitar</button>
+            </td>
+        `;
+        itemsTbody.appendChild(row);
+    });
+}
+
+function initializeListViewInteractions(listId) {
+    const searchInput = document.getElementById('product-search-for-list');
+    const searchResultsContainer = document.getElementById('product-search-results-list');
+    const itemsTbody = document.getElementById('list-items-tbody');
+    let searchTimer;
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const query = searchInput.value.trim();
+        if (query.length < 3) {
+            searchResultsContainer.innerHTML = '';
+            return;
+        }
+        searchTimer = setTimeout(async () => {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
+            const result = await response.json();
+            searchResultsContainer.innerHTML = '';
+            if (result.success && result.products.length > 0) {
+                result.products.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.style.cursor = 'pointer';
+                    div.innerHTML = `<span>${p.nombre_producto} (${p.codigo_producto})</span>`;
+                    div.addEventListener('click', async () => {
+                        await addProductToList(listId, p.id_producto);
+                        searchInput.value = '';
+                        searchResultsContainer.innerHTML = '';
+                    });
+                    searchResultsContainer.appendChild(div);
+                });
+            }
+        }, 300);
+    });
+
+    itemsTbody.addEventListener('change', async (e) => {
+        const target = e.target;
+        const row = target.closest('tr');
+        const itemId = row.dataset.itemId;
+        const quantityInput = row.querySelector('.quantity-input');
+
+        if (target.classList.contains('quantity-input')) {
+            await updateListItem(itemId, 'cantidad', target.value);
+        } else if (target.classList.contains('use-stock-checkbox')) {
+            const useStock = target.checked;
+            await updateListItem(itemId, 'usar_stock_actual', useStock);
+            quantityInput.disabled = useStock;
+            
+            // --- INICIO DE LA CORRECCIÓN CLAVE ---
+            if (useStock) {
+                // Si se marca, toma el valor del stock guardado en la fila
+                quantityInput.value = row.dataset.stockActual;
+            }
+            // Si se desmarca, el input se habilita pero no cambiamos el valor,
+            // permitiendo al usuario poner una cantidad manual.
+            // --- FIN DE LA CORRECCIÓN CLAVE ---
+        }
+    });
+
+    itemsTbody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('remove-item-btn')) {
+            const itemId = e.target.closest('tr').dataset.itemId;
+            await removeProductFromList(itemId);
+        }
+    });
+}
+
+async function addProductToList(listId, productId) {
+    await fetch(`${API_BASE_URL}?resource=admin/addProductToList`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_lista: listId, id_producto: productId })
+    });
+    loadAndRenderListView(listId);
+}
+
+async function updateListItem(itemId, field, value) {
+    await fetch(`${API_BASE_URL}?resource=admin/updateListItem`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_item_lista: itemId, field: field, value: value })
+    });
+    // No es necesario recargar toda la lista para este cambio
+}
+
+async function removeProductFromList(itemId) {
+    await fetch(`${API_BASE_URL}?resource=admin/removeProductFromList`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_item_lista: itemId })
+    });
+    document.querySelector(`tr[data-item-id="${itemId}"]`).remove();
+}
+
+async function copyShoppingList(listId) {
+    if (!confirm('¿Seguro que quieres copiar esta lista? Se creará una nueva lista para hoy con los mismos productos.')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/copyShoppingList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_lista: listId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            fetchAndRenderShoppingLists(document.getElementById('list-date-filter').value);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        alert(`Error al copiar: ${error.message}`);
+    }
+}
+async function deleteShoppingList(listId, rowElement) { // <-- NUEVA FUNCIÓN
+    if (!confirm('¿Estás seguro de que quieres eliminar esta lista de compras? Esta acción es irreversible.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteShoppingList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_lista: listId })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            rowElement.remove(); // Elimina la fila de la tabla visualmente
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        alert(`Error al eliminar la lista: ${error.message}`);
+    }
+}
+
+// --- FIN: MÓDULO LISTAS DE COMPRAS ---
 
 });
 

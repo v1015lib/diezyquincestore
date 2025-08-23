@@ -1,0 +1,24 @@
+
+.product-list-container{
+	transition: .3s;
+	.shopping-lists-tbody{
+
+
+	}
+
+}
+
+.btn-sm{
+	
+	all: unset;
+	background: $primary-color;
+	font-weight: 600;
+	color: $tcolor2;
+	padding: .5rem;
+	transition: .3s;
+	
+	&:hover{
+		background: $tcolor2;
+		color: white;
+	}		
+}

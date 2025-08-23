@@ -1199,6 +1199,24 @@
   font-size: 1rem;
 }
 
+.product-list-container {
+  -webkit-transition: 0.3s;
+  transition: 0.3s;
+}
+.btn-sm {
+  all: unset;
+  background: #0C0A4E;
+  font-weight: 600;
+  color: #D4A017;
+  padding: 0.5rem;
+  -webkit-transition: 0.3s;
+  transition: 0.3s;
+}
+.btn-sm:hover {
+  background: #D4A017;
+  color: white;
+}
+
 @media (max-width: 991px) {
   .dashboard-sidemenu {
     position: fixed;
@@ -1678,4 +1696,40 @@
   margin: auto; /* Reduce el tamaño del ícono (×) */
   background: #FF2C2C;
   color: white;
+}
+
+#permissions-modal .modal-content {
+  max-width: 600px;
+}
+#permissions-modal #permissions-checkbox-container {
+  display: -ms-grid;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem 1rem;
+}
+#permissions-modal #permissions-checkbox-container .setting-toggle {
+  padding: 0.5rem;
+  border-bottom: none;
+  -webkit-box-pack: start;
+      -ms-flex-pack: start;
+          justify-content: flex-start;
+}
+#permissions-modal #permissions-checkbox-container .setting-toggle label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+#permissions-modal #permissions-checkbox-container .setting-toggle .switch {
+  width: 40px;
+  height: 22px;
+}
+#permissions-modal #permissions-checkbox-container .setting-toggle .slider:before {
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+}
+#permissions-modal #permissions-checkbox-container .setting-toggle input:checked + .slider:before {
+  -webkit-transform: translateX(18px);
+          transform: translateX(18px);
 }

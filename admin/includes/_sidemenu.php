@@ -34,8 +34,15 @@
                 <span class="menu-text">Punto de Venta</span>
             </a></li>
             <?php endif; ?>
-            <?php /* FIN DEL NUEVO BLOQUE POS */ ?>
 
+            
+            <?php /* FIN DEL NUEVO BLOQUE POS */ ?>
+            <?php if (can_access('listas_compras', $rol, $permisos)): ?>
+            <li><a href="#" class="nav-link" data-module="listas_compras">
+                <span class="menu-icon">📝</span>
+                <span class="menu-text">Listas de Compras</span>
+            </a></li>
+            <?php endif; ?>
 
             <?php if (can_access('productos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="productos">
