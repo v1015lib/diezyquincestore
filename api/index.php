@@ -3059,103 +3059,96 @@ case 'admin/checkProductCode':
        // api/index.php
 
 
+// ... dentro del switch ($resource)
+
+
 case 'admin/createProduct':
-        // Inicia la transacción
-        $pdo->beginTransaction();
+    $pdo->beginTransaction();
+    try {
+        // Recolección de datos del formulario (sin cambios)
+        $codigo_producto = trim($_POST['codigo_producto'] ?? '');
+        $nombre_producto = trim($_POST['nombre_producto'] ?? '');
+        $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
+        $precio_compra_raw = $_POST['precio_compra'] ?? '';
+        $precio_compra = ($precio_compra_raw === '' || $precio_compra_raw === null) ? 0.00 : filter_var($precio_compra_raw, FILTER_VALIDATE_FLOAT);
+        $precio_venta = filter_var($_POST['precio_venta'] ?? '', FILTER_VALIDATE_FLOAT);
+        $precio_mayoreo_raw = $_POST['precio_mayoreo'] ?? '';
+        $precio_mayoreo = ($precio_mayoreo_raw === '' || $precio_mayoreo_raw === null) ? 0.00 : filter_var($precio_mayoreo_raw, FILTER_VALIDATE_FLOAT);
+        $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? '', FILTER_VALIDATE_INT);
+        $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
+        $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
+        $usa_inventario = isset($_POST['usa_inventario_checkbox']) ? 1 : 0;
+        $stock_actual = $usa_inventario ? filter_var($_POST['stock_actual'] ?? 0, FILTER_VALIDATE_INT) : 0;
+        $stock_minimo = $usa_inventario ? filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+        $stock_maximo = $usa_inventario ? filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+        $url_imagen = trim($_POST['url_imagen'] ?? '');
+        $creado_por = $_SESSION['id_usuario'] ?? null;
 
-try {
-    // Recoger y validar datos del formulario
-    $codigo_producto = trim($_POST['codigo_producto'] ?? '');
-    $nombre_producto = trim($_POST['nombre_producto'] ?? '');
-    $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
-    $precio_compra_raw = $_POST['precio_compra'] ?? '';
-    $precio_compra = ($precio_compra_raw === '' || $precio_compra_raw === null) ? 0.00 : filter_var($precio_compra_raw, FILTER_VALIDATE_FLOAT);
-    $precio_venta = filter_var($_POST['precio_venta'] ?? '', FILTER_VALIDATE_FLOAT);
-    $precio_mayoreo_raw = $_POST['precio_mayoreo'] ?? '';
-    $precio_mayoreo = ($precio_mayoreo_raw === '' || $precio_mayoreo_raw === null) ? 0.00 : filter_var($precio_mayoreo_raw, FILTER_VALIDATE_FLOAT);
-    $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? '', FILTER_VALIDATE_INT);
-    $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
-    $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
-    $usa_inventario = isset($_POST['usa_inventario_checkbox']) ? 1 : 0;
-    $stock_actual = $usa_inventario ? filter_var($_POST['stock_actual'] ?? 0, FILTER_VALIDATE_INT) : 0;
-    $stock_minimo = $usa_inventario ? filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
-    $stock_maximo = $usa_inventario ? filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
-    $url_imagen = trim($_POST['url_imagen'] ?? '');
+        if (empty($codigo_producto) || empty($nombre_producto) || $departamento_id === false || $precio_venta === false) {
+            throw new Exception("Por favor, completa todos los campos obligatorios.");
+        }
 
-    if (empty($codigo_producto) || empty($nombre_producto) || $departamento_id === false || $precio_venta === false) {
-        throw new Exception("Por favor, completa todos los campos obligatorios.");
-    }
-
-    $sql_insert = "INSERT INTO productos 
-        (codigo_producto, nombre_producto, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_actual, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, fecha_creacion, fecha_actualizacion) 
-        VALUES 
-        (:codigo_producto, :nombre_producto, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_actual, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, :usa_inventario, :creado_por, :proveedor_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
-    
-    $stmt_insert = $pdo->prepare($sql_insert);
-    
-    $creado_por = $_SESSION['id_usuario'] ?? null;
-
-    $stmt_insert->execute([
-        ':codigo_producto' => $codigo_producto,
-        ':nombre_producto' => $nombre_producto,
-        ':departamento_id' => $departamento_id,
-        ':precio_compra' => $precio_compra,
-        ':precio_venta' => $precio_venta,
-        ':precio_mayoreo' => $precio_mayoreo,
-        ':url_imagen' => $url_imagen,
-        ':stock_actual' => $stock_actual,
-        ':stock_minimo' => $stock_minimo,
-        ':stock_maximo' => $stock_maximo,
-        ':tipo_de_venta_id' => $tipo_de_venta_id,
-        ':estado_id' => $estado_id,
-        ':usa_inventario' => $usa_inventario,
-        ':creado_por' => $creado_por,
-        ':proveedor_id' => $proveedor_id
-    ]);
-
-    $lastProductId = $pdo->lastInsertId();
-
-    if (isset($_FILES['url_imagen']) && $_FILES['url_imagen']['error'] === UPLOAD_ERR_OK) {
-        // (Tu lógica de subida a GCS permanece aquí sin cambios)
-        require_once __DIR__ . '/../vendor/autoload.php';
-        // ... (código de subida)
-        $stmt_update_img = $pdo->prepare("UPDATE productos SET url_imagen = :url_imagen WHERE id_producto = :id_producto");
-        $stmt_update_img->execute([':url_imagen' => $url_imagen, ':id_producto' => $lastProductId]);
-    }
-
-    // --- INICIO DE LA LÓGICA DE LOGGING ---
-    if ($creado_por) { // Solo registrar si hay un usuario en sesión
-        $stmt_log = $pdo->prepare(
-            "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
-             VALUES (:id_usuario, :tipo_accion, :descripcion, NOW())"
-        );
-        $description = 'Se creó el nuevo producto: ' . $nombre_producto . ' (Código: ' . $codigo_producto . ')';
-        $stmt_log->execute([
-            ':id_usuario'   => $creado_por,
-            ':tipo_accion'  => 'Producto Creado',
-            ':descripcion'  => $description
+        // Inserción del producto (sin cambios)
+        $sql_insert = "INSERT INTO productos 
+            (codigo_producto, nombre_producto, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_actual, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, fecha_creacion, fecha_actualizacion) 
+            VALUES 
+            (:codigo_producto, :nombre_producto, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_actual, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, :usa_inventario, :creado_por, :proveedor_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+        
+        $stmt_insert = $pdo->prepare($sql_insert);
+        $stmt_insert->execute([
+            ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':departamento_id' => $departamento_id,
+            ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta, ':precio_mayoreo' => $precio_mayoreo,
+            ':url_imagen' => $url_imagen, ':stock_actual' => $stock_actual, ':stock_minimo' => $stock_minimo,
+            ':stock_maximo' => $stock_maximo, ':tipo_de_venta_id' => $tipo_de_venta_id, ':estado_id' => $estado_id,
+            ':usa_inventario' => $usa_inventario, ':creado_por' => $creado_por, ':proveedor_id' => $proveedor_id
         ]);
-    }
-    // --- FIN DE LA LÓGICA DE LOGGING ---
 
-    $pdo->commit();
-    
-    echo json_encode(['success' => true, 'message' => "Producto '" . htmlspecialchars($nombre_producto) . "' ingresado exitosamente."]);
+        $lastProductId = $pdo->lastInsertId();
 
-} catch (Exception $e) {
-    if ($pdo->inTransaction()) {
-      $pdo->rollBack();
-    }
-    
-    http_response_code(400);
-    $error_message = $e->getMessage();
-    if ($e instanceof PDOException && $e->getCode() == 23000) {
-         $error_message = "Error: El código de producto '" . htmlspecialchars($codigo_producto) . "' ya existe.";
-    }
-    echo json_encode(['success' => false, 'error' => $error_message]);
-}
-        break;
+        // --- INICIO DE LA NUEVA LÓGICA DE REGISTRO DE STOCK INICIAL ---
+        if ($usa_inventario == 1 && $stock_actual > 0) {
+            $stmt_estado_entrada = $pdo->query("SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada' LIMIT 1");
+            $id_estado_entrada = $stmt_estado_entrada->fetchColumn();
 
+            $stmt_log_stock = $pdo->prepare(
+                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+                 VALUES (:product_id, :id_estado, :cantidad, 0, :stock_nuevo, :user_id, 'Stock Inicial al crear producto')"
+            );
+            $stmt_log_stock->execute([
+                ':product_id' => $lastProductId,
+                ':id_estado' => $id_estado_entrada,
+                ':cantidad' => $stock_actual,
+                ':stock_nuevo' => $stock_actual,
+                ':user_id' => $creado_por
+            ]);
+        }
+        // --- FIN DE LA NUEVA LÓGICA ---
+        
+        // Lógica de subida de imagen (sin cambios)
+        if (isset($_FILES['url_imagen']) && $_FILES['url_imagen']['error'] === UPLOAD_ERR_OK) {
+            // ... (código de subida a GCS)
+            $stmt_update_img = $pdo->prepare("UPDATE productos SET url_imagen = :url_imagen WHERE id_producto = :id_producto");
+            $stmt_update_img->execute([':url_imagen' => $url_imagen, ':id_producto' => $lastProductId]);
+        }
+        
+        // Log de creación de producto (sin cambios)
+        logActivity($pdo, $creado_por, 'Producto Creado', 'Se creó el nuevo producto: ' . $nombre_producto . ' (Código: ' . $codigo_producto . ')');
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => "Producto '" . htmlspecialchars($nombre_producto) . "' ingresado exitosamente."]);
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        http_response_code(400);
+        $error_message = $e->getMessage();
+        if ($e instanceof PDOException && $e->getCode() == 23000) {
+             $error_message = "Error: El código de producto '" . htmlspecialchars($codigo_producto) . "' ya existe.";
+        }
+        echo json_encode(['success' => false, 'error' => $error_message]);
+    }
+    break;
+
+// ... (resto de cases) ...
 case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)
      
