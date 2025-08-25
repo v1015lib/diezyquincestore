@@ -460,7 +460,10 @@ case 'admin/getWebOrders':
     try {
         // --- LÓGICA DE FILTRADO ---
         $params = [];
-        $where_clauses = ["cc.estado_id IN (8, 10, 11)"]; // Condición base para mostrar solo pedidos relevantes
+        // --- CORRECCIÓN ---
+        // Se amplía la lista de estados para incluir todos los pedidos que un administrador necesita gestionar.
+        // Por ejemplo, "En Proceso" (8), "Entregado" (10), "Cancelado" (11), "Listo para Retirar" (9), etc.
+        $where_clauses = ["cc.estado_id IN (8, 9, 10, 11, 13, 14, 17, 20, 23)"]; 
 
         // Filtro de búsqueda por número de orden o nombre de cliente
         if (!empty($_GET['search'])) {

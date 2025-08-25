@@ -2224,8 +2224,12 @@ async function handleRechargeSubmit(event) {
     const form = event.target;
     const feedbackDiv = document.getElementById('recharge-feedback');
     const button = form.querySelector('button[type="submit"]');
-    const cardId = form.querySelector('input[name="card_id"]').value;
-    const amount = form.querySelector('#recharge-amount').value;
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se asegura de que los valores sean numéricos antes de enviarlos
+    const cardId = parseInt(form.querySelector('input[name="card_id"]').value, 10);
+    const amount = parseFloat(form.querySelector('#recharge-amount').value);
+    // --- FIN DE LA CORRECCIÓN ---
 
     button.disabled = true;
     button.textContent = 'Procesando...';
@@ -2235,13 +2239,12 @@ async function handleRechargeSubmit(event) {
         const response = await fetch(`${API_BASE_URL}?resource=admin/rechargeCard`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ card_id: cardId, amount: amount })
+            body: JSON.stringify({ card_id: cardId, amount: amount }) // Ahora se envían números
         });
         const result = await response.json();
 
         if (result.success) {
             feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-            // Volver a buscar la tarjeta para mostrar el saldo actualizado
             setTimeout(() => {
                  document.getElementById('card-search-form-recharge').dispatchEvent(new Event('submit'));
             }, 1500);

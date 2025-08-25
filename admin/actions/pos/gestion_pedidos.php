@@ -4,7 +4,7 @@
         <div class="form-group" style="flex-basis: auto;">
             <label for="start-date-filter-web" style="text-align: left; flex-basis: auto; padding-right: .5rem;">Desde:</label>
             
-            <input type="date" id="start-date-filter-web" class="web-order-filter" value="<?php echo date('Y-m-d'); ?>" style="padding: 0.5rem; border: 1px solid #dee2e6; border-radius: 6px;">
+            <input type="date" id="start-date-filter-web" class="web-order-filter" value="<?php echo date('Y-m-d', strtotime('-7 days')); ?>" style="padding: 0.5rem; border: 1px solid #dee2e6; border-radius: 6px;">
         
         </div>
         <div class="form-group" style="flex-basis: auto;">
