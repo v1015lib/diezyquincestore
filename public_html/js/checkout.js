@@ -1,62 +1,93 @@
+// REEMPLAZA EL CONTENIDO COMPLETO de public_html/js/checkout.js
+
 import { showNotification } from './notification_handler.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const whatsappBtn = document.getElementById('send-whatsapp-btn');
     const payWithCardBtn = document.getElementById('pay-with-card-btn');
 
-    // Botón de Enviar por WhatsApp (Método Tradicional)
-    if (whatsappBtn) {
-        whatsappBtn.addEventListener('click', async (e) => {
-            // Prevenimos que se abra WhatsApp inmediatamente
-            e.preventDefault(); 
-            
-            whatsappBtn.textContent = 'Procesando...';
-            whatsappBtn.style.pointerEvents = 'none';
+    /**
+     * Ejecuta el proceso de checkout completo, manejando la confirmación de stock.
+     * @param {string} resource - El endpoint de la API ('cart-checkout' o 'checkout-with-card').
+     * @param {HTMLElement} button - El botón que fue presionado.
+     * @param {boolean} confirmStock - True si el usuario ya ha confirmado el ajuste de stock.
+     */
+    const executeCheckout = async (resource, button, confirmStock = false) => {
+        const originalButtonText = button.textContent;
+        
+        // Solo muestra "Verificando..." la primera vez.
+        if (!confirmStock) {
+            button.textContent = 'Verificando stock...';
+            button.disabled = true;
+        }
 
-            try {
-                // Llama a la API para cambiar el estado del carrito a "En Proceso"
-                const response = await fetch('api/index.php?resource=cart-checkout', { method: 'POST' });
-                const result = await response.json();
+        try {
+            const response = await fetch(`api/index.php?resource=${resource}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirm_stock: confirmStock })
+            });
+
+            const result = await response.json();
+
+            // Si el servidor responde OK (200), la operación fue un éxito.
+            if (response.ok && result.success) {
+                const successMessage = resource === 'checkout-with-card' 
+                    ? '¡Pago Exitoso! Tu pedido ha sido finalizado.'
+                    : '¡Lista enviada! Serás redirigido a WhatsApp.';
+
+                showNotification(successMessage, 'success');
                 
-                if (result.success) {
-                    showNotification('¡Lista enviada! Serás redirigido a WhatsApp.', 'success');
-                    // Si la API responde bien, ahora sí abre WhatsApp y luego redirige
-                    setTimeout(() => {
+                setTimeout(() => {
+                    if (resource === 'cart-checkout') {
                         window.open(whatsappBtn.href, '_blank');
-                        window.location.href = 'dashboard.php?view=pedidos';
-                    }, 1500);
+                    }
+                    window.location.href = 'dashboard.php?view=pedidos';
+                }, 1500);
+
+            // Si el servidor responde 409 (Conflict), es la alerta de stock.
+            } else if (response.status === 409 && result.stock_conflict) {
+                
+                let confirmationMessage = "¡Atención! No hay suficiente stock para algunos productos:\n\n";
+                result.conflicts.forEach(item => {
+                    confirmationMessage += `- ${item.nombre_producto}\n  Solicitaste: ${item.cantidad_pedida}, Disponible: ${item.stock_actual}\n`;
+                });
+                confirmationMessage += "\n¿Deseas continuar? Tu pedido se ajustará a la cantidad disponible.";
+
+                // Si el usuario presiona "OK" en la alerta...
+                if (confirm(confirmationMessage)) {
+                    // Se vuelve a llamar a esta misma función, pero ahora con confirmStock = true.
+                    button.textContent = 'Procesando con ajuste...';
+                    await executeCheckout(resource, button, true); 
                 } else {
-                    throw new Error(result.error || 'Ocurrió un error al enviar la lista.');
+                    // Si el usuario presiona "Cancelar".
+                    showNotification('Proceso cancelado. Por favor, ajusta tu lista.', 'info');
+                    button.textContent = originalButtonText;
+                    button.disabled = false;
                 }
-            } catch (error) {
-                showNotification(error.message, 'error');
-                whatsappBtn.textContent = '✔ Enviar Pedido por WhatsApp';
-                whatsappBtn.style.pointerEvents = 'auto';
+            } else {
+                // Si es cualquier otro tipo de error.
+                throw new Error(result.error || 'Ocurrió un error inesperado.');
             }
+
+        } catch (error) {
+            showNotification(error.message, 'error');
+            button.textContent = originalButtonText;
+            button.disabled = false;
+        }
+    };
+
+    if (whatsappBtn) {
+        whatsappBtn.addEventListener('click', (e) => {
+            e.preventDefault(); 
+            executeCheckout('cart-checkout', whatsappBtn);
         });
     }
 
-    // Nuevo Botón de Pagar con Tarjeta
     if (payWithCardBtn) {
-        payWithCardBtn.addEventListener('click', async () => {
-            payWithCardBtn.disabled = true;
-            payWithCardBtn.textContent = 'Procesando Pago...';
-
-            try {
-                const response = await fetch('api/index.php?resource=checkout-with-card', { method: 'POST' });
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification('¡Pago Exitoso! Tu pedido ha sido pagado y finalizado.', 'success');
-                    setTimeout(() => window.location.href = 'dashboard.php?view=pedidos', 2000);
-                } else {
-                    throw new Error(result.error || 'No se pudo completar el pago.');
-                }
-            } catch (error) {
-                showNotification(error.message, 'error');
-                payWithCardBtn.disabled = false;
-                payWithCardBtn.textContent = 'Pagar con Mi Tarjeta y Finalizar Pedido';
-            }
+        payWithCardBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            executeCheckout('checkout-with-card', payWithCardBtn);
         });
     }
 });
