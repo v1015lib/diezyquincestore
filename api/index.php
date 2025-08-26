@@ -2293,26 +2293,30 @@ case 'admin/adjustInventory':
 
 
 
-
-
-
 case 'admin/addStock':
     // require_admin(); // Seguridad
     $data = json_decode(file_get_contents('php://input'), true);
     $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
     $quantityToAdd = filter_var($data['quantity'] ?? 0, FILTER_VALIDATE_INT);
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    $precioCompra = filter_var($data['precio_compra'] ?? null, FILTER_VALIDATE_FLOAT);
+    $precioMayoreo = filter_var($data['precio_mayoreo'] ?? null, FILTER_VALIDATE_FLOAT);
+    // --- FIN DE LA MODIFICACIÓN ---
+
     $notes = trim($data['notes'] ?? '');
     $userId = $_SESSION['id_usuario'] ?? null;
 
-    if (!$productId || $quantityToAdd <= 0 || !$userId) {
+    // --- VALIDACIÓN MEJORADA ---
+    if (!$productId || $quantityToAdd <= 0 || $precioCompra === null || $precioCompra < 0 || $precioMayoreo === null || $precioMayoreo < 0 || !$userId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Datos inválidos o sesión no iniciada.']);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos (Producto, Cantidad, Precios o Sesión).']);
         break;
     }
+    // --- FIN VALIDACIÓN ---
 
     $pdo->beginTransaction();
     try {
-        // Obtenemos el stock actual y el nombre del producto para el log
         $stmt_current = $pdo->prepare("SELECT stock_actual, nombre_producto, codigo_producto FROM productos WHERE id_producto = :id FOR UPDATE");
         $stmt_current->execute([':id' => $productId]);
         $product_info = $stmt_current->fetch(PDO::FETCH_ASSOC);
@@ -2322,12 +2326,11 @@ case 'admin/addStock':
         $stock_anterior = (int)$product_info['stock_actual'];
         $stock_nuevo = $stock_anterior + $quantityToAdd;
 
-        // Actualizamos el stock en la tabla de productos
-        $stmt_update = $pdo->prepare("UPDATE productos SET stock_actual = :new_stock WHERE id_producto = :id");
-        $stmt_update->execute([':new_stock' => $stock_nuevo, ':id' => $productId]);
-
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        // Verificamos si el producto ha tenido alguna entrada de stock previa.
+        // --- INICIO DE LA MODIFICACIÓN: Se actualiza también el precio de mayoreo ---
+        $stmt_update = $pdo->prepare("UPDATE productos SET stock_actual = :new_stock, precio_compra = :precio_compra, precio_mayoreo = :precio_mayoreo WHERE id_producto = :id");
+        $stmt_update->execute([':new_stock' => $stock_nuevo, ':precio_compra' => $precioCompra, ':precio_mayoreo' => $precioMayoreo, ':id' => $productId]);
+        // --- FIN DE LA MODIFICACIÓN ---
+        
         $stmt_check_history = $pdo->prepare(
             "SELECT COUNT(*) FROM movimientos_inventario 
              WHERE id_producto = :product_id AND id_estado = (SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada')"
@@ -2337,19 +2340,14 @@ case 'admin/addStock':
         
         $isInitialStock = ($previousEntries == 0);
         
-        // Asignamos las notas y el tipo de acción correspondientes
         $logNotes = $isInitialStock ? 'Inicio de uso de Inventario' : $notes;
         $activityLogType = $isInitialStock ? 'Entrada de Stock Inicial' : 'Entrada de Stock';
-        $activityLogDescription = $isInitialStock
-            ? "Inicio de uso de Inventario {$quantityToAdd} para el producto: {$product_info['nombre_producto']} ({$product_info['codigo_producto']})"
-            : "Se agregaron {$quantityToAdd} unidades al producto: {$product_info['nombre_producto']} ({$product_info['codigo_producto']})";
+        $activityLogDescription = "Se agregaron {$quantityToAdd} unidades al producto: {$product_info['nombre_producto']} ({$product_info['codigo_producto']}) a un costo de $" . number_format($precioCompra, 2);
         
-        // Obtenemos el ID del estado 'Entrada'
         $stmt_estado = $pdo->query("SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada' LIMIT 1");
         $id_estado = $stmt_estado->fetchColumn();
         if (!$id_estado) throw new Exception("Error de Configuración: No se encontró el estado 'Entrada'.");
 
-        // 1. Registramos en el historial de movimientos de inventario
         $stmt_log_movement = $pdo->prepare(
             "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
              VALUES (:product_id, :id_estado, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notes)"
@@ -2364,9 +2362,7 @@ case 'admin/addStock':
             ':notes' => $logNotes
         ]);
 
-        // 2. Registramos en el log de actividad general del dashboard
         logActivity($pdo, $userId, $activityLogType, $activityLogDescription);
-        // --- FIN DE LA LÓGICA CORREGIDA ---
         
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => "$quantityToAdd unidad(es) agregadas al stock."]);
@@ -2376,6 +2372,10 @@ case 'admin/addStock':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
+
+
+
 
 
 // REEMPLAZA ESTE CASE COMPLETO EN api/index.php

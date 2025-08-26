@@ -2533,6 +2533,9 @@ function initializeInventoryForm(type) {
     });
 }
 
+
+
+
 function renderInventoryActionForm(product, type) {
     const container = document.getElementById(`${type}-form-container`);
     container.classList.remove('hidden');
@@ -2563,15 +2566,32 @@ function renderInventoryActionForm(product, type) {
         <p><strong>Código:</strong> ${product.codigo_producto}</p>
         <p><strong>Stock Actual:</strong> <span style="font-weight:bold; color:green;">${product.stock_actual}</span></p>
         
+        <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #dee2e6;">
+            <p><strong>Precio Venta (Actual):</strong> $${parseFloat(product.precio_venta).toFixed(2)}</p>
+        </div>
+        
         <form id="${type}-action-form">
             <input type="hidden" name="product_id" value="${product.id_producto}">
+
+
             <div class="form-group">
                 <label for="${inputName}">${label}</label>
                 <input type="number" id="${inputName}" name="${inputName}" ${minVal ? `min="${minVal}"` : ''} required placeholder="${placeholder}">
+            </div>        
+
+            <div class="form-group">
+                <label for="precio_compra">Nuevo Precio Compra (Costo)</label>
+                <input type="number" id="precio_compra" name="precio_compra" value="${parseFloat(product.precio_compra).toFixed(2)}" step="0.01" min="0" required>
             </div>
+
+            <div class="form-group">
+                <label for="precio_mayoreo">Nuevo Precio Mayoreo</label>
+                <input type="number" id="precio_mayoreo" name="precio_mayoreo" value="${parseFloat(product.precio_mayoreo).toFixed(2)}" step="0.01" min="0" required>
+            </div>
+
             <div class="form-group">
                 <label for="notes">Notas (Opcional)</label>
-                <input type="text" id="notes" name="notes" placeholder="Ej: Conteo físico / Merma">
+                <input type="text" id="notes" name="notes" placeholder="Ej: Compra a proveedor X / Conteo físico">
             </div>
             <div id="${type}-feedback" class="form-message" style="margin-top:1rem;"></div>
             <button type="submit" class="action-btn form-submit-btn">${buttonText}</button>
@@ -2580,6 +2600,7 @@ function renderInventoryActionForm(product, type) {
 
     document.getElementById(`${type}-action-form`).addEventListener('submit', handleInventoryActionSubmit);
 }
+
 
 
 async function handleInventoryActionSubmit(event) {
