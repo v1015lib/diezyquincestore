@@ -924,18 +924,13 @@ case 'pos_check_card_balance':
 /**************************************************************************************/
 /**************************************************************************************/
 
-// Reemplaza este case en tu archivo /api/index.php
-
-// REEMPLAZA ESTE CASE EN api/index.php
-
+// REEMPLAZA ESTE CASE COMPLETO EN api/index.php
 case 'admin/activityLog':
     if ($method == 'GET') {
         $filter_date = $_GET['date'] ?? date('Y-m-d');
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
         $sql = "(SELECT
                     u.nombre_usuario,
-                    -- Se interpreta el estado y las notas para un log más claro
                     CASE 
                         WHEN mi.notas LIKE 'Inicio de uso de Inventario%' THEN '✅ Entrada de Stock Inicial'
                         WHEN e.nombre_estado = 'Entrada' THEN '⬆️ Entrada de Stock'
@@ -952,20 +947,53 @@ case 'admin/activityLog':
                 JOIN productos p ON mi.id_producto = p.id_producto
                 JOIN estados e ON mi.id_estado = e.id_estado
                 WHERE mi.id_usuario IS NOT NULL AND DATE(mi.fecha) = :date1)
-        -- --- FIN DE LA LÓGICA CORREGIDA ---
                 
                 UNION ALL
                 
                 (SELECT
                     u.nombre_usuario,
                     'Venta POS Procesada' as tipo_accion,
-                    CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
+                    CONCAT(
+                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), '\n',
+                        'Productos:\n',
+                        GROUP_CONCAT(
+                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\n'
+                        )
+                    ) as descripcion,
                     v.fecha_venta as fecha
                 FROM ventas v
                 JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
+                LEFT JOIN detalle_ventas dv ON v.id_venta = dv.id_venta
+                LEFT JOIN productos p ON dv.id_producto = p.id_producto
                 WHERE v.id_usuario_venta IS NOT NULL 
                   AND v.estado_id = 29
-                  AND DATE(v.fecha_venta) = :date2)
+                  AND DATE(v.fecha_venta) = :date2
+                GROUP BY v.id_venta)
+        
+                UNION ALL
+
+                -- ===================== INICIO DEL NUEVO BLOQUE =====================
+                (SELECT
+                    c.nombre_usuario,
+                    '🛍️ Venta Web Finalizada' as tipo_accion,
+                    CONCAT(
+                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), ' (', mp.nombre_metodo, ')\n',
+                        'Productos:\n',
+                        GROUP_CONCAT(
+                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\n'
+                        )
+                    ) as descripcion,
+                    v.fecha_venta as fecha
+                FROM ventas v
+                JOIN clientes c ON v.id_cliente = c.id_cliente
+                JOIN metodos_pago mp ON v.id_metodo_pago = mp.id_metodo_pago
+                LEFT JOIN detalle_ventas dv ON v.id_venta = dv.id_venta
+                LEFT JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE v.id_usuario_venta IS NULL -- La clave: solo ventas sin empleado asignado
+                  AND v.estado_id = 29 -- Solo ventas finalizadas
+                  AND DATE(v.fecha_venta) = :date3
+                GROUP BY v.id_venta)
+                -- ===================== FIN DEL NUEVO BLOQUE =====================
                 
                 UNION ALL
                 
@@ -982,7 +1010,7 @@ case 'admin/activityLog':
 
                 (SELECT
                     c.nombre_usuario,
-                    'Pedido Web Recibido' as tipo_accion,
+                    '📲 Pedido Web Recibido' as tipo_accion,
                     CONCAT('Nuevo pedido en línea (#', cc.id_carrito, ')') as descripcion,
                     cc.fecha_creacion as fecha
                 FROM carritos_compra cc
@@ -996,6 +1024,7 @@ case 'admin/activityLog':
         $stmt->execute([
             ':date1' => $filter_date,
             ':date2' => $filter_date,
+            ':date3' => $filter_date, // Se añade el parámetro para la nueva consulta
             ':date4' => $filter_date,
             ':date5' => $filter_date
         ]);
