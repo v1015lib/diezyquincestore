@@ -2056,8 +2056,15 @@ case 'admin/addStock':
         $stmt_update->execute([':new_stock' => $stock_nuevo, ':id' => $productId]);
 
         // --- INICIO DE LA LÓGICA CORREGIDA ---
-        // Verificamos si es la primera vez que se agrega stock
-        $isInitialStock = ($stock_anterior === 0);
+        // Verificamos si el producto ha tenido alguna entrada de stock previa.
+        $stmt_check_history = $pdo->prepare(
+            "SELECT COUNT(*) FROM movimientos_inventario 
+             WHERE id_producto = :product_id AND id_estado = (SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada')"
+        );
+        $stmt_check_history->execute([':product_id' => $productId]);
+        $previousEntries = $stmt_check_history->fetchColumn();
+        
+        $isInitialStock = ($previousEntries == 0);
         
         // Asignamos las notas y el tipo de acción correspondientes
         $logNotes = $isInitialStock ? 'Inicio de uso de Inventario' : $notes;
@@ -2098,8 +2105,6 @@ case 'admin/addStock':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
-
 
 
 // REEMPLAZA ESTE CASE COMPLETO EN api/index.php
