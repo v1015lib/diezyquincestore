@@ -291,6 +291,7 @@ case 'admin/copyShoppingList':
 
 
 /*******************************************************************/
+
 case 'checkout-with-card':
     if ($method === 'POST') {
         if (!isset($_SESSION['id_cliente'])) {
@@ -298,14 +299,17 @@ case 'checkout-with-card':
         }
 
         $id_cliente = (int)$_SESSION['id_cliente'];
+        $inputData = json_decode(file_get_contents('php://input'), true);
+        $confirm_stock = $inputData['confirm_stock'] ?? false;
         
         $pdo->beginTransaction();
         try {
-            // 1. Obtener el carrito, sus items y el total (sin cambios)
+            // 1. Obtener el carrito y sus items (sin cambios)
             $stmt_cart = $pdo->prepare(
-                "SELECT cc.id_carrito, dc.id_producto, dc.cantidad, dc.precio_unitario
+                "SELECT cc.id_carrito, dc.id_producto, dc.cantidad, dc.precio_unitario, p.stock_actual, p.nombre_producto, p.usa_inventario
                  FROM carritos_compra cc
                  JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                 JOIN productos p ON dc.id_producto = p.id_producto
                  WHERE cc.id_cliente = :cliente_id AND cc.estado_id = 1"
             );
             $stmt_cart->execute([':cliente_id' => $id_cliente]);
@@ -314,14 +318,61 @@ case 'checkout-with-card':
             if (empty($cart_items)) {
                 throw new Exception("Tu lista de productos está vacía.");
             }
-
-            $total_a_pagar = 0;
             $id_carrito = $cart_items[0]['id_carrito'];
+
+            // 2. Verificación de stock (sin cambios)
+            $stock_conflicts = [];
+            foreach ($cart_items as $item) {
+                if ($item['usa_inventario'] && $item['cantidad'] > $item['stock_actual']) {
+                    $stock_conflicts[] = [
+                        'nombre_producto' => $item['nombre_producto'],
+                        'cantidad_pedida' => $item['cantidad'],
+                        'stock_actual' => (int)$item['stock_actual']
+                    ];
+                }
+            }
+
+            if (!empty($stock_conflicts) && !$confirm_stock) {
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'stock_conflict' => true,
+                    'conflicts' => $stock_conflicts,
+                    'error' => 'Algunos productos no tienen suficiente stock.'
+                ]);
+                $pdo->rollBack();
+                return;
+            }
+
+            // ================== INICIO DEL BLOQUE AÑADIDO ==================
+            // 3. Si hay conflictos y el usuario confirma, AJUSTAR el detalle del carrito.
+            // Esto asegura que el historial del pedido refleje la cantidad real procesada.
+            if (!empty($stock_conflicts) && $confirm_stock) {
+                $stmt_update_qty = $pdo->prepare("UPDATE detalle_carrito SET cantidad = :new_qty WHERE id_carrito = :cart_id AND id_producto = :product_id");
+                foreach ($stock_conflicts as $conflict) {
+                    // Encontramos el producto correspondiente en el array original para obtener su ID
+                    $product_in_cart = current(array_filter($cart_items, fn($item) => $item['nombre_producto'] === $conflict['nombre_producto']));
+                    if ($product_in_cart) {
+                         $stmt_update_qty->execute([
+                            ':new_qty' => $conflict['stock_actual'],
+                            ':cart_id' => $id_carrito,
+                            ':product_id' => $product_in_cart['id_producto']
+                        ]);
+                    }
+                }
+                 // Volvemos a cargar los items del carrito para que el cálculo del total sea correcto
+                $stmt_cart->execute([':cliente_id' => $id_cliente]);
+                $cart_items = $stmt_cart->fetchAll(PDO::FETCH_ASSOC);
+            }
+            // =================== FIN DEL BLOQUE AÑADIDO ====================
+
+            // 4. Calcular el total a pagar con las cantidades (posiblemente) ya ajustadas
+            $total_a_pagar = 0;
             foreach ($cart_items as $item) {
                 $total_a_pagar += $item['cantidad'] * $item['precio_unitario'];
             }
-
-            // 2. Obtener la tarjeta y verificar el saldo (sin cambios)
+            
+            // 5. Obtener la tarjeta y verificar el saldo (sin cambios)
             $stmt_card = $pdo->prepare("SELECT id_tarjeta, saldo FROM tarjetas_recargables WHERE id_cliente = :cliente_id AND estado_id = 1 FOR UPDATE");
             $stmt_card->execute([':cliente_id' => $id_cliente]);
             $tarjeta = $stmt_card->fetch(PDO::FETCH_ASSOC);
@@ -330,16 +381,15 @@ case 'checkout-with-card':
                 throw new Exception("Saldo insuficiente para completar esta compra.");
             }
 
-            // 3. Deducir el saldo de la tarjeta (sin cambios)
+            // 6. Deducir el saldo de la tarjeta (sin cambios)
             $nuevo_saldo = (float)$tarjeta['saldo'] - $total_a_pagar;
             $stmt_update_saldo = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :nuevo_saldo WHERE id_tarjeta = :id_tarjeta");
             $stmt_update_saldo->execute([':nuevo_saldo' => $nuevo_saldo, ':id_tarjeta' => $tarjeta['id_tarjeta']]);
 
-            // 4. --- LÓGICA DE REGISTRO DE VENTA MEJORADA ---
-            // Se crea un registro en la tabla 'ventas'. Como id_usuario_venta es NULL, sabremos que es una venta web.
+            // 7. Registrar la venta (sin cambios)
             $stmt_venta = $pdo->prepare(
                 "INSERT INTO ventas (id_cliente, id_usuario_venta, id_tarjeta_recargable, id_metodo_pago, monto_total, estado_id, fecha_venta)
-                 VALUES (:id_cliente, NULL, :id_tarjeta, 2, :monto_total, 29, NOW())" // estado_id 29 = Venta Realizada
+                 VALUES (:id_cliente, NULL, :id_tarjeta, 2, :monto_total, 29, NOW())"
             );
             $stmt_venta->execute([
                 ':id_cliente' => $id_cliente,
@@ -348,22 +398,44 @@ case 'checkout-with-card':
             ]);
             $id_nueva_venta = $pdo->lastInsertId();
 
-            // Copiamos los detalles del carrito a la nueva venta
+            // 8. Mover detalle del carrito a detalle de venta y descontar stock (sin cambios)
             $stmt_detalle = $pdo->prepare(
                 "INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal)
                  VALUES (:id_venta, :id_producto, :cantidad, :precio_unitario, :subtotal)"
             );
+            $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :qty_to_deduct WHERE id_producto = :product_id");
+            $stmt_log_movement = $pdo->prepare(
+                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+                 VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, NULL, :notas)"
+            );
+
             foreach ($cart_items as $item) {
-                $stmt_detalle->execute([
-                    ':id_venta' => $id_nueva_venta,
-                    ':id_producto' => $item['id_producto'],
-                    ':cantidad' => $item['cantidad'],
-                    ':precio_unitario' => $item['precio_unitario'],
-                    ':subtotal' => $item['cantidad'] * $item['precio_unitario']
-                ]);
+                $cantidad_final = $item['cantidad']; // Ya está ajustada si fue necesario
+                if ($cantidad_final > 0) {
+                    $stmt_detalle->execute([
+                        ':id_venta' => $id_nueva_venta,
+                        ':id_producto' => $item['id_producto'],
+                        ':cantidad' => $cantidad_final,
+                        ':precio_unitario' => $item['precio_unitario'],
+                        ':subtotal' => $cantidad_final * $item['precio_unitario']
+                    ]);
+
+                    if ($item['usa_inventario']) {
+                        $stock_anterior = (int)$item['stock_actual'];
+                        $stock_nuevo = $stock_anterior - $cantidad_final;
+                        $stmt_update_stock->execute([':qty_to_deduct' => $cantidad_final, ':product_id' => $item['id_producto']]);
+                        $stmt_log_movement->execute([
+                            ':product_id' => $item['id_producto'],
+                            ':cantidad' => -$cantidad_final,
+                            ':stock_anterior' => $stock_anterior,
+                            ':stock_nuevo' => $stock_nuevo,
+                            ':notas' => "Venta Web con Tarjeta - Pedido #" . $id_carrito
+                        ]);
+                    }
+                }
             }
 
-            // 5. Se actualiza el estado del carrito a "Entregado"
+            // 9. Marcar carrito como "Entregado" (sin cambios)
             $stmt_update_cart = $pdo->prepare("UPDATE carritos_compra SET estado_id = 10 WHERE id_carrito = :id_carrito");
             $stmt_update_cart->execute([':id_carrito' => $id_carrito]);
             
@@ -377,9 +449,6 @@ case 'checkout-with-card':
         }
     }
     break;
-// --- FIN DEL NUEVO BLOQUE ---
-
-// ... resto de los case ...
 
 /************************************************************************/
 case 'get-card-details':
@@ -928,14 +997,13 @@ case 'pos_check_card_balance':
 
 // REEMPLAZA ESTE CASE EN api/index.php
 
+// REEMPLAZA ESTE CASE COMPLETO EN api/index.php
 case 'admin/activityLog':
     if ($method == 'GET') {
         $filter_date = $_GET['date'] ?? date('Y-m-d');
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
         $sql = "(SELECT
                     u.nombre_usuario,
-                    -- Se interpreta el estado y las notas para un log más claro
                     CASE 
                         WHEN mi.notas LIKE 'Inicio de uso de Inventario%' THEN '✅ Entrada de Stock Inicial'
                         WHEN e.nombre_estado = 'Entrada' THEN '⬆️ Entrada de Stock'
@@ -952,20 +1020,53 @@ case 'admin/activityLog':
                 JOIN productos p ON mi.id_producto = p.id_producto
                 JOIN estados e ON mi.id_estado = e.id_estado
                 WHERE mi.id_usuario IS NOT NULL AND DATE(mi.fecha) = :date1)
-        -- --- FIN DE LA LÓGICA CORREGIDA ---
                 
                 UNION ALL
                 
                 (SELECT
                     u.nombre_usuario,
                     'Venta POS Procesada' as tipo_accion,
-                    CONCAT('ID Venta: ', v.id_venta, ', Total: $', v.monto_total) as descripcion,
+                    CONCAT(
+                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), '\n',
+                        'Productos:\n',
+                        GROUP_CONCAT(
+                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\n'
+                        )
+                    ) as descripcion,
                     v.fecha_venta as fecha
                 FROM ventas v
                 JOIN usuarios u ON v.id_usuario_venta = u.id_usuario
+                LEFT JOIN detalle_ventas dv ON v.id_venta = dv.id_venta
+                LEFT JOIN productos p ON dv.id_producto = p.id_producto
                 WHERE v.id_usuario_venta IS NOT NULL 
                   AND v.estado_id = 29
-                  AND DATE(v.fecha_venta) = :date2)
+                  AND DATE(v.fecha_venta) = :date2
+                GROUP BY v.id_venta)
+        
+                UNION ALL
+
+                -- ===================== INICIO DEL NUEVO BLOQUE =====================
+                (SELECT
+                    c.nombre_usuario,
+                    '🛍️ Venta Web Finalizada' as tipo_accion,
+                    CONCAT(
+                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), ' (', mp.nombre_metodo, ')\n',
+                        'Productos:\n',
+                        GROUP_CONCAT(
+                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\n'
+                        )
+                    ) as descripcion,
+                    v.fecha_venta as fecha
+                FROM ventas v
+                JOIN clientes c ON v.id_cliente = c.id_cliente
+                JOIN metodos_pago mp ON v.id_metodo_pago = mp.id_metodo_pago
+                LEFT JOIN detalle_ventas dv ON v.id_venta = dv.id_venta
+                LEFT JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE v.id_usuario_venta IS NULL -- La clave: solo ventas sin empleado asignado
+                  AND v.estado_id = 29 -- Solo ventas finalizadas
+                  AND DATE(v.fecha_venta) = :date3
+                GROUP BY v.id_venta)
+                -- ===================== FIN DEL NUEVO BLOQUE =====================
                 
                 UNION ALL
                 
@@ -982,7 +1083,7 @@ case 'admin/activityLog':
 
                 (SELECT
                     c.nombre_usuario,
-                    'Pedido Web Recibido' as tipo_accion,
+                    '📲 Pedido Web Recibido' as tipo_accion,
                     CONCAT('Nuevo pedido en línea (#', cc.id_carrito, ')') as descripcion,
                     cc.fecha_creacion as fecha
                 FROM carritos_compra cc
@@ -996,6 +1097,7 @@ case 'admin/activityLog':
         $stmt->execute([
             ':date1' => $filter_date,
             ':date2' => $filter_date,
+            ':date3' => $filter_date, // Se añade el parámetro para la nueva consulta
             ':date4' => $filter_date,
             ':date5' => $filter_date
         ]);
@@ -4118,7 +4220,6 @@ function handleCheckoutRequest(PDO $pdo) {
     
     $stock_conflicts = [];
     foreach ($cart_items as $item) {
-        // Solo se verifica si el producto gestiona inventario
         if ($item['usa_inventario'] && $item['cantidad_pedida'] > $item['stock_actual']) {
             $stock_conflicts[] = [
                 'nombre_producto' => $item['nombre_producto'],
@@ -4128,7 +4229,6 @@ function handleCheckoutRequest(PDO $pdo) {
         }
     }
 
-    // Si hay conflictos y el cliente NO ha confirmado, se envía el error 409 para activar la notificación.
     if (!empty($stock_conflicts) && !$confirm_stock) {
         http_response_code(409); // 409 Conflict
         echo json_encode([
@@ -4137,13 +4237,12 @@ function handleCheckoutRequest(PDO $pdo) {
             'conflicts' => $stock_conflicts,
             'error' => 'Algunos productos no tienen suficiente stock.'
         ]);
-        return; // Detiene la ejecución.
+        return;
     }
     
-    // --- PASO 2: PROCESAR PEDIDO (SI NO HAY CONFLICTOS O EL CLIENTE CONFIRMÓ) ---
+    // --- PASO 2: PROCESAR PEDIDO ---
     $pdo->beginTransaction();
     try {
-        // Preparar todas las consultas que se usarán en el bucle.
         $stmt_update_qty = $pdo->prepare("UPDATE detalle_carrito SET cantidad = :new_qty WHERE id_carrito = :cart_id AND id_producto = :product_id");
         $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :qty_to_deduct WHERE id_producto = :product_id");
         $stmt_log_movement = $pdo->prepare(
@@ -4151,50 +4250,40 @@ function handleCheckoutRequest(PDO $pdo) {
              VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, NULL, :notas)"
         );
 
-        // Bucle para procesar cada producto del carrito.
+        // Obtener nombre de usuario para el log
+        $stmt_user = $pdo->prepare("SELECT nombre_usuario FROM clientes WHERE id_cliente = :id");
+        $stmt_user->execute([':id' => $client_id]);
+        $client_username = $stmt_user->fetchColumn();
+
         foreach ($cart_items as $item) {
-            if (!$item['usa_inventario']) {
-                continue; // Si el producto no usa inventario, se salta al siguiente.
-            }
+            if (!$item['usa_inventario']) continue;
 
             $qty_to_deduct = $item['cantidad_pedida'];
             $stock_anterior = (int)$item['stock_actual'];
 
-            // Si el cliente confirmó el ajuste, se recalcula la cantidad a descontar.
             if ($item['cantidad_pedida'] > $stock_anterior) {
                 $qty_to_deduct = $stock_anterior;
                 if ($qty_to_deduct > 0) {
-                    // Actualiza la cantidad en el carrito a lo que realmente hay disponible.
                     $stmt_update_qty->execute([':new_qty' => $qty_to_deduct, ':cart_id' => $cart_id, ':product_id' => $item['id_producto']]);
                 } else {
-                    // Si no hay nada de stock, se elimina el producto del carrito.
                     deleteCartItem($pdo, $cart_id, $item['id_producto']);
-                    continue; // Pasa al siguiente producto.
+                    continue;
                 }
             }
 
-            // Solo si hay algo que descontar, se procede.
             if ($qty_to_deduct > 0) {
                 $stock_nuevo = $stock_anterior - $qty_to_deduct;
-
-                // 2.A: Descontar del inventario en la tabla `productos`.
                 $stmt_update_stock->execute([':qty_to_deduct' => $qty_to_deduct, ':product_id' => $item['id_producto']]);
-
-                // 2.B: Registrar el movimiento en `movimientos_inventario`.
                 $stmt_log_movement->execute([
                     ':product_id' => $item['id_producto'],
-                    ':cantidad' => -$qty_to_deduct, // Negativo porque es una salida.
+                    ':cantidad' => -$qty_to_deduct,
                     ':stock_anterior' => $stock_anterior,
                     ':stock_nuevo' => $stock_nuevo,
-                    ':notas' => "Venta Web - Pedido #" . $cart_id
+                    ':notas' => "Venta Web (Cliente: {$client_username}) - Pedido #" . $cart_id
                 ]);
-                
-                // 2.C: Registrar en el log de actividad general.
-                logActivity($pdo, null, 'Salida por Venta Web', "Pedido Web #{$cart_id}: Se descontaron {$qty_to_deduct} de '{$item['nombre_producto']}'. Stock: {$stock_anterior} -> {$stock_nuevo}.");
             }
         }
 
-        // Se finaliza el pedido actualizándolo al estado "En Proceso"
         $stmt_finalize = $pdo->prepare("UPDATE carritos_compra SET estado_id = 8 WHERE id_carrito = :cart_id");
         $stmt_finalize->execute([':cart_id' => $cart_id]);
         
@@ -4755,7 +4844,17 @@ function handleClearCartRequest(PDO $pdo) {
         echo json_encode(['success' => true, 'message' => 'No se encontró un carrito activo.']);
     }
 }
-function logActivity(PDO $pdo, int $userId, string $actionType, string $description) {
+
+
+
+/**
+ * Registra una acción en el log de actividad.
+ * @param PDO $pdo Conexión a la base de datos.
+ * @param int|null $userId ID del usuario que realiza la acción (puede ser null para acciones del sistema o de clientes).
+ * @param string $actionType Tipo de acción (ej. 'Producto Creado').
+ * @param string $description Descripción detallada de la acción.
+ */
+function logActivity(PDO $pdo, ?int $userId, string $actionType, string $description) {
     try {
         $stmt = $pdo->prepare(
             "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
@@ -4768,11 +4867,12 @@ function logActivity(PDO $pdo, int $userId, string $actionType, string $descript
             ':descripcion'  => $description
         ]);
     } catch (Exception $e) {
-        // En un entorno de producción, podrías registrar este error en un archivo en lugar de detener el script.
-        // Por ahora, lo dejamos así para no interrumpir el flujo principal en caso de que falle el log.
+        // En un entorno de producción, se podría registrar este error en un archivo.
+        // Por ahora, se evita que un fallo en el log detenga el proceso principal.
         error_log("Fallo al registrar actividad: " . $e->getMessage());
     }
 }
+
 
 
 ?>
