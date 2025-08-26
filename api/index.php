@@ -995,6 +995,8 @@ case 'pos_check_card_balance':
 /**************************************************************************************/
 
 // REEMPLAZA ESTE CASE COMPLETO EN api/index.php
+// REEMPLAZA ESTE CASE COMPLETO EN api/index.php
+
 case 'admin/activityLog':
     if ($method == 'GET') {
         $filter_date = $_GET['date'] ?? date('Y-m-d');
@@ -1005,7 +1007,13 @@ case 'admin/activityLog':
                         WHEN mi.notas LIKE 'Inicio de uso de Inventario%' THEN '✅ Entrada de Stock Inicial'
                         WHEN e.nombre_estado = 'Entrada' THEN '⬆️ Entrada de Stock'
                         WHEN e.nombre_estado = 'Salida' THEN '🛒 Salida por Venta'
-                        WHEN e.nombre_estado = 'Ajuste' THEN '🔧 Ajuste Manual'
+                        -- ===================== INICIO DE LA CORRECCIÓN =====================
+                        WHEN e.nombre_estado = 'Ajuste' THEN 
+                            CASE 
+                                WHEN mi.cantidad > 0 THEN '🔧 Ajuste de Entrada'
+                                ELSE '🔧 Ajuste de Salida'
+                            END
+                        -- ===================== FIN DE LA CORRECCIÓN =====================
                         WHEN e.nombre_estado = 'Producto Eliminado' THEN '❌ Producto Eliminado'
                         WHEN e.nombre_estado = 'Devuelto' THEN '↩️ Devolución de Stock'
                         ELSE e.nombre_estado
@@ -1024,10 +1032,10 @@ case 'admin/activityLog':
                     u.nombre_usuario,
                     'Venta POS Procesada' as tipo_accion,
                     CONCAT(
-                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), '\n',
-                        'Productos:\n',
+                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), '\\n',
+                        'Productos:\\n',
                         GROUP_CONCAT(
-                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\n'
+                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\\n'
                         )
                     ) as descripcion,
                     v.fecha_venta as fecha
@@ -1042,15 +1050,14 @@ case 'admin/activityLog':
         
                 UNION ALL
 
-                -- ===================== INICIO DEL NUEVO BLOQUE =====================
                 (SELECT
                     c.nombre_usuario,
                     '🛍️ Venta Web Finalizada' as tipo_accion,
                     CONCAT(
-                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), ' (', mp.nombre_metodo, ')\n',
-                        'Productos:\n',
+                        'Venta #', v.id_venta, ' por $', FORMAT(v.monto_total, 2), ' (', mp.nombre_metodo, ')\\n',
+                        'Productos:\\n',
                         GROUP_CONCAT(
-                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\n'
+                            CONCAT('- ', dv.cantidad, ' x ', p.nombre_producto) SEPARATOR '\\n'
                         )
                     ) as descripcion,
                     v.fecha_venta as fecha
@@ -1059,11 +1066,10 @@ case 'admin/activityLog':
                 JOIN metodos_pago mp ON v.id_metodo_pago = mp.id_metodo_pago
                 LEFT JOIN detalle_ventas dv ON v.id_venta = dv.id_venta
                 LEFT JOIN productos p ON dv.id_producto = p.id_producto
-                WHERE v.id_usuario_venta IS NULL -- La clave: solo ventas sin empleado asignado
-                  AND v.estado_id = 29 -- Solo ventas finalizadas
+                WHERE v.id_usuario_venta IS NULL 
+                  AND v.estado_id = 29 
                   AND DATE(v.fecha_venta) = :date3
                 GROUP BY v.id_venta)
-                -- ===================== FIN DEL NUEVO BLOQUE =====================
                 
                 UNION ALL
                 
@@ -1094,7 +1100,7 @@ case 'admin/activityLog':
         $stmt->execute([
             ':date1' => $filter_date,
             ':date2' => $filter_date,
-            ':date3' => $filter_date, // Se añade el parámetro para la nueva consulta
+            ':date3' => $filter_date,
             ':date4' => $filter_date,
             ':date5' => $filter_date
         ]);
@@ -1103,7 +1109,6 @@ case 'admin/activityLog':
         echo json_encode(['success' => true, 'log' => $log]);
     }
     break;
-
 /**************************************************************************************/
 /**************************************************************************************/
 
@@ -2023,8 +2028,87 @@ case 'admin/deleteDepartment':
 
 //Inventario
 
+// PEGA ESTE NUEVO CASE EN tu archivo /api/index.php
 
-// REEMPLAZA ESTE CASE EN api/index.php
+case 'admin/adjustInventory':
+    // require_admin(); // Seguridad
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
+    $adjustment_value = filter_var($data['adjustment_value'] ?? 0, FILTER_VALIDATE_INT);
+    $notes = trim($data['notes'] ?? '');
+    $userId = $_SESSION['id_usuario'] ?? null;
+
+    if (!$productId || $adjustment_value == 0 || !$userId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos, el ajuste no puede ser cero o la sesión es inválida.']);
+        break;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // 1. Obtenemos la información actual del producto y lo bloqueamos para la transacción
+        $stmt_current = $pdo->prepare("SELECT stock_actual, nombre_producto, codigo_producto FROM productos WHERE id_producto = :id FOR UPDATE");
+        $stmt_current->execute([':id' => $productId]);
+        $product_info = $stmt_current->fetch(PDO::FETCH_ASSOC);
+
+        if (!$product_info) {
+            throw new Exception("El producto no fue encontrado.");
+        }
+        
+        $stock_anterior = (int)$product_info['stock_actual'];
+        $stock_nuevo = $stock_anterior + $adjustment_value;
+
+        // 2. Validamos que el stock no quede negativo
+        if ($stock_nuevo < 0) {
+            throw new Exception("El ajuste no se puede realizar porque dejaría el stock en negativo ({$stock_nuevo}).");
+        }
+
+        // 3. Actualizamos el stock del producto
+        $stmt_update = $pdo->prepare("UPDATE productos SET stock_actual = :new_stock WHERE id_producto = :id");
+        $stmt_update->execute([':new_stock' => $stock_nuevo, ':id' => $productId]);
+
+        // 4. Obtenemos el ID del estado 'Ajuste'
+        $stmt_estado = $pdo->query("SELECT id_estado FROM estados WHERE nombre_estado = 'Ajuste' LIMIT 1");
+        $id_estado_ajuste = $stmt_estado->fetchColumn();
+        if (!$id_estado_ajuste) {
+            throw new Exception("Error de Configuración: No se encontró el estado 'Ajuste'.");
+        }
+
+        // 5. Registramos el movimiento en el historial de inventario
+        $stmt_log_movement = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+             VALUES (:product_id, :id_estado, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notes)"
+        );
+        $stmt_log_movement->execute([
+            ':product_id'     => $productId,
+            ':id_estado'      => $id_estado_ajuste,
+            ':cantidad'       => $adjustment_value,
+            ':stock_anterior' => $stock_anterior,
+            ':stock_nuevo'    => $stock_nuevo,
+            ':user_id'        => $userId,
+            ':notes'          => $notes
+        ]);
+
+        // 6. Registramos la acción en el log de actividad general
+        $adjustment_text = ($adjustment_value > 0 ? '+' : '') . $adjustment_value;
+        $description = "Ajuste de inventario de {$adjustment_text} para el producto: {$product_info['nombre_producto']} ({$product_info['codigo_producto']})";
+        logActivity($pdo, $userId, 'Ajuste de Inventario', $description);
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => "Ajuste de {$adjustment_text} unidad(es) aplicado correctamente."]);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+
+
+
+
+
 case 'admin/addStock':
     // require_admin(); // Seguridad
     $data = json_decode(file_get_contents('php://input'), true);
