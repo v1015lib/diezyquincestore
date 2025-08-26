@@ -291,6 +291,7 @@ case 'admin/copyShoppingList':
 
 
 /*******************************************************************/
+
 case 'checkout-with-card':
     if ($method === 'POST') {
         if (!isset($_SESSION['id_cliente'])) {
@@ -298,14 +299,17 @@ case 'checkout-with-card':
         }
 
         $id_cliente = (int)$_SESSION['id_cliente'];
+        $inputData = json_decode(file_get_contents('php://input'), true);
+        $confirm_stock = $inputData['confirm_stock'] ?? false;
         
         $pdo->beginTransaction();
         try {
-            // 1. Obtener el carrito, sus items y el total (sin cambios)
+            // 1. Obtener el carrito y sus items (sin cambios)
             $stmt_cart = $pdo->prepare(
-                "SELECT cc.id_carrito, dc.id_producto, dc.cantidad, dc.precio_unitario
+                "SELECT cc.id_carrito, dc.id_producto, dc.cantidad, dc.precio_unitario, p.stock_actual, p.nombre_producto, p.usa_inventario
                  FROM carritos_compra cc
                  JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
+                 JOIN productos p ON dc.id_producto = p.id_producto
                  WHERE cc.id_cliente = :cliente_id AND cc.estado_id = 1"
             );
             $stmt_cart->execute([':cliente_id' => $id_cliente]);
@@ -314,14 +318,61 @@ case 'checkout-with-card':
             if (empty($cart_items)) {
                 throw new Exception("Tu lista de productos está vacía.");
             }
-
-            $total_a_pagar = 0;
             $id_carrito = $cart_items[0]['id_carrito'];
+
+            // 2. Verificación de stock (sin cambios)
+            $stock_conflicts = [];
+            foreach ($cart_items as $item) {
+                if ($item['usa_inventario'] && $item['cantidad'] > $item['stock_actual']) {
+                    $stock_conflicts[] = [
+                        'nombre_producto' => $item['nombre_producto'],
+                        'cantidad_pedida' => $item['cantidad'],
+                        'stock_actual' => (int)$item['stock_actual']
+                    ];
+                }
+            }
+
+            if (!empty($stock_conflicts) && !$confirm_stock) {
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'stock_conflict' => true,
+                    'conflicts' => $stock_conflicts,
+                    'error' => 'Algunos productos no tienen suficiente stock.'
+                ]);
+                $pdo->rollBack();
+                return;
+            }
+
+            // ================== INICIO DEL BLOQUE AÑADIDO ==================
+            // 3. Si hay conflictos y el usuario confirma, AJUSTAR el detalle del carrito.
+            // Esto asegura que el historial del pedido refleje la cantidad real procesada.
+            if (!empty($stock_conflicts) && $confirm_stock) {
+                $stmt_update_qty = $pdo->prepare("UPDATE detalle_carrito SET cantidad = :new_qty WHERE id_carrito = :cart_id AND id_producto = :product_id");
+                foreach ($stock_conflicts as $conflict) {
+                    // Encontramos el producto correspondiente en el array original para obtener su ID
+                    $product_in_cart = current(array_filter($cart_items, fn($item) => $item['nombre_producto'] === $conflict['nombre_producto']));
+                    if ($product_in_cart) {
+                         $stmt_update_qty->execute([
+                            ':new_qty' => $conflict['stock_actual'],
+                            ':cart_id' => $id_carrito,
+                            ':product_id' => $product_in_cart['id_producto']
+                        ]);
+                    }
+                }
+                 // Volvemos a cargar los items del carrito para que el cálculo del total sea correcto
+                $stmt_cart->execute([':cliente_id' => $id_cliente]);
+                $cart_items = $stmt_cart->fetchAll(PDO::FETCH_ASSOC);
+            }
+            // =================== FIN DEL BLOQUE AÑADIDO ====================
+
+            // 4. Calcular el total a pagar con las cantidades (posiblemente) ya ajustadas
+            $total_a_pagar = 0;
             foreach ($cart_items as $item) {
                 $total_a_pagar += $item['cantidad'] * $item['precio_unitario'];
             }
-
-            // 2. Obtener la tarjeta y verificar el saldo (sin cambios)
+            
+            // 5. Obtener la tarjeta y verificar el saldo (sin cambios)
             $stmt_card = $pdo->prepare("SELECT id_tarjeta, saldo FROM tarjetas_recargables WHERE id_cliente = :cliente_id AND estado_id = 1 FOR UPDATE");
             $stmt_card->execute([':cliente_id' => $id_cliente]);
             $tarjeta = $stmt_card->fetch(PDO::FETCH_ASSOC);
@@ -330,16 +381,15 @@ case 'checkout-with-card':
                 throw new Exception("Saldo insuficiente para completar esta compra.");
             }
 
-            // 3. Deducir el saldo de la tarjeta (sin cambios)
+            // 6. Deducir el saldo de la tarjeta (sin cambios)
             $nuevo_saldo = (float)$tarjeta['saldo'] - $total_a_pagar;
             $stmt_update_saldo = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :nuevo_saldo WHERE id_tarjeta = :id_tarjeta");
             $stmt_update_saldo->execute([':nuevo_saldo' => $nuevo_saldo, ':id_tarjeta' => $tarjeta['id_tarjeta']]);
 
-            // 4. --- LÓGICA DE REGISTRO DE VENTA MEJORADA ---
-            // Se crea un registro en la tabla 'ventas'. Como id_usuario_venta es NULL, sabremos que es una venta web.
+            // 7. Registrar la venta (sin cambios)
             $stmt_venta = $pdo->prepare(
                 "INSERT INTO ventas (id_cliente, id_usuario_venta, id_tarjeta_recargable, id_metodo_pago, monto_total, estado_id, fecha_venta)
-                 VALUES (:id_cliente, NULL, :id_tarjeta, 2, :monto_total, 29, NOW())" // estado_id 29 = Venta Realizada
+                 VALUES (:id_cliente, NULL, :id_tarjeta, 2, :monto_total, 29, NOW())"
             );
             $stmt_venta->execute([
                 ':id_cliente' => $id_cliente,
@@ -348,22 +398,44 @@ case 'checkout-with-card':
             ]);
             $id_nueva_venta = $pdo->lastInsertId();
 
-            // Copiamos los detalles del carrito a la nueva venta
+            // 8. Mover detalle del carrito a detalle de venta y descontar stock (sin cambios)
             $stmt_detalle = $pdo->prepare(
                 "INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal)
                  VALUES (:id_venta, :id_producto, :cantidad, :precio_unitario, :subtotal)"
             );
+            $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :qty_to_deduct WHERE id_producto = :product_id");
+            $stmt_log_movement = $pdo->prepare(
+                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+                 VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, NULL, :notas)"
+            );
+
             foreach ($cart_items as $item) {
-                $stmt_detalle->execute([
-                    ':id_venta' => $id_nueva_venta,
-                    ':id_producto' => $item['id_producto'],
-                    ':cantidad' => $item['cantidad'],
-                    ':precio_unitario' => $item['precio_unitario'],
-                    ':subtotal' => $item['cantidad'] * $item['precio_unitario']
-                ]);
+                $cantidad_final = $item['cantidad']; // Ya está ajustada si fue necesario
+                if ($cantidad_final > 0) {
+                    $stmt_detalle->execute([
+                        ':id_venta' => $id_nueva_venta,
+                        ':id_producto' => $item['id_producto'],
+                        ':cantidad' => $cantidad_final,
+                        ':precio_unitario' => $item['precio_unitario'],
+                        ':subtotal' => $cantidad_final * $item['precio_unitario']
+                    ]);
+
+                    if ($item['usa_inventario']) {
+                        $stock_anterior = (int)$item['stock_actual'];
+                        $stock_nuevo = $stock_anterior - $cantidad_final;
+                        $stmt_update_stock->execute([':qty_to_deduct' => $cantidad_final, ':product_id' => $item['id_producto']]);
+                        $stmt_log_movement->execute([
+                            ':product_id' => $item['id_producto'],
+                            ':cantidad' => -$cantidad_final,
+                            ':stock_anterior' => $stock_anterior,
+                            ':stock_nuevo' => $stock_nuevo,
+                            ':notas' => "Venta Web con Tarjeta - Pedido #" . $id_carrito
+                        ]);
+                    }
+                }
             }
 
-            // 5. Se actualiza el estado del carrito a "Entregado"
+            // 9. Marcar carrito como "Entregado" (sin cambios)
             $stmt_update_cart = $pdo->prepare("UPDATE carritos_compra SET estado_id = 10 WHERE id_carrito = :id_carrito");
             $stmt_update_cart->execute([':id_carrito' => $id_carrito]);
             
@@ -377,8 +449,6 @@ case 'checkout-with-card':
         }
     }
     break;
-// --- FIN DEL NUEVO BLOQUE ---
-
 // ... resto de los case ...
 
 /************************************************************************/
@@ -4125,54 +4195,102 @@ function handleCheckoutRequest(PDO $pdo) {
     }
     
     $client_id = $_SESSION['id_cliente'];
+    $inputData = json_decode(file_get_contents('php://input'), true);
+    $confirm_stock = $inputData['confirm_stock'] ?? false;
+    
     $cart_id = getOrCreateCart($pdo, $client_id, false);
     
     if (!$cart_id) {
         throw new Exception("Tu lista está vacía, no hay nada que procesar.");
     }
 
-    // Iniciar transacción para garantizar la integridad de los datos
+    // --- PASO 1: OBTENER PRODUCTOS DEL CARRITO Y VERIFICAR STOCK ---
+    $stmt_items = $pdo->prepare(
+        "SELECT dc.id_producto, dc.cantidad AS cantidad_pedida, p.stock_actual, p.nombre_producto, p.usa_inventario
+         FROM detalle_carrito dc
+         JOIN productos p ON dc.id_producto = p.id_producto
+         WHERE dc.id_carrito = :cart_id"
+    );
+    $stmt_items->execute([':cart_id' => $cart_id]);
+    $cart_items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stock_conflicts = [];
+    foreach ($cart_items as $item) {
+        if ($item['usa_inventario'] && $item['cantidad_pedida'] > $item['stock_actual']) {
+            $stock_conflicts[] = [
+                'nombre_producto' => $item['nombre_producto'],
+                'cantidad_pedida' => $item['cantidad_pedida'],
+                'stock_actual' => (int)$item['stock_actual']
+            ];
+        }
+    }
+
+    if (!empty($stock_conflicts) && !$confirm_stock) {
+        http_response_code(409); // 409 Conflict
+        echo json_encode([
+            'success' => false,
+            'stock_conflict' => true,
+            'conflicts' => $stock_conflicts,
+            'error' => 'Algunos productos no tienen suficiente stock.'
+        ]);
+        return;
+    }
+    
+    // --- PASO 2: PROCESAR PEDIDO ---
     $pdo->beginTransaction();
     try {
-        // 1. Obtener el número de orden más alto para este cliente
-        $stmt_max_order = $pdo->prepare(
-            "SELECT MAX(numero_orden_cliente) FROM carritos_compra WHERE id_cliente = :client_id"
+        $stmt_update_qty = $pdo->prepare("UPDATE detalle_carrito SET cantidad = :new_qty WHERE id_carrito = :cart_id AND id_producto = :product_id");
+        $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :qty_to_deduct WHERE id_producto = :product_id");
+        $stmt_log_movement = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
+             VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, NULL, :notas)"
         );
-        $stmt_max_order->execute([':client_id' => $client_id]);
-        $max_order = $stmt_max_order->fetchColumn();
-        
-        // Si no tiene órdenes previas, este será el número 1. Si no, será el siguiente.
-        $new_order_number = ($max_order) ? $max_order + 1 : 1;
 
-        // 2. Actualizar el carrito para marcarlo como "En Proceso" y asignar el nuevo número de orden
-        $stmt = $pdo->prepare(
-            "UPDATE carritos_compra 
-             SET estado_id = 8, numero_orden_cliente = :order_number 
-             WHERE id_carrito = :cart_id AND id_cliente = :client_id AND estado_id = 1"
-        );
-        
-        $stmt->execute([
-            ':order_number' => $new_order_number,
-            ':cart_id'      => $cart_id,
-            ':client_id'    => $client_id
-        ]);
+        // Obtener nombre de usuario para el log
+        $stmt_user = $pdo->prepare("SELECT nombre_usuario FROM clientes WHERE id_cliente = :id");
+        $stmt_user->execute([':id' => $client_id]);
+        $client_username = $stmt_user->fetchColumn();
 
-        if ($stmt->rowCount() > 0) {
-            // Si todo fue bien, confirma los cambios en la base de datos
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Lista enviada con éxito.']);
-        } else {
-            // Si no se actualizó ninguna fila, algo salió mal (ej. el carrito ya estaba procesado)
-            throw new Exception('No se pudo procesar el envio de lista. Es posible que la lista ya estuviera procesada.');
+        foreach ($cart_items as $item) {
+            if (!$item['usa_inventario']) continue;
+
+            $qty_to_deduct = $item['cantidad_pedida'];
+            $stock_anterior = (int)$item['stock_actual'];
+
+            if ($item['cantidad_pedida'] > $stock_anterior) {
+                $qty_to_deduct = $stock_anterior;
+                if ($qty_to_deduct > 0) {
+                    $stmt_update_qty->execute([':new_qty' => $qty_to_deduct, ':cart_id' => $cart_id, ':product_id' => $item['id_producto']]);
+                } else {
+                    deleteCartItem($pdo, $cart_id, $item['id_producto']);
+                    continue;
+                }
+            }
+
+            if ($qty_to_deduct > 0) {
+                $stock_nuevo = $stock_anterior - $qty_to_deduct;
+                $stmt_update_stock->execute([':qty_to_deduct' => $qty_to_deduct, ':product_id' => $item['id_producto']]);
+                $stmt_log_movement->execute([
+                    ':product_id' => $item['id_producto'],
+                    ':cantidad' => -$qty_to_deduct,
+                    ':stock_anterior' => $stock_anterior,
+                    ':stock_nuevo' => $stock_nuevo,
+                    ':notas' => "Venta Web (Cliente: {$client_username}) - Pedido #" . $cart_id
+                ]);
+            }
         }
 
+        $stmt_finalize = $pdo->prepare("UPDATE carritos_compra SET estado_id = 8 WHERE id_carrito = :cart_id");
+        $stmt_finalize->execute([':cart_id' => $cart_id]);
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Lista enviada con éxito.']);
     } catch (Exception $e) {
-        // Si ocurre cualquier error, revierte todos los cambios
         $pdo->rollBack();
-        // Lanza la excepción para que el manejador de errores principal la capture
         throw $e; 
     }
 }
+
 function handleGetFavoriteDetailsRequest(PDO $pdo, int $client_id) {
     $stmt = $pdo->prepare("
         SELECT p.id_producto, p.nombre_producto, p.precio_venta, p.url_imagen
