@@ -118,13 +118,13 @@ case 'generate-invoice':
         
         class PDF extends FPDF {
             function Header() {
-                $logoPath = __DIR__ . '/../public_html/img/logo.png';
+                $logoPath = __DIR__ . '/../public_html/img/logoinv.png';
                 if (file_exists($logoPath)) {
                     $this->Image($logoPath, 10, 6, 30);
                 }
                 $this->SetFont('Arial', 'B', 15);
                 $this->Cell(80);
-                $this->Cell(30, 10, 'Factura Comercial', 1, 0, 'C');
+                $this->Cell(70, 10, 'Factura Comercial', 1, 0, 'C');
                 $this->Ln(20);
             }
 
@@ -141,12 +141,12 @@ case 'generate-invoice':
         
         // El resto del código para rellenar el PDF es el mismo
         $pdf->SetFont('Arial', '', 12);
-        $pdf->Cell(40, 10, 'Factura Nro: ' . $sale_data['id_venta']);
+        $pdf->Cell(40, 10, 'Orden No: ' . $sale_data['id_venta']);
         $pdf->Ln(5);
         $pdf->Cell(40, 10, 'Fecha: ' . date("d/m/Y", strtotime($sale_data['fecha_venta'])));
         $pdf->Ln(15);
         $pdf->SetFont('Arial', 'B', 12);
-        $pdf->Cell(40, 10, 'Facturado a:');
+        $pdf->Cell(40, 10, 'Cliente:');
         $pdf->Ln(8);
         $pdf->SetFont('Arial', '', 12);
         $pdf->Cell(40, 10, utf8_decode($sale_data['nombre'] . ' ' . $sale_data['apellido']));
@@ -171,19 +171,19 @@ case 'generate-invoice':
         $pdf->Ln(15);
 
         $pdf->SetFont('Arial', 'B', 12);
-        $pdf->Cell(100, 10, 'Producto', 1);
-        $pdf->Cell(30, 10, 'Cantidad', 1, 0, 'C');
+        $pdf->Cell(110, 10, 'Producto', 1);
+        $pdf->Cell(20, 10, 'Cant', 1, 0, 'C');
         $pdf->Cell(30, 10, 'P. Unitario', 1, 0, 'C');
         $pdf->Cell(30, 10, 'Subtotal', 1, 0, 'C');
         $pdf->Ln();
-        $pdf->SetFont('Arial', '', 12);
+        $pdf->SetFont('Arial', '', 10);
 
         $total_final = 0;
         foreach ($items as $item) {
-            $pdf->Cell(100, 10, utf8_decode($item['nombre_producto']), 1);
-            $pdf->Cell(30, 10, $item['cantidad'], 1, 0, 'C');
-            $pdf->Cell(30, 10, '$' . number_format($item['precio_unitario'], 2), 1, 0, 'R');
-            $pdf->Cell(30, 10, '$' . number_format($item['subtotal'], 2), 1, 0, 'R');
+            $pdf->Cell(110, 5, utf8_decode($item['nombre_producto']), 1);
+            $pdf->Cell(20, 5, $item['cantidad'], 1, 0, 'C');
+            $pdf->Cell(30, 5, '$' . number_format($item['precio_unitario'], 2), 1, 0, 'R');
+            $pdf->Cell(30, 5, '$' . number_format($item['subtotal'], 2), 1, 0, 'R');
             $pdf->Ln();
             $total_final += $item['subtotal'];
         }
@@ -193,7 +193,7 @@ case 'generate-invoice':
         $pdf->Cell(30, 10, '$' . number_format($total_final, 2), 1, 0, 'R');
         $pdf->Ln();
         
-        $pdf_name = $is_pos_sale ? 'Factura-POS-' . $sale_data['id_venta'] . '.pdf' : 'Factura-WEB-' . $sale_data['id_venta'] . '.pdf';
+        $pdf_name = $is_pos_sale ? 'Orden-POS-No-' . $sale_data['id_venta'] . '.pdf' : 'Orden-WEB-No' . $sale_data['id_venta'] . '.pdf';
         $pdf->Output('D', $pdf_name);
         exit;
 
