@@ -31,8 +31,182 @@ try {
     switch ($resource) {
 
 
-// --- INICIO: MÓDULO DE LISTAS DE COMPRAS ---
+/*************************************************************************************/
+/*************************************************************************************/
+/*************************************************************************************/
+case 'generate-invoice':
+    // Seguridad: Requiere que un cliente o un admin hayan iniciado sesión.
+    if (!isset($_SESSION['id_cliente']) && !isset($_SESSION['id_usuario'])) {
+        http_response_code(401);
+        echo "Acceso no autorizado.";
+        exit;
+    }
 
+    $orderId = filter_var($_GET['order_id'] ?? 0, FILTER_VALIDATE_INT);
+    if (!$orderId) {
+        http_response_code(400);
+        echo "ID de pedido no válido.";
+        exit;
+    }
+
+    try {
+        $sale_data = null;
+        $items = [];
+        $is_pos_sale = false;
+
+        // --- INICIO DE LA LÓGICA UNIFICADA ---
+
+        // 1. INTENTAR BUSCAR COMO VENTA DEL POS (ADMIN)
+        $stmt_sale = $pdo->prepare("
+            SELECT v.id_venta, v.fecha_venta, c.*, mp.nombre_metodo
+            FROM ventas v
+            JOIN clientes c ON v.id_cliente = c.id_cliente
+            JOIN metodos_pago mp ON v.id_metodo_pago = mp.id_metodo_pago
+            WHERE v.id_venta = :order_id
+        ");
+        $stmt_sale->execute([':order_id' => $orderId]);
+        $sale_data = $stmt_sale->fetch(PDO::FETCH_ASSOC);
+
+        if ($sale_data) {
+            $is_pos_sale = true;
+            // Si es una venta, obtener detalles de 'detalle_ventas'
+            $stmt_items = $pdo->prepare("
+                SELECT dv.cantidad, p.nombre_producto, dv.precio_unitario, dv.subtotal
+                FROM detalle_ventas dv
+                JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE dv.id_venta = :order_id
+            ");
+            $stmt_items->execute([':order_id' => $orderId]);
+            $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        } else {
+            // 2. SI NO ES VENTA, BUSCAR COMO PEDIDO WEB (CLIENTE)
+            $stmt_cart = $pdo->prepare("
+                SELECT cc.id_carrito as id_venta, cc.fecha_creacion as fecha_venta, c.*, 'No Definido' as nombre_metodo
+                FROM carritos_compra cc
+                JOIN clientes c ON cc.id_cliente = c.id_cliente
+                WHERE cc.id_carrito = :order_id
+            ");
+            $stmt_cart->execute([':order_id' => $orderId]);
+            $sale_data = $stmt_cart->fetch(PDO::FETCH_ASSOC);
+
+            if ($sale_data) {
+                // Si es un pedido web, obtener detalles de 'detalle_carrito'
+                $stmt_items_cart = $pdo->prepare("
+                    SELECT dc.cantidad, p.nombre_producto, dc.precio_unitario, (dc.cantidad * dc.precio_unitario) as subtotal
+                    FROM detalle_carrito dc
+                    JOIN productos p ON dc.id_producto = p.id_producto
+                    WHERE dc.id_carrito = :order_id
+                ");
+                $stmt_items_cart->execute([':order_id' => $orderId]);
+                $items = $stmt_items_cart->fetchAll(PDO::FETCH_ASSOC);
+            }
+        }
+        
+        // --- FIN DE LA LÓGICA UNIFICADA ---
+
+        if (!$sale_data || empty($items)) {
+            throw new Exception("No se encontraron datos para este pedido.");
+        }
+
+        // 3. INCLUIR FPDF Y GENERAR EL PDF
+        $fpdf_path = __DIR__ . '/../lib/fpdf/fpdf.php';
+        if (!file_exists($fpdf_path)) {
+            throw new Exception("Error Crítico del Servidor: No se pudo encontrar la librería FPDF.");
+        }
+        require_once $fpdf_path;
+        
+        class PDF extends FPDF {
+            function Header() {
+                $logoPath = __DIR__ . '/../public_html/img/logo.png';
+                if (file_exists($logoPath)) {
+                    $this->Image($logoPath, 10, 6, 30);
+                }
+                $this->SetFont('Arial', 'B', 15);
+                $this->Cell(80);
+                $this->Cell(30, 10, 'Factura Comercial', 1, 0, 'C');
+                $this->Ln(20);
+            }
+
+            function Footer() {
+                $this->SetY(-15);
+                $this->SetFont('Arial', 'I', 8);
+                $this->Cell(0, 10, 'Pagina ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+            }
+        }
+
+        $pdf = new PDF();
+        $pdf->AliasNbPages();
+        $pdf->AddPage();
+        
+        // El resto del código para rellenar el PDF es el mismo
+        $pdf->SetFont('Arial', '', 12);
+        $pdf->Cell(40, 10, 'Factura Nro: ' . $sale_data['id_venta']);
+        $pdf->Ln(5);
+        $pdf->Cell(40, 10, 'Fecha: ' . date("d/m/Y", strtotime($sale_data['fecha_venta'])));
+        $pdf->Ln(15);
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(40, 10, 'Facturado a:');
+        $pdf->Ln(8);
+        $pdf->SetFont('Arial', '', 12);
+        $pdf->Cell(40, 10, utf8_decode($sale_data['nombre'] . ' ' . $sale_data['apellido']));
+        $pdf->Ln(5);
+        $pdf->Cell(40, 10, 'Usuario: ' . $sale_data['nombre_usuario']);
+        $pdf->Ln(5);
+        $pdf->Cell(40, 10, 'Email: ' . $sale_data['email']);
+        
+        if (!empty($sale_data['nit'])) {
+            $pdf->Ln(10);
+            $pdf->SetFont('Arial', 'B', 12);
+            $pdf->Cell(40, 10, 'Datos Fiscales:');
+            $pdf->Ln(8);
+            $pdf->SetFont('Arial', '', 12);
+            $pdf->Cell(40, 10, 'NIT: ' . $sale_data['nit']);
+            $pdf->Ln(5);
+            $pdf->Cell(40, 10, 'NRC: ' . $sale_data['n_registro']);
+            $pdf->Ln(5);
+            $pdf->Cell(40, 10, utf8_decode('Razón Social: ' . $sale_data['razon_social']));
+        }
+        
+        $pdf->Ln(15);
+
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(100, 10, 'Producto', 1);
+        $pdf->Cell(30, 10, 'Cantidad', 1, 0, 'C');
+        $pdf->Cell(30, 10, 'P. Unitario', 1, 0, 'C');
+        $pdf->Cell(30, 10, 'Subtotal', 1, 0, 'C');
+        $pdf->Ln();
+        $pdf->SetFont('Arial', '', 12);
+
+        $total_final = 0;
+        foreach ($items as $item) {
+            $pdf->Cell(100, 10, utf8_decode($item['nombre_producto']), 1);
+            $pdf->Cell(30, 10, $item['cantidad'], 1, 0, 'C');
+            $pdf->Cell(30, 10, '$' . number_format($item['precio_unitario'], 2), 1, 0, 'R');
+            $pdf->Cell(30, 10, '$' . number_format($item['subtotal'], 2), 1, 0, 'R');
+            $pdf->Ln();
+            $total_final += $item['subtotal'];
+        }
+
+        $pdf->SetFont('Arial', 'B', 14);
+        $pdf->Cell(160, 10, 'Total', 1, 0, 'R');
+        $pdf->Cell(30, 10, '$' . number_format($total_final, 2), 1, 0, 'R');
+        $pdf->Ln();
+        
+        $pdf_name = $is_pos_sale ? 'Factura-POS-' . $sale_data['id_venta'] . '.pdf' : 'Factura-WEB-' . $sale_data['id_venta'] . '.pdf';
+        $pdf->Output('D', $pdf_name);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo "Error al generar la factura: " . $e->getMessage();
+        exit;
+    }
+    break;
+
+/*************************************************************************************/
+/*************************************************************************************/
+/*************************************************************************************/
 
 
 
@@ -78,6 +252,8 @@ case 'admin/deleteShoppingList':
     }
     break;
 
+/*************************************************************************************/
+/*************************************************************************************/
 
 
 case 'admin/getShoppingLists':
@@ -108,6 +284,11 @@ case 'admin/getShoppingLists':
         echo json_encode(['success' => false, 'error' => 'Error al obtener las listas: ' . $e->getMessage()]);
     }
     break;
+
+
+/*************************************************************************************/
+/*************************************************************************************/
+/*************************************************************************************/
 
 case 'admin/createShoppingList':
     $pdo->beginTransaction(); // Iniciar transacción
@@ -141,6 +322,12 @@ case 'admin/createShoppingList':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
+
+/*************************************************************************************//*************************************************************************************/
+
+
+
 case 'admin/getShoppingListDetails':
     try {
         $listId = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);

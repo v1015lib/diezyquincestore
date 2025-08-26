@@ -745,6 +745,10 @@ async function fetchAndRenderSalesHistory(date) {
         salesSummaryTbody.innerHTML = '<tr><td colspan="4" style="color:red;">Error al cargar el historial.</td></tr>';
     }
 }
+
+
+    // admin/js/pos.js
+
 async function fetchAndRenderSaleDetails(saleId) {
     clearSaleDetails();
     saleDetailHeader.innerHTML = `<p>Cargando detalles para la venta #${saleId}...</p>`;
@@ -761,7 +765,6 @@ async function fetchAndRenderSaleDetails(saleId) {
                 <strong>Pago:</strong> ${details.metodo_pago}
             `;
             
-            // Añadimos la marca de agua si la venta está cancelada
             const watermarkHtml = details.estado_id == 16 
                 ? '<div class="watermark">VENTA CANCELADA</div>' 
                 : '';
@@ -792,10 +795,16 @@ async function fetchAndRenderSaleDetails(saleId) {
             itemsHtml += `</tbody></table>`;
             saleDetailItems.innerHTML = itemsHtml;
             
-            // El botón de cancelar solo se muestra si la venta NO está cancelada
-            if (details.estado_id != 16) {
-                saleDetailFooter.innerHTML = `<button id="reverse-sale-btn" class="btn btn-danger" data-sale-id="${saleId}">Cancelar Venta</button>`;
+            // --- INICIO DE LA MODIFICACIÓN ---
+            let footerHtml = '';
+            if (details.estado_id != 16) { // Si la venta no está cancelada
+                footerHtml += `<button id="reverse-sale-btn" class="btn btn-danger" data-sale-id="${saleId}">Cancelar Venta</button>`;
             }
+            // Se añade el botón de imprimir factura para todas las ventas (canceladas o no)
+            footerHtml += ` <a href="../api/index.php?resource=generate-invoice&order_id=${saleId}" target="_blank" class="btn btn-primary">Imprimir Factura</a>`;
+            
+            saleDetailFooter.innerHTML = footerHtml;
+            // --- FIN DE LA MODIFICACIÓN ---
 
         } else {
             throw new Error(result.error);
@@ -804,6 +813,7 @@ async function fetchAndRenderSaleDetails(saleId) {
         saleDetailHeader.innerHTML = `<p style="color:red;">Error al cargar detalles.</p>`;
     }
 }
+
     
     function clearSaleDetails() {
         saleDetailHeader.innerHTML = '<p>Selecciona una venta para ver los detalles.</p>';

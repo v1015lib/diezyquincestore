@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // public_html/js/dashboard_orders.js
+
 const renderOrderHistory = (orders) => {
     container.innerHTML = '';
     orders.forEach(order => {
@@ -31,12 +33,19 @@ const renderOrderHistory = (orders) => {
                 <span class="order-item-price">$${parseFloat(item.precio_unitario).toFixed(2)}</span>
             </li>
         `).join('');
-                const isCanceled = order.status_name === 'Cancelado';
+
+        const isCanceled = order.status_name === 'Cancelado';
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se añade un nuevo botón/enlace para la factura
         const reorderButtonHtml = `
+            <a href="api/index.php?resource=generate-invoice&order_id=${order.id_pedido}" class="submit-btn" target="_blank">Descargar Factura</a>
             <button class="submit-btn reorder-btn" data-order-id="${order.id_pedido}" ${isCanceled ? 'disabled' : ''}>
                 ${isCanceled ? 'Pedido Cancelado' : 'Repetir Pedido'}
             </button>
         `;
+        // --- FIN DE LA MODIFICACIÓN ---
+
         const orderCardHtml = `
             <div class="order-card">
                 <div class="order-card-header">
@@ -61,6 +70,7 @@ const renderOrderHistory = (orders) => {
         container.insertAdjacentHTML('beforeend', orderCardHtml);
     });
 };
+
 
     const handleReorder = async (target) => {
         if (!target.classList.contains('reorder-btn')) return;
