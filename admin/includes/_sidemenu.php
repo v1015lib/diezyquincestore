@@ -33,6 +33,15 @@
                 <span class="menu-text">Tiendas</span>
             </a></li>
             <?php endif; ?>
+
+            <?php // --- AÑADIR ESTE BLOQUE --- ?>
+            <?php if (can_access('proveedores', $rol, $permisos)): ?>
+            <li><a href="#" class="nav-link" data-module="proveedores">
+                <span class="menu-icon">🚚</span>
+                <span class="menu-text">Proveedores</span>
+            </a></li>
+            <?php endif; ?>
+            <?php // --- FIN DEL BLOQUE A AÑADIR --- ?>
             <?php /* INICIO DEL NUEVO BLOQUE POS */ ?>
             <?php if (can_access('pos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="pos">

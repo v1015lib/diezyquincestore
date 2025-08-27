@@ -603,11 +603,12 @@ async function loadModule(moduleName) {
             case 'inventario': defaultAction = 'inventario/agregar_stock'; break;
             case 'estadisticas': defaultAction = 'estadisticas/resumen'; break;
             case 'usuarios': defaultAction = 'usuarios/gestion'; break;
-            case 'pos': defaultAction = 'pos/vista_principal'; break; // <--- CORRECCIÓN AQUÍ
+            case 'pos': defaultAction = 'pos/vista_principal'; break; 
             case 'web_admin': defaultAction = 'web_admin/sliders'; break;
             case 'listas_compras': defaultAction = 'listas_compras/gestion'; break;
-            case 'tiendas': defaultAction = 'tiendas/gestion'; break; // <--- AÑADIR ESTA LÍNEA
-
+            case 'tiendas': defaultAction = 'tiendas/gestion'; break; 
+            case 'proveedores': defaultAction = 'proveedores/gestion'; break;
+        
 
         }
         if (defaultAction) {
@@ -681,11 +682,13 @@ async function loadActionContent(actionPath) {
         } else if (actionPath.startsWith('web_admin/')) {
             initializeWebAdminControls();
         } else if (actionPath === 'listas_compras/gestion') {
-            initializeShoppingListManagement(); // <-- AÑADIDO
+            initializeShoppingListManagement(); 
         } else if (actionPath === 'listas_compras/crear_lista') {
-            initializeCreateShoppingListForm(); // <-- AÑADIDO
-        }else if (actionPath === 'tiendas/gestion') { // <--- AÑADIR ESTE BLOQUE
+            initializeCreateShoppingListForm(); 
+        }else if (actionPath === 'tiendas/gestion') {
             initializeTiendaManagement();
+        }else if (actionPath === 'proveedores/gestion') { 
+            initializeProveedorManagement();
         }
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
@@ -1427,6 +1430,18 @@ mainContent.addEventListener('click', async (event) => {
         }
         return;
     }
+
+
+    if (target.classList.contains('delete-proveedor-btn')) {
+        const row = target.closest('tr');
+        const proveedorId = row.dataset.proveedorId;
+        const proveedorName = row.querySelector('td:nth-child(2)').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar al proveedor "${proveedorName}"?`)) {
+            deleteProveedor(proveedorId);
+        }
+        return;
+    }
+
 });
 
 
@@ -2222,6 +2237,8 @@ mainContent.addEventListener('focusout', (event) => {
         const productId = row.dataset.productId;
         const departmentId = row.dataset.departmentId;
         const tiendaId = row.dataset.tiendaId; // Se define la variable que faltaba
+        const proveedorId = row.dataset.proveedorId; // <-- AÑADIDO
+        
         const field = cell.dataset.field;
 
         // Llama a la función de guardado correspondiente
@@ -2231,6 +2248,8 @@ mainContent.addEventListener('focusout', (event) => {
             saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
         } else if (tiendaId) {
             saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
+        }else if (proveedorId) { // <-- AÑADIDO
+            saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
         }
     }
 });
@@ -3655,5 +3674,150 @@ async function saveTiendaFieldUpdate(tiendaId, field, value, cell) {
         alert("Error al guardar el cambio.");
     }
 }
+
+
+
+
+
+
+/******************************************************************/
+// EN: admin/js/admin.js -> AÑADIR AL FINAL DEL ARCHIVO
+
+// --- INICIO: LÓGICA PARA PROVEEDORES ---
+
+function initializeProveedorManagement() {
+    fetchAndRenderProveedores();
+    const createForm = document.getElementById('create-proveedor-form');
+    if (createForm) {
+        createForm.addEventListener('submit', handleProveedorFormSubmit);
+    }
+}
+
+async function fetchAndRenderProveedores() {
+    const tableBody = document.getElementById('proveedores-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando proveedores...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getProveedores`);
+        const result = await response.json();
+        tableBody.innerHTML = '';
+        if (result.success && result.proveedores.length > 0) {
+            result.proveedores.forEach(proveedor => {
+                const row = document.createElement('tr');
+                row.dataset.proveedorId = proveedor.id_proveedor;
+                row.innerHTML = `
+                    <td>${proveedor.codigo_proveedor}</td>
+                    <td class="editable" data-field="nombre_proveedor">${proveedor.nombre_proveedor}</td>
+                    <td class="editable" data-field="telefono">${proveedor.telefono || ''}</td>
+                    <td class="editable" data-field="direccion">${proveedor.direccion || ''}</td>
+                    <td>
+                        <button class="action-btn delete-proveedor-btn" style="background-color: #f8d7da;">Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="5">No hay proveedores registrados.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error al cargar proveedores.</td></tr>`;
+    }
+}
+
+async function handleProveedorFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-proveedor-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    const data = {
+        codigo_proveedor: form.querySelector('#codigo_proveedor').value,
+        nombre_proveedor: form.querySelector('#nombre_proveedor').value,
+        telefono: form.querySelector('#telefono_proveedor').value,
+        direccion: form.querySelector('#direccion_proveedor').value,
+    };
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createProveedor`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        form.reset();
+        fetchAndRenderProveedores();
+        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Crear Proveedor';
+    }
+}
+
+async function deleteProveedor(proveedorId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteProveedor`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_proveedor: proveedorId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        document.querySelector(`tr[data-proveedor-id="${proveedorId}"]`).remove();
+        alert('Proveedor eliminado.');
+
+    } catch (error) {
+        alert(`Error al eliminar: ${error.message}`);
+    }
+}
+
+async function saveProveedorFieldUpdate(proveedorId, field, value, cell) {
+    const originalText = cell.textContent;
+    cell.textContent = 'Guardando...';
+    
+    const row = cell.closest('tr');
+    const dataToSend = {
+        id_proveedor: proveedorId,
+        nombre_proveedor: row.querySelector('[data-field="nombre_proveedor"]').textContent,
+        telefono: row.querySelector('[data-field="telefono"]').textContent,
+        direccion: row.querySelector('[data-field="direccion"]').textContent
+    };
+    dataToSend[field] = value;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateProveedor`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        cell.textContent = value;
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.textContent = originalText;
+        alert("Error al guardar el cambio.");
+    }
+}
+
+// --- FIN: LÓGICA PARA PROVEEDORES ---
+
+
+
+
+
+
+
 });
 

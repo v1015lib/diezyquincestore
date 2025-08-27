@@ -30,10 +30,94 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+/**********************************************************************/
+// EN: api/index.php
 
+// --- INICIO: MÓDULO DE PROVEEDORES ---
+case 'admin/getProveedores':
+    try {
+        $stmt = $pdo->query("SELECT id_proveedor, codigo_proveedor, nombre_proveedor, telefono, direccion FROM proveedor ORDER BY nombre_proveedor ASC");
+        $proveedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'proveedores' => $proveedores]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los proveedores.']);
+    }
+    break;
 
+case 'admin/createProveedor':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $codigo = trim($data['codigo_proveedor'] ?? '');
+    $nombre = trim($data['nombre_proveedor'] ?? '');
+    $telefono = trim($data['telefono'] ?? '');
+    $direccion = trim($data['direccion'] ?? '');
 
+    if (empty($codigo) || empty($nombre)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'El código y el nombre del proveedor son obligatorios.']);
+        break;
+    }
+    try {
+        $stmt = $pdo->prepare("INSERT INTO proveedor (codigo_proveedor, nombre_proveedor, telefono, direccion) VALUES (:codigo, :nombre, :telefono, :direccion)");
+        $stmt->execute([':codigo' => $codigo, ':nombre' => $nombre, ':telefono' => $telefono, ':direccion' => $direccion]);
+        echo json_encode(['success' => true, 'message' => 'Proveedor creado con éxito.']);
+    } catch (PDOException $e) {
+        http_response_code(409); 
+        echo json_encode(['success' => false, 'error' => 'Ya existe un proveedor con ese código o nombre.']);
+    }
+    break;
 
+case 'admin/updateProveedor':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id = filter_var($data['id_proveedor'] ?? 0, FILTER_VALIDATE_INT);
+    $nombre = trim($data['nombre_proveedor'] ?? '');
+    $telefono = trim($data['telefono'] ?? '');
+    $direccion = trim($data['direccion'] ?? '');
+
+    if (!$id || empty($nombre)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos para la actualización.']);
+        break;
+    }
+    try {
+        $stmt = $pdo->prepare("UPDATE proveedor SET nombre_proveedor = :nombre, telefono = :telefono, direccion = :direccion WHERE id_proveedor = :id");
+        $stmt->execute([':nombre' => $nombre, ':telefono' => $telefono, ':direccion' => $direccion, ':id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Proveedor actualizado.']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar el proveedor.']);
+    }
+    break;
+
+case 'admin/deleteProveedor':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id = filter_var($data['id_proveedor'] ?? 0, FILTER_VALIDATE_INT);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'ID de proveedor no válido.']);
+        break;
+    }
+    try {
+        $stmt = $pdo->prepare("DELETE FROM proveedor WHERE id_proveedor = :id");
+        $stmt->execute([':id' => $id]);
+        if ($stmt->rowCount() > 0) {
+            echo json_encode(['success' => true, 'message' => 'Proveedor eliminado con éxito.']);
+        } else {
+            throw new Exception('El proveedor no fue encontrado o ya fue eliminado.');
+        }
+    } catch (PDOException $e) {
+        if ($e->getCode() == '23000') {
+            http_response_code(409); // Conflict
+            echo json_encode(['success' => false, 'error' => 'No se puede eliminar. Este proveedor tiene productos asociados.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error de base de datos.']);
+        }
+    }
+    break;
+// --- FIN: MÓDULO DE PROVEEDORES ---
+
+/*********************************************************************/
 case 'admin/getTiendas':
     // Lógica para obtener todas las tiendas de la base de datos
     try {
