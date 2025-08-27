@@ -202,11 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('offer-form').dispatchEvent(new Event('submit'));
     }
 
-// PEGA ESTE BLOQUE DESPUÉS DE LA FUNCIÓN fetchAndRenderProducts()
 
 // --- LÓGICA PARA CLIENTES ---
 
-// REEMPLAZA esta función completa en admin/js/admin.js
 
 async function fetchAndRenderCustomers(searchTerm = '') {
     const tableBody = document.getElementById('customer-table-body');
@@ -483,259 +481,7 @@ async function showProcessedFiles() {
 
     // --- MANEJADORES DE EVENTOS EXISTENTES (MODIFICADOS) ---
 
- // REEMPLAZA este event listener completo en admin/js/admin.js
 
-mainContent.addEventListener('click', async (event) => {
-    const target = event.target;
-
-        if (event.target.id === 'start-processing-btn') {
-        const button = event.target;
-        const outputConsole = document.getElementById('processor-output');
-        const rotationOption = document.getElementById('rotation-option').value; 
-        
-        // Desactiva el botón y muestra que está trabajando
-        button.disabled = true;
-        button.textContent = 'Procesando...';
-        outputConsole.textContent = 'Iniciando...\n';
-        document.getElementById('results-container').classList.add('hidden');
-
-        try {
-            // Llama a la API que ejecuta el script de procesamiento en el backend
-            let apiUrl = '../api/index.php?resource=run_processor';
-            if (rotationOption) {
-                apiUrl += `&rotate=${rotationOption}`; // Añade el parámetro de rotación
-            }
-
-            const response = await fetch(apiUrl);
-            // Lee y muestra la salida del proceso en tiempo real
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                outputConsole.textContent += decoder.decode(value, { stream: true });
-                outputConsole.scrollTop = outputConsole.scrollHeight;
-            }
-            
-            outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
-            await showProcessedFiles(); // Muestra los resultados
-
-        } catch (error) {
-            outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
-        } finally {
-            button.disabled = false;
-            button.textContent = 'Iniciar Proceso';
-        }
-    }
-
-    /**
-     * CASO 2: Cuando se selecciona/deselecciona una imagen de la lista.
-     */
-    if (event.target.closest('.processed-file-item')) {
-        const item = event.target.closest('.processed-file-item');
-        const checkbox = item.querySelector('.processed-file-checkbox');
-        // Permite hacer clic en cualquier parte del item para marcar el checkbox
-        if (event.target.tagName !== 'INPUT') {
-            checkbox.checked = !checkbox.checked;
-        }
-        item.classList.toggle('selected', checkbox.checked);
-        updateProcessorButtons(); // Actualiza el estado de los botones
-    }
-
-    /**
-     * CASO 3: Cuando se hace clic en "Subir a Galería" (al bucket).
-     */
-    if (event.target.id === 'upload-to-gallery-btn') {
-        // Obtiene los nombres de los archivos seleccionados
-        const selectedFiles = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
-            .map(cb => cb.closest('.processed-file-item').dataset.fileName);
-        
-        const feedbackDiv = document.getElementById('results-feedback');
-        const button = event.target;
-        if (selectedFiles.length === 0) return;
-
-        feedbackDiv.textContent = `Subiendo ${selectedFiles.length} archivo(s) a la galería...`;
-        button.disabled = true;
-
-        try {
-            // Llama a la API que sube los archivos al bucket de Google Cloud
-            const response = await fetch('../api/index.php?resource=admin/uploadProcessedToBucket', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ files: selectedFiles })
-            });
-            const result = await response.json();
-
-            if (!response.ok || !result.success) throw new Error(result.error || 'Error del servidor.');
-
-            feedbackDiv.textContent = result.message;
-            feedbackDiv.style.color = 'green';
-        } catch (error) {
-            feedbackDiv.textContent = `Error al subir: ${error.message}`;
-            feedbackDiv.style.color = 'red';
-        }
-    }
-
-    /**
-     * CASO 4: Cuando se hace clic en "Descargar ZIP".
-     */
-    if (event.target.id === 'download-zip-btn') {
-        const files = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
-            .map(cb => cb.closest('.processed-file-item').dataset.fileName);
-        
-        // Llama a la API que genera y devuelve un ZIP
-        const response = await fetch('../api/index.php?resource=download_processed_images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ files })
-        });
-
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            // Obtiene el nombre del archivo de las cabeceras de la respuesta
-            const disposition = response.headers.get('Content-Disposition');
-            const fileNameMatch = disposition.match(/filename="(.+?)"/);
-            a.download = fileNameMatch ? fileNameMatch[1] : 'imagenes.zip';
-            document.body.appendChild(a);
-            a.click(); // Inicia la descarga
-            window.URL.revokeObjectURL(url);
-        } else {
-            alert('Error al crear el archivo ZIP.');
-        }
-    }
-
-    /**
-     * CASO 5: Cuando se hace clic en "Limpiar Resultados".
-     */
-    if (event.target.id === 'clear-results-btn') {
-        document.getElementById('processed-files-list').innerHTML = '';
-        document.getElementById('results-container').classList.add('hidden');
-    }
-    // --- Lógica de la cinta de opciones (Ribbon) ---
-    const actionButton = target.closest('.action-btn[data-action]');
-    if (actionButton && !actionButton.id.startsWith('batch-action')) {
-        const currentModule = document.querySelector('.nav-link.active')?.dataset.module;
-        const actionToLoad = actionButton.dataset.action;
-        if (actionToLoad && actionToLoad.startsWith(currentModule)) {
-            mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-            actionButton.classList.add('active');
-            await loadActionContent(actionToLoad);
-        }
-        return; 
-    }
-
-    // --- Lógica para la tabla de Productos ---
-    if (target.matches('.product-table th.sortable')) {
-        const newSortBy = target.dataset.sort;
-        if (newSortBy === currentFilters.sort.by) {
-            currentFilters.sort.order = currentFilters.sort.order === 'ASC' ? 'DESC' : 'ASC';
-        } else {
-            currentFilters.sort.by = newSortBy;
-            currentFilters.sort.order = 'ASC';
-        }
-        currentFilters.page = 1;
-        await fetchAndRenderProducts();
-        return;
-    }
-
-    if (target.id === 'batch-action-execute') {
-        const selector = document.getElementById('batch-action-selector');
-        const action = selector.value;
-        const productIds = Array.from(document.querySelectorAll('.product-checkbox:checked'))
-            .map(cb => cb.closest('tr').dataset.productId);
-
-        if (!action || productIds.length === 0) return;
-
-        if (action === 'change-department') {
-            await openDepartmentModal();
-        } else {
-            if (confirm(`¿Estás seguro de que quieres ejecutar la acción sobre ${productIds.length} productos?`)) {
-                try {
-                    const response = await fetch(`${API_BASE_URL}?resource=admin/batchAction`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action, productIds })
-                    });
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-                    alert(result.message);
-                    currentFilters.page = 1; 
-                    await fetchAndRenderProducts();
-                } catch (error) {
-                    alert(`Error: ${error.message}`);
-                }
-            }
-        }
-        return;
-    }
-
-    if (target.classList.contains('update-order-status-btn')) {
-        const cartId = target.dataset.cartId;
-        const newStatusId = target.dataset.newStatusId;
-        const actionText = target.textContent.trim();
-
-        if (confirm(`¿Estás seguro de que quieres "${actionText}" el pedido #${cartId}?`)) {
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/updateOrderStatus`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cart_id: cartId, status_id: newStatusId })
-                });
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error);
-                
-                // Refresca la lista para mostrar el cambio de estado
-                fetchAndRenderWebOrders(); 
-            } catch (error) {
-                alert(`Error al actualizar el pedido: ${error.message}`);
-            }
-        }
-        return; // Detiene la ejecución para no interferir con otros listeners
-    }
-    
-    
-    // --- Lógica para el botón de editar Cliente ---
-    if (target.classList.contains('edit-customer-btn')) {
-        const customerId = target.closest('tr').dataset.customerId;
-        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-        mainContent.querySelector('[data-action="clientes/modificar_cliente"]')?.classList.add('active');
-        await loadActionContent('clientes/modificar_cliente');
-        try {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomerDetails&id=${customerId}`);
-            const result = await response.json();
-            if (result.success) await renderEditCustomerForm(result.customer);
-            else throw new Error(result.error);
-        } catch (error) {
-            document.getElementById('edit-customer-container').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-        }
-        return;
-    }
-    
-    // --- Lógica para el botón de editar Producto ---
-    if (target.classList.contains('edit-product-btn')) {
-        const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
-        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-        mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
-        await loadActionContent('productos/modificar_producto');
-        const searchInput = document.getElementById('product-search-to-edit');
-        const searchForm = document.getElementById('product-search-form');
-        if (searchInput && searchForm) {
-            searchInput.value = productCode;
-            searchForm.dispatchEvent(new Event('submit'));
-        }
-        return;
-    }
-    
-    // --- Lógica para abrir la galería de imágenes ---
-    if (target.id === 'open-gallery-btn') {
-        openImageGallery();
-        return;
-    }
-});
 
 
     // --- LÓGICA DE CARGA Y RENDERIZADO DE PRODUCTOS (SCROLL INFINITO) ---
@@ -860,6 +606,8 @@ async function loadModule(moduleName) {
             case 'pos': defaultAction = 'pos/vista_principal'; break; // <--- CORRECCIÓN AQUÍ
             case 'web_admin': defaultAction = 'web_admin/sliders'; break;
             case 'listas_compras': defaultAction = 'listas_compras/gestion'; break;
+            case 'tiendas': defaultAction = 'tiendas/gestion'; break; // <--- AÑADIR ESTA LÍNEA
+
 
         }
         if (defaultAction) {
@@ -936,6 +684,8 @@ async function loadActionContent(actionPath) {
             initializeShoppingListManagement(); // <-- AÑADIDO
         } else if (actionPath === 'listas_compras/crear_lista') {
             initializeCreateShoppingListForm(); // <-- AÑADIDO
+        }else if (actionPath === 'tiendas/gestion') { // <--- AÑADIR ESTE BLOQUE
+            initializeTiendaManagement();
         }
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
@@ -1500,7 +1250,186 @@ async function renderEditForm(product) {
     });
 
     let searchTimeout;
-// REEMPLAZA ESTE EVENT LISTENER
+
+// REEMPLAZA LOS TRES BLOQUES DE 'mainContent.addEventListener('click', ...)' CON ESTE ÚNICO BLOQUE
+
+mainContent.addEventListener('click', async (event) => {
+    const target = event.target;
+
+    // --- LÓGICA PARA BOTONES DE LA CINTA DE OPCIONES ---
+    const actionButton = target.closest('.action-btn[data-action]');
+    if (actionButton && !actionButton.id.startsWith('batch-action')) {
+        const currentModule = document.querySelector('.nav-link.active')?.dataset.module;
+        const actionToLoad = actionButton.dataset.action;
+
+        if (actionToLoad && actionToLoad.startsWith(currentModule)) {
+            mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+            actionButton.classList.add('active');
+            await loadActionContent(actionToLoad);
+        }
+        return; 
+    }
+
+    // --- LÓGICA DEL PROCESADOR DE IMÁGENES ---
+    if (target.id === 'start-processing-btn') {
+        const button = event.target;
+        const outputConsole = document.getElementById('processor-output');
+        const rotationOption = document.getElementById('rotation-option').value; 
+        
+        button.disabled = true;
+        button.textContent = 'Procesando...';
+        outputConsole.textContent = 'Iniciando...\n';
+        document.getElementById('results-container').classList.add('hidden');
+
+        try {
+            let apiUrl = '../api/index.php?resource=run_processor';
+            if (rotationOption) {
+                apiUrl += `&rotate=${rotationOption}`;
+            }
+
+            const response = await fetch(apiUrl);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                outputConsole.textContent += decoder.decode(value, { stream: true });
+                outputConsole.scrollTop = outputConsole.scrollHeight;
+            }
+            
+            outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
+            await showProcessedFiles();
+
+        } catch (error) {
+            outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Iniciar Proceso';
+        }
+        return;
+    }
+    
+    // --- LÓGICA PARA BOTONES DE ACCIÓN EN FILAS DE TABLAS ---
+
+    // Botón Eliminar Tienda (AHORA FUNCIONARÁ)
+    if (target.classList.contains('delete-tienda-btn')) {
+        const row = target.closest('tr');
+        const tiendaId = row.dataset.tiendaId;
+        const tiendaName = row.querySelector('td:first-child').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar la tienda "${tiendaName}"?`)) {
+            deleteTienda(tiendaId);
+        }
+        return;
+    }
+
+    // Botón Eliminar Departamento
+    if (target.classList.contains('delete-department-btn')) {
+        const row = target.closest('tr');
+        const departmentId = row.dataset.departmentId;
+        const departmentName = row.querySelector('.editable').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar el departamento "${departmentName}"?`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/deleteDepartment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: departmentId })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                row.remove();
+                alert(result.message);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+        return;
+    }
+
+    // Botón Actualizar Estado de Pedido Web
+    if (target.classList.contains('update-order-status-btn')) {
+        const cartId = target.dataset.cartId;
+        const newStatusId = target.dataset.newStatusId;
+        const actionText = target.textContent.trim();
+        if (confirm(`¿Estás seguro de que quieres "${actionText}" el pedido #${cartId}?`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/updateOrderStatus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cart_id: cartId, status_id: newStatusId })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                fetchAndRenderWebOrders();
+            } catch (error) {
+                alert(`Error al actualizar el pedido: ${error.message}`);
+            }
+        }
+        return;
+    }
+
+    // Botón Editar Cliente
+    if (target.classList.contains('edit-customer-btn')) {
+        const customerId = target.closest('tr').dataset.customerId;
+        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+        mainContent.querySelector('[data-action="clientes/modificar_cliente"]')?.classList.add('active');
+        await loadActionContent('clientes/modificar_cliente');
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomerDetails&id=${customerId}`);
+            const result = await response.json();
+            if (result.success) {
+                await renderEditCustomerForm(result.customer);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            document.getElementById('edit-customer-container').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+        }
+        return;
+    }
+
+    // Botón Eliminar Cliente
+    if (target.classList.contains('delete-customer-btn')) {
+        const row = target.closest('tr');
+        const customerId = row.dataset.customerId;
+        const customerName = row.querySelector('td:nth-child(2)').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar al cliente "${customerName}"? Esta acción es irreversible.`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/deleteCustomer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_cliente: customerId })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    row.remove();
+                    alert(result.message);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                alert(`Error al eliminar: ${error.message}`);
+            }
+        }
+        return;
+    }
+
+    // Botón Editar Producto
+    if (target.classList.contains('edit-product-btn')) {
+        const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
+        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+        mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
+        await loadActionContent('productos/modificar_producto');
+        const searchInput = document.getElementById('product-search-to-edit');
+        const searchForm = document.getElementById('product-search-form');
+        if (searchInput && searchForm) {
+            searchInput.value = productCode;
+            searchForm.dispatchEvent(new Event('submit'));
+        }
+        return;
+    }
+});
+
+
 mainContent.addEventListener('input', (event) => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(async () => {
@@ -1517,16 +1446,16 @@ mainContent.addEventListener('input', (event) => {
 });
 
 // REEMPLAZA este event listener completo en admin/js/admin.js
+// EN: admin/js/admin.js
 
 mainContent.addEventListener('change', async (event) => {
-    const target = event.target;
+    const target = event.target; // <--- LÍNEA AÑADIDA
 
-
-       if (target.id === 'activity-date-filter') {
+    if (target.id === 'activity-date-filter') {
         fetchAndRenderActivityLog();
-        return; // Detiene la ejecución para no interferir con otros filtros
+        return;
     }
-    // Lógica para seleccionar todos los productos y actualizar acciones en lote
+    
     if (target.id === 'select-all-products' || target.classList.contains('product-checkbox')) {
         if (target.id === 'select-all-products') {
             mainContent.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = target.checked);
@@ -1534,20 +1463,16 @@ mainContent.addEventListener('change', async (event) => {
         updateBatchActionsState();
     }
     
-    // Lógica para habilitar el botón de ejecutar al cambiar la acción
     if (target.id === 'batch-action-selector') {
         const batchButton = mainContent.querySelector('#batch-action-execute');
         if(batchButton) batchButton.disabled = !target.value;
     }
 
-    // Lógica para el filtro de departamento
     if (target.id === 'department-filter') {
         currentFilters.department = target.value;
         currentFilters.page = 1;
         await fetchAndRenderProducts();
-
     }
-
 });
 
     const handleScroll = async () => {
@@ -1562,93 +1487,7 @@ mainContent.addEventListener('change', async (event) => {
         }
     };
 
-// REEMPLAZA ESTE EVENT LISTENER
-mainContent.addEventListener('click', async (event) => {
-    const target = event.target;
 
-    // --- Lógica para el botón de editar cliente ---
-    if (target.classList.contains('edit-customer-btn')) {
-        const customerId = target.closest('tr').dataset.customerId;
-        
-        // Cambia visualmente la pestaña activa en la cinta de opciones
-        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-        mainContent.querySelector('[data-action="clientes/modificar_cliente"]')?.classList.add('active');
-        
-        // Carga el módulo de modificación y luego los datos del cliente
-        await loadActionContent('clientes/modificar_cliente');
-        
-        try {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/getCustomerDetails&id=${customerId}`);
-            const result = await response.json();
-            if (result.success) {
-                await renderEditCustomerForm(result.customer);
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (error) {
-             document.getElementById('edit-customer-container').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-        }
-        return; // Detiene la ejecución para no interferir con otros listeners
-    }
-
-    // --- Lógica para el botón de editar producto (y otros existentes) ---
-    if (target.classList.contains('edit-product-btn')) {
-        const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
-        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-        mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
-        await loadActionContent('productos/modificar_producto');
-        const searchInput = document.getElementById('product-search-to-edit');
-        const searchForm = document.getElementById('product-search-form');
-        if (searchInput && searchForm) {
-            searchInput.value = productCode;
-            searchForm.dispatchEvent(new Event('submit'));
-        }
-        return;
-    }
-       if (target.classList.contains('delete-customer-btn')) {
-        const row = target.closest('tr');
-        const customerId = row.dataset.customerId;
-        const customerName = row.querySelector('td:nth-child(2)').textContent;
-
-        if (confirm(`¿Estás seguro de que quieres eliminar al cliente "${customerName}"? Esta acción es irreversible.`)) {
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/deleteCustomer`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_cliente: customerId })
-                });
-                
-                const result = await response.json();
-
-                if (result.success) {
-
-                    row.remove();
-                    alert(result.message); // O muestra una notificación más sutil
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                alert(`Error al eliminar: ${error.message}`);
-            }
-        }
-        return;
-    }
-    // --- Lógica general para los botones de la cinta de opciones ---
-    const actionButton = target.closest('.action-btn[data-action]');
-    if (actionButton && !actionButton.id.startsWith('batch-action')) {
-        const currentModule = document.querySelector('.nav-link.active')?.dataset.module;
-        const actionToLoad = actionButton.dataset.action;
-
-        // Solo procesa si el botón pertenece al módulo activo
-        if (actionToLoad.startsWith(currentModule)) {
-            mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-            actionButton.classList.add('active');
-            loadActionContent(actionToLoad);
-        }
-    }
-    
-
-});
     
     async function openDepartmentModal() {
         if (!modal) return;
@@ -2334,56 +2173,8 @@ async function fetchAndRenderDepartments() {
         tableBody.innerHTML = '<tr><td colspan="4" style="color:red;">Error al cargar los departamentos.</td></tr>';
     }
 }
-// Delegación de eventos para los botones de eliminar
-mainContent.addEventListener('click', async (event) => {
-    if (event.target.classList.contains('delete-department-btn')) {
-        const row = event.target.closest('tr');
-        const departmentId = row.dataset.departmentId;
-        const departmentName = row.querySelector('.editable').textContent;
 
-        if (confirm(`¿Estás seguro de que quieres eliminar el departamento "${departmentName}"?`)) {
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/deleteDepartment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: departmentId })
-                });
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error);
-                
-                row.remove(); // Elimina la fila visualmente
-                alert(result.message);
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-            }
-        }
-    }
 
-        if (target.classList.contains('update-order-status-btn')) {
-        const cartId = target.dataset.cartId;
-        const newStatusId = target.dataset.newStatusId;
-        const actionText = target.textContent.trim();
-
-        if (confirm(`¿Estás seguro de que quieres "${actionText}" el pedido #${cartId}?`)) {
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/updateOrderStatus`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cart_id: cartId, status_id: newStatusId })
-                });
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error);
-                
-                // Refresca la lista para mostrar el cambio de estado
-                fetchAndRenderWebOrders(); 
-            } catch (error) {
-                alert(`Error al actualizar el pedido: ${error.message}`);
-            }
-        }
-        return; // Detiene la ejecución para no interferir con otros listeners
-    }
-
-});
 
 // Listener para guardar cambios al editar en línea
 async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
@@ -2406,33 +2197,40 @@ async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
 }
 
 // Sobrescribimos el listener de focusout para que también maneje la tabla de departamentos
+// EN admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN COMPLETA)
+
 mainContent.addEventListener('focusout', (event) => {
+    // Verifica si el elemento que perdió el foco es un input dentro de una celda editable
     if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
         const input = event.target;
         const cell = input.parentElement;
         const originalValue = input.dataset.originalValue;
         const newValue = input.value.trim();
-        
-        // Determinar si es un producto o un departamento
-        const productRow = cell.closest('tr[data-product-id]');
-        const departmentRow = cell.closest('tr[data-department-id]');
+        const row = cell.closest('tr');
 
-        if (newValue !== originalValue && newValue !== '') {
-             if (productRow) {
-                const field = cell.dataset.field;
-                const productId = productRow.dataset.productId;
-                saveFieldUpdate(productId, field, newValue, cell);
-             } else if (departmentRow) {
-                const field = cell.dataset.field;
-                const departmentId = departmentRow.dataset.departmentId;
-                saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
-             }
-        } else {
-             if (productRow) {
-                cell.textContent = cell.dataset.field === 'precio_venta' ? `$${parseFloat(originalValue).toFixed(2)}` : originalValue;
-             } else if(departmentRow) {
-                cell.textContent = originalValue;
-             }
+        // Si el valor no cambió o está vacío, simplemente revierte al texto original
+        if (newValue === originalValue || newValue === '') {
+            cell.textContent = originalValue;
+            // Si era un precio, añade el símbolo de dólar de nuevo
+            if (cell.dataset.field === 'precio_venta') {
+                cell.textContent = `$${parseFloat(originalValue).toFixed(2)}`;
+            }
+            return;
+        }
+
+        // Determina qué tipo de fila es (producto, departamento o tienda)
+        const productId = row.dataset.productId;
+        const departmentId = row.dataset.departmentId;
+        const tiendaId = row.dataset.tiendaId; // Se define la variable que faltaba
+        const field = cell.dataset.field;
+
+        // Llama a la función de guardado correspondiente
+        if (productId) {
+            saveFieldUpdate(productId, field, newValue, cell);
+        } else if (departmentId) {
+            saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
+        } else if (tiendaId) {
+            saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
         }
     }
 });
@@ -3490,7 +3288,8 @@ async function fetchAndRenderShoppingLists(date) {
     }
 }
 
-async function initializeCreateShoppingListForm() { // <-- FUNCIÓN ACTUALIZADA
+
+async function initializeCreateShoppingListForm() {
     const form = document.getElementById('create-shopping-list-form');
     const providerSelect = document.getElementById('id_proveedor');
     if (!form || !providerSelect) return;
@@ -3724,6 +3523,137 @@ async function deleteShoppingList(listId, rowElement) { // <-- NUEVA FUNCIÓN
 }
 
 // --- FIN: MÓDULO LISTAS DE COMPRAS ---
+/**********************************************************************************/
+// EN admin/js/admin.js (Añadir al final)
 
+// --- Lógica para el módulo de Tiendas ---
+
+function initializeTiendaManagement() {
+    fetchAndRenderTiendas();
+
+    const createForm = document.getElementById('create-tienda-form');
+    if (createForm) {
+        createForm.addEventListener('submit', handleTiendaFormSubmit);
+    }
+}
+
+async function fetchAndRenderTiendas() {
+    const tableBody = document.getElementById('tiendas-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="4">Cargando tiendas...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getTiendas`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.tiendas.length > 0) {
+            result.tiendas.forEach(tienda => {
+                const row = document.createElement('tr');
+                row.dataset.tiendaId = tienda.id_tienda;
+                row.innerHTML = `
+                    <td class="editable" data-field="nombre_tienda">${tienda.nombre_tienda}</td>
+                    <td class="editable" data-field="direccion">${tienda.direccion || ''}</td>
+                    <td class="editable" data-field="telefono">${tienda.telefono || ''}</td>
+                    <td>
+                        <button class="action-btn delete-tienda-btn" style="background-color: #f8d7da;">Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="4">No hay tiendas registradas.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar tiendas.</td></tr>`;
+    }
+}
+
+async function handleTiendaFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-tienda-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    const data = {
+        nombre_tienda: form.querySelector('#nombre_tienda').value,
+        direccion: form.querySelector('#direccion_tienda').value,
+        telefono: form.querySelector('#telefono_tienda').value,
+    };
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createTienda`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        form.reset();
+        fetchAndRenderTiendas(); // Recargar la lista
+        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Crear Tienda';
+    }
+}
+
+async function deleteTienda(tiendaId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteTienda`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_tienda: tiendaId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        document.querySelector(`tr[data-tienda-id="${tiendaId}"]`).remove();
+        alert('Tienda eliminada.');
+
+    } catch (error) {
+        alert(`Error al eliminar: ${error.message}`);
+    }
+}
+
+async function saveTiendaFieldUpdate(tiendaId, field, value, cell) {
+    const originalText = cell.textContent;
+    cell.textContent = 'Guardando...';
+    
+    // Obtenemos todos los datos de la fila para enviarlos juntos
+    const row = cell.closest('tr');
+    const dataToSend = {
+        id_tienda: tiendaId,
+        nombre_tienda: row.querySelector('[data-field="nombre_tienda"]').textContent,
+        direccion: row.querySelector('[data-field="direccion"]').textContent,
+        telefono: row.querySelector('[data-field="telefono"]').textContent
+    };
+    // Actualizamos el valor que acaba de cambiar
+    dataToSend[field] = value;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateTienda`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        cell.textContent = value;
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.textContent = originalText;
+        alert("Error al guardar el cambio.");
+    }
+}
 });
 

@@ -27,6 +27,12 @@
             <li class="separator"></li>
             <?php endif; ?>
             
+            <?php if (can_access('tiendas', $rol, $permisos)): ?>
+            <li><a href="#" class="nav-link" data-module="tiendas">
+                <span class="menu-icon">🏪</span>
+                <span class="menu-text">Tiendas</span>
+            </a></li>
+            <?php endif; ?>
             <?php /* INICIO DEL NUEVO BLOQUE POS */ ?>
             <?php if (can_access('pos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="pos">

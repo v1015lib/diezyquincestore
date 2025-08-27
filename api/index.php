@@ -31,7 +31,130 @@ try {
     switch ($resource) {
 
 
+
+
+
+case 'admin/getTiendas':
+    // Lógica para obtener todas las tiendas de la base de datos
+    try {
+        $stmt = $pdo->query("SELECT id_tienda, nombre_tienda, direccion, telefono FROM tiendas ORDER BY nombre_tienda ASC");
+        $tiendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'tiendas' => $tiendas]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las tiendas.']);
+    }
+    break;
+
+case 'admin/createTienda':
+    // Lógica para crear una nueva tienda
+    $data = json_decode(file_get_contents('php://input'), true);
+    $nombre = trim($data['nombre_tienda'] ?? '');
+    $direccion = trim($data['direccion'] ?? '');
+    $telefono = trim($data['telefono'] ?? '');
+
+    if (empty($nombre)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'El nombre de la tienda es obligatorio.']);
+        break;
+    }
+    try {
+        $stmt = $pdo->prepare("INSERT INTO tiendas (nombre_tienda, direccion, telefono) VALUES (:nombre, :direccion, :telefono)");
+        $stmt->execute([':nombre' => $nombre, ':direccion' => $direccion, ':telefono' => $telefono]);
+        echo json_encode(['success' => true, 'message' => 'Tienda creada con éxito.']);
+    } catch (PDOException $e) {
+        http_response_code(409); 
+        echo json_encode(['success' => false, 'error' => 'Ya existe una tienda con ese nombre.']);
+    }
+    break;
+
+case 'admin/updateTienda':
+    // Lógica para actualizar una tienda existente
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+    $nombre = trim($data['nombre_tienda'] ?? '');
+    $direccion = trim($data['direccion'] ?? '');
+    $telefono = trim($data['telefono'] ?? '');
+
+    if (!$id || empty($nombre)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
+        break;
+    }
+    try {
+        $stmt = $pdo->prepare("UPDATE tiendas SET nombre_tienda = :nombre, direccion = :direccion, telefono = :telefono WHERE id_tienda = :id");
+        $stmt->execute([':nombre' => $nombre, ':direccion' => $direccion, ':telefono' => $telefono, ':id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Tienda actualizada.']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar la tienda.']);
+    }
+    break;
+
+// EN: index.php
+
+case 'admin/deleteTienda':
+    // Lógica para eliminar una tienda
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'ID de tienda no válido.']);
+        break;
+    }
+    try {
+        // --- CORRECCIÓN ---
+        // Se ha comentado la verificación de usuarios porque la columna 'id_tienda'
+        // no existe en la tabla 'usuarios'.
+        
+        /*
+        $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM usuarios WHERE id_tienda = :id");
+        $stmt_check->execute([':id' => $id]);
+        if ($stmt_check->fetchColumn() > 0) {
+            throw new Exception('No se puede eliminar. Esta tienda tiene empleados asignados.');
+        }
+        */
+
+        // Ahora procede a eliminar directamente.
+        $stmt = $pdo->prepare("DELETE FROM tiendas WHERE id_tienda = :id");
+        $stmt->execute([':id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Tienda eliminada con éxito.']);
+    } catch (Exception $e) {
+        http_response_code(409); // Conflict
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*************************************************************************************/
+case 'admin/getProviders':
+    // require_admin(); // Seguridad
+    try {
+        $stmt = $pdo->query("SELECT id_proveedor, nombre_proveedor FROM proveedor ORDER BY nombre_proveedor ASC");
+        $providers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'providers' => $providers]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los proveedores.']);
+    }
+    break;
+
 /*************************************************************************************/
 /*************************************************************************************/
 case 'generate-invoice':
