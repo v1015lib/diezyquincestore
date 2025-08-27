@@ -2548,24 +2548,31 @@ async function populateMovementTypeFilter() {
 
 
 
+// EN: admin/js/admin.js
+// REEMPLAZA esta función completa
 async function fetchAndRenderInventoryHistory() {
     const tableBody = document.getElementById('inventory-history-tbody');
     if (!tableBody) return;
 
+    // --- INICIO DE LA MODIFICACIÓN ---
     const searchTerm = document.getElementById('inventory-history-search').value;
     const startDate = document.getElementById('start-date-filter').value;
     const endDate = document.getElementById('end-date-filter').value;
     const movementTypeId = document.getElementById('movement-type-filter').value;
+    
+    // Se obtiene el valor del nuevo filtro de tienda, si existe.
+    const storeId = document.getElementById('store-filter')?.value || '';
+    // --- FIN DE LA MODIFICACIÓN ---
 
     tableBody.innerHTML = '<tr><td colspan="8">Cargando historial...</td></tr>';
 
     try {
-        // CORRECCIÓN: Se eliminó el parámetro 'movementType' que ya no se usa.
         const params = new URLSearchParams({
             search: searchTerm,
             startDate: startDate,
             endDate: endDate,
-            movementTypeId: movementTypeId 
+            movementTypeId: movementTypeId,
+            storeId: storeId // Se añade el nuevo parámetro para la API
         });
         
         const response = await fetch(`${API_BASE_URL}?resource=admin/getInventoryHistory&${params.toString()}`);

@@ -1260,16 +1260,30 @@ case 'pos_reverse_sale':
 case 'pos_get_product_by_code':
     if (isset($_GET['code'])) {
         $code = trim($_GET['code']);
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se añaden los campos precio_oferta y precio_mayoreo a la consulta
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se obtiene el id_tienda de la sesión del empleado
+        $id_tienda_empleado = $_SESSION['id_tienda'] ?? 0;
+
+        if ($id_tienda_empleado <= 0) {
+            http_response_code(403); // Forbidden
+            echo json_encode(['success' => false, 'error' => 'El usuario no tiene una tienda asignada.']);
+            break;
+        }
+
+        // La consulta ahora une 'inventario_tienda' para obtener el stock específico de la tienda
         $stmt = $pdo->prepare(
-            "SELECT id_producto, codigo_producto, nombre_producto, precio_venta, precio_oferta, precio_mayoreo, stock_actual, usa_inventario 
-             FROM productos 
-             WHERE codigo_producto = :code AND estado = 1 
+            "SELECT 
+                p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, 
+                p.precio_oferta, p.precio_mayoreo, p.usa_inventario,
+                COALESCE(it.stock, 0) as stock_actual 
+             FROM productos p
+             LEFT JOIN inventario_tienda it ON p.id_producto = it.id_producto AND it.id_tienda = :id_tienda
+             WHERE p.codigo_producto = :code AND p.estado = 1 
              LIMIT 1"
         );
-        // --- FIN DE LA CORRECCIÓN ---
-        $stmt->execute([':code' => $code]);
+        $stmt->execute([':code' => $code, ':id_tienda' => $id_tienda_empleado]);
+        // --- FIN DE LA MODIFICACIÓN ---
+        
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($product) {
@@ -2734,11 +2748,35 @@ case 'admin/updateProduct':
     }
     break;
 
+// EN: api/index.php
+// REEMPLAZA este case completo
 case 'admin/getInventoryHistory':
     // require_admin();
     try {
         $params = [];
         $where_clauses = ["1=1"];
+
+        // --- INICIO DE LA LÓGICA MULTI-TIENDA ---
+        $userRole = $_SESSION['rol'] ?? 'empleado';
+        
+        if ($userRole === 'empleado') {
+            // Si es empleado, filtra por su tienda asignada OBLIGATORIAMENTE.
+            $id_tienda_empleado = $_SESSION['id_tienda'] ?? 0;
+            if ($id_tienda_empleado > 0) {
+                // Se necesita un JOIN para poder filtrar por la tienda donde ocurrió el movimiento
+                // Esta es una asunción de que los movimientos están ligados a una tienda.
+                // Si no es así, necesitaríamos añadir id_tienda a la tabla de movimientos.
+                // Por ahora, asumiremos que el filtro se hace sobre el usuario que lo hizo.
+                 $where_clauses[] = "u.id_tienda = :id_tienda_empleado";
+                 $params[':id_tienda_empleado'] = $id_tienda_empleado;
+            }
+        } else if ($userRole === 'administrador' && !empty($_GET['storeId'])) {
+            // Si es admin y seleccionó una tienda, filtra por esa tienda.
+            $where_clauses[] = "u.id_tienda = :id_tienda_admin";
+            $params[':id_tienda_admin'] = (int)$_GET['storeId'];
+        }
+        // Si es admin y no selecciona tienda, ve todo.
+        // --- FIN DE LA LÓGICA MULTI-TIENDA ---
 
         if (!empty($_GET['search'])) {
             $where_clauses[] = "(p.nombre_producto LIKE :search_name OR p.codigo_producto LIKE :search_code)";
@@ -4035,6 +4073,7 @@ case 'toggle-inventory':
     
     // Reemplaza este case en tu api/index.php
 
+
 case 'admin/getProducts':
     // Lógica de paginación y filtros
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -4043,18 +4082,18 @@ case 'admin/getProducts':
     $sort_by_key = $_GET['sort_by'] ?? 'nombre_producto';
     $order = isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC' ? 'DESC' : 'ASC';
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     $allowed_sorts = [
         'nombre_producto' => 'p.nombre_producto', 
         'departamento' => 'd.departamento',
         'precio_venta' => 'p.precio_venta', 
         'nombre_estado' => 'e.nombre_estado',
-        'stock_actual' => 'total_stock', // Ahora ordenamos por el alias de la suma
+        // --- INICIO DE LA CORRECCIÓN ---
+        'stock_actual' => 'stock_actual', // Se usa el mismo alias que en el SELECT
+        // --- FIN DE LA CORRECCIÓN ---
         'usa_inventario' => 'p.usa_inventario'
     ];
     $sort_column = $allowed_sorts[$sort_by_key] ?? $allowed_sorts['nombre_producto'];
 
-    // Se añade LEFT JOIN a inventario_tienda
     $base_query = "FROM productos p 
                    JOIN departamentos d ON p.departamento = d.id_departamento 
                    JOIN estados e ON p.estado = e.id_estado
@@ -4076,7 +4115,6 @@ case 'admin/getProducts':
 
     $where_sql = !empty($where_clauses) ? " WHERE " . implode(" AND ", $where_clauses) : "";
     
-    // GROUP BY es necesario para que SUM() funcione
     $group_by_sql = " GROUP BY p.id_producto ";
 
     $count_sql = "SELECT COUNT(DISTINCT p.id_producto) " . $base_query . $where_sql;
@@ -4085,13 +4123,11 @@ case 'admin/getProducts':
     $total_products = $stmt_count->fetchColumn();
     $total_pages = ceil($total_products / $limit);
 
-    // Se calcula el stock total con COALESCE(SUM(it.stock), 0)
     $products_sql = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, d.departamento, p.precio_venta, e.nombre_estado,
                             p.stock_minimo, p.stock_maximo, p.usa_inventario,
                             COALESCE(SUM(it.stock), 0) as stock_actual " .
                    $base_query . $where_sql . $group_by_sql .
                    " ORDER BY $sort_column $order LIMIT :limit OFFSET :offset";
-    // --- FIN DE LA MODIFICACIÓN ---
 
     $stmt_products = $pdo->prepare($products_sql);
     foreach ($params as $key => &$val) { 
@@ -4113,8 +4149,6 @@ case 'admin/getProducts':
         ]
     ]);
     break;
-
-
 
 case 'admin/updateProduct':
     $pdo->beginTransaction();
