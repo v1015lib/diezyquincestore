@@ -31,9 +31,7 @@ try {
     switch ($resource) {
 
 /**********************************************************************/
-// EN: api/index.php
 
-// --- INICIO: MÓDULO DE PROVEEDORES ---
 case 'admin/getProveedores':
     try {
         $stmt = $pdo->query("SELECT id_proveedor, codigo_proveedor, nombre_proveedor, telefono, direccion FROM proveedor ORDER BY nombre_proveedor ASC");
@@ -46,68 +44,94 @@ case 'admin/getProveedores':
     break;
 
 case 'admin/createProveedor':
-    $data = json_decode(file_get_contents('php://input'), true);
-    $codigo = trim($data['codigo_proveedor'] ?? '');
-    $nombre = trim($data['nombre_proveedor'] ?? '');
-    $telefono = trim($data['telefono'] ?? '');
-    $direccion = trim($data['direccion'] ?? '');
-
-    if (empty($codigo) || empty($nombre)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'El código y el nombre del proveedor son obligatorios.']);
-        break;
-    }
+    $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("INSERT INTO proveedor (codigo_proveedor, nombre_proveedor, telefono, direccion) VALUES (:codigo, :nombre, :telefono, :direccion)");
-        $stmt->execute([':codigo' => $codigo, ':nombre' => $nombre, ':telefono' => $telefono, ':direccion' => $direccion]);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $codigo = trim($data['codigo_proveedor'] ?? '');
+        $nombre = trim($data['nombre_proveedor'] ?? '');
+        $telefono = trim($data['telefono'] ?? '');
+        $direccion = trim($data['direccion'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (empty($codigo) || empty($nombre)) throw new Exception('El código y el nombre son obligatorios.');
+        if (!$userId) throw new Exception('Sesión de usuario no válida.');
+
+        $stmt = $pdo->prepare("INSERT INTO proveedor (codigo_proveedor, nombre_proveedor, telefono, direccion, creado_por_usuario_id) VALUES (:codigo, :nombre, :telefono, :direccion, :user_id)");
+        $stmt->execute([':codigo' => $codigo, ':nombre' => $nombre, ':telefono' => $telefono, ':direccion' => $direccion, ':user_id' => $userId]);
+        
+        logActivity($pdo, $userId, 'Proveedor Creado', "Se creó el proveedor: '{$nombre}' (Código: {$codigo}).");
+        
+        $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Proveedor creado con éxito.']);
-    } catch (PDOException $e) {
-        http_response_code(409); 
-        echo json_encode(['success' => false, 'error' => 'Ya existe un proveedor con ese código o nombre.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $errorCode = $e instanceof PDOException && $e->getCode() == '23000' ? 409 : 400;
+        http_response_code($errorCode);
+        $errorMsg = $errorCode === 409 ? 'Ya existe un proveedor con ese código o nombre.' : $e->getMessage();
+        echo json_encode(['success' => false, 'error' => $errorMsg]);
     }
     break;
 
 case 'admin/updateProveedor':
-    $data = json_decode(file_get_contents('php://input'), true);
-    $id = filter_var($data['id_proveedor'] ?? 0, FILTER_VALIDATE_INT);
-    $nombre = trim($data['nombre_proveedor'] ?? '');
-    $telefono = trim($data['telefono'] ?? '');
-    $direccion = trim($data['direccion'] ?? '');
-
-    if (!$id || empty($nombre)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Datos inválidos para la actualización.']);
-        break;
-    }
+     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("UPDATE proveedor SET nombre_proveedor = :nombre, telefono = :telefono, direccion = :direccion WHERE id_proveedor = :id");
-        $stmt->execute([':nombre' => $nombre, ':telefono' => $telefono, ':direccion' => $direccion, ':id' => $id]);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_proveedor'] ?? 0, FILTER_VALIDATE_INT);
+        $nombre = trim($data['nombre_proveedor'] ?? '');
+        $telefono = trim($data['telefono'] ?? '');
+        $direccion = trim($data['direccion'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || empty($nombre) || !$userId) throw new Exception('Datos inválidos o sesión no válida.');
+
+        $stmt_old = $pdo->prepare("SELECT * FROM proveedor WHERE id_proveedor = :id");
+        $stmt_old->execute([':id' => $id]);
+        $oldData = $stmt_old->fetch(PDO::FETCH_ASSOC);
+
+        $stmt = $pdo->prepare("UPDATE proveedor SET nombre_proveedor = :nombre, telefono = :telefono, direccion = :direccion, modificado_por_usuario_id = :user_id WHERE id_proveedor = :id");
+        $stmt->execute([':nombre' => $nombre, ':telefono' => $telefono, ':direccion' => $direccion, ':user_id' => $userId, ':id' => $id]);
+        
+        $description = "Se actualizó el proveedor '{$oldData['nombre_proveedor']}'. Cambios:";
+        if ($oldData['nombre_proveedor'] !== $nombre) $description .= "\\n- Nombre: '{$oldData['nombre_proveedor']}' -> '{$nombre}'";
+        if ($oldData['telefono'] !== $telefono) $description .= "\\n- Teléfono: '{$oldData['telefono']}' -> '{$telefono}'";
+        if ($oldData['direccion'] !== $direccion) $description .= "\\n- Dirección: '{$oldData['direccion']}' -> '{$direccion}'";
+        
+        logActivity($pdo, $userId, 'Proveedor Modificado', $description);
+        
+        $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Proveedor actualizado.']);
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Error al actualizar el proveedor.']);
     }
     break;
 
 case 'admin/deleteProveedor':
-    $data = json_decode(file_get_contents('php://input'), true);
-    $id = filter_var($data['id_proveedor'] ?? 0, FILTER_VALIDATE_INT);
-    if (!$id) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'ID de proveedor no válido.']);
-        break;
-    }
+    $pdo->beginTransaction();
     try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_proveedor'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || !$userId) throw new Exception('ID de proveedor o de usuario no válido.');
+
+        $stmt_info = $pdo->prepare("SELECT nombre_proveedor, codigo_proveedor FROM proveedor WHERE id_proveedor = :id");
+        $stmt_info->execute([':id' => $id]);
+        $provInfo = $stmt_info->fetch(PDO::FETCH_ASSOC);
+        if (!$provInfo) throw new Exception('El proveedor no existe.');
+
         $stmt = $pdo->prepare("DELETE FROM proveedor WHERE id_proveedor = :id");
         $stmt->execute([':id' => $id]);
-        if ($stmt->rowCount() > 0) {
-            echo json_encode(['success' => true, 'message' => 'Proveedor eliminado con éxito.']);
-        } else {
-            throw new Exception('El proveedor no fue encontrado o ya fue eliminado.');
-        }
+
+        logActivity($pdo, $userId, 'Proveedor Eliminado', "Se eliminó el proveedor: '{$provInfo['nombre_proveedor']}' (Código: {$provInfo['codigo_proveedor']}).");
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Proveedor eliminado con éxito.']);
     } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         if ($e->getCode() == '23000') {
-            http_response_code(409); // Conflict
+            http_response_code(409);
             echo json_encode(['success' => false, 'error' => 'No se puede eliminar. Este proveedor tiene productos asociados.']);
         } else {
             http_response_code(500);
@@ -115,11 +139,10 @@ case 'admin/deleteProveedor':
         }
     }
     break;
-// --- FIN: MÓDULO DE PROVEEDORES ---
 
 /*********************************************************************/
+
 case 'admin/getTiendas':
-    // Lógica para obtener todas las tiendas de la base de datos
     try {
         $stmt = $pdo->query("SELECT id_tienda, nombre_tienda, direccion, telefono FROM tiendas ORDER BY nombre_tienda ASC");
         $tiendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -131,86 +154,97 @@ case 'admin/getTiendas':
     break;
 
 case 'admin/createTienda':
-    // Lógica para crear una nueva tienda
-    $data = json_decode(file_get_contents('php://input'), true);
-    $nombre = trim($data['nombre_tienda'] ?? '');
-    $direccion = trim($data['direccion'] ?? '');
-    $telefono = trim($data['telefono'] ?? '');
-
-    if (empty($nombre)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'El nombre de la tienda es obligatorio.']);
-        break;
-    }
+    $pdo->beginTransaction();
     try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $nombre = trim($data['nombre_tienda'] ?? '');
+        $direccion = trim($data['direccion'] ?? '');
+        $telefono = trim($data['telefono'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (empty($nombre)) throw new Exception('El nombre de la tienda es obligatorio.');
+        if (!$userId) throw new Exception('Sesión de usuario no válida.');
+
         $stmt = $pdo->prepare("INSERT INTO tiendas (nombre_tienda, direccion, telefono) VALUES (:nombre, :direccion, :telefono)");
         $stmt->execute([':nombre' => $nombre, ':direccion' => $direccion, ':telefono' => $telefono]);
+        
+        logActivity($pdo, $userId, 'Tienda Creada', "Se creó la nueva tienda: '{$nombre}'.");
+        
+        $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Tienda creada con éxito.']);
-    } catch (PDOException $e) {
-        http_response_code(409); 
-        echo json_encode(['success' => false, 'error' => 'Ya existe una tienda con ese nombre.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $errorCode = $e instanceof PDOException && $e->getCode() == '23000' ? 409 : 400;
+        http_response_code($errorCode);
+        $errorMsg = $errorCode === 409 ? 'Ya existe una tienda con ese nombre.' : $e->getMessage();
+        echo json_encode(['success' => false, 'error' => $errorMsg]);
     }
     break;
 
 case 'admin/updateTienda':
-    // Lógica para actualizar una tienda existente
-    $data = json_decode(file_get_contents('php://input'), true);
-    $id = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
-    $nombre = trim($data['nombre_tienda'] ?? '');
-    $direccion = trim($data['direccion'] ?? '');
-    $telefono = trim($data['telefono'] ?? '');
-
-    if (!$id || empty($nombre)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Datos inválidos.']);
-        break;
-    }
+    $pdo->beginTransaction();
     try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+        $nombre = trim($data['nombre_tienda'] ?? '');
+        $direccion = trim($data['direccion'] ?? '');
+        $telefono = trim($data['telefono'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || empty($nombre) || !$userId) throw new Exception('Datos inválidos o sesión no válida.');
+
+        // Obtener datos originales para el log
+        $stmt_old = $pdo->prepare("SELECT * FROM tiendas WHERE id_tienda = :id");
+        $stmt_old->execute([':id' => $id]);
+        $oldData = $stmt_old->fetch(PDO::FETCH_ASSOC);
+
         $stmt = $pdo->prepare("UPDATE tiendas SET nombre_tienda = :nombre, direccion = :direccion, telefono = :telefono WHERE id_tienda = :id");
         $stmt->execute([':nombre' => $nombre, ':direccion' => $direccion, ':telefono' => $telefono, ':id' => $id]);
+        
+        $description = "Se actualizó la tienda '{$oldData['nombre_tienda']}'. Cambios:";
+        if ($oldData['nombre_tienda'] !== $nombre) $description .= "\\n- Nombre: '{$oldData['nombre_tienda']}' -> '{$nombre}'";
+        if ($oldData['direccion'] !== $direccion) $description .= "\\n- Dirección: '{$oldData['direccion']}' -> '{$direccion}'";
+        if ($oldData['telefono'] !== $telefono) $description .= "\\n- Teléfono: '{$oldData['telefono']}' -> '{$telefono}'";
+        
+        logActivity($pdo, $userId, 'Tienda Modificada', $description);
+        
+        $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Tienda actualizada.']);
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Error al actualizar la tienda.']);
     }
     break;
 
-// EN: index.php
-
 case 'admin/deleteTienda':
-    // Lógica para eliminar una tienda
-    $data = json_decode(file_get_contents('php://input'), true);
-    $id = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
-    if (!$id) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'ID de tienda no válido.']);
-        break;
-    }
+    $pdo->beginTransaction();
     try {
-        // --- CORRECCIÓN ---
-        // Se ha comentado la verificación de usuarios porque la columna 'id_tienda'
-        // no existe en la tabla 'usuarios'.
-        
-        /*
-        $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM usuarios WHERE id_tienda = :id");
-        $stmt_check->execute([':id' => $id]);
-        if ($stmt_check->fetchColumn() > 0) {
-            throw new Exception('No se puede eliminar. Esta tienda tiene empleados asignados.');
-        }
-        */
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
 
-        // Ahora procede a eliminar directamente.
+        if (!$id || !$userId) throw new Exception('ID de tienda o de usuario no válido.');
+
+        // Obtener nombre para el log
+        $stmt_info = $pdo->prepare("SELECT nombre_tienda FROM tiendas WHERE id_tienda = :id");
+        $stmt_info->execute([':id' => $id]);
+        $tiendaName = $stmt_info->fetchColumn();
+        if (!$tiendaName) throw new Exception('La tienda no existe.');
+
         $stmt = $pdo->prepare("DELETE FROM tiendas WHERE id_tienda = :id");
         $stmt->execute([':id' => $id]);
+
+        logActivity($pdo, $userId, 'Tienda Eliminada', "Se eliminó la tienda: '{$tiendaName}'.");
+        
+        $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Tienda eliminada con éxito.']);
     } catch (Exception $e) {
-        http_response_code(409); // Conflict
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(409); 
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
-
-
 
 
 
@@ -1249,7 +1283,6 @@ case 'pos_get_product_by_code':
     }
     break;
     
-
      case 'admin/getUsers':
              // Seguridad
             try {
@@ -1377,19 +1410,8 @@ case 'pos_check_card_balance':
     break;
 
 
-
-
-
-
-
-
-
-
 /**************************************************************************************/
 /**************************************************************************************/
-
-// REEMPLAZA ESTE CASE COMPLETO EN api/index.php
-// REEMPLAZA ESTE CASE COMPLETO EN api/index.php
 
 case 'admin/activityLog':
     if ($method == 'GET') {
@@ -1503,6 +1525,9 @@ case 'admin/activityLog':
         echo json_encode(['success' => true, 'log' => $log]);
     }
     break;
+
+
+
 /**************************************************************************************/
 /**************************************************************************************/
 
