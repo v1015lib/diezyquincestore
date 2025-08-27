@@ -750,38 +750,7 @@ async function loadActionContent(actionPath) {
         }
     }
     
-    /*function updateBatchActionsState() {
-        const selectedRows = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr'));
-        const batchSelector = mainContent.querySelector('#batch-action-selector');
-        const batchButton = mainContent.querySelector('#batch-action-execute');
 
-        if (!batchSelector || !batchButton) return;
-
-        const activateOption = batchSelector.querySelector('option[value="activate"]');
-        const deactivateOption = batchSelector.querySelector('option[value="deactivate"]');
-        if (!activateOption || !deactivateOption) return;
-
-        const totalSelected = selectedRows.length;
-
-        batchSelector.disabled = true;
-        batchButton.disabled = true;
-        batchSelector.value = '';
-        activateOption.style.display = 'none';
-        deactivateOption.style.display = 'none';
-
-        if (totalSelected === 0) return;
-
-        batchSelector.disabled = false;
-
-        const areAllActive = selectedRows.every(row => row.dataset.status === 'activo');
-        const areAllInactive = selectedRows.every(row => row.dataset.status !== 'activo');
-        
-        if (areAllActive) {
-            deactivateOption.style.display = 'block';
-        } else if (areAllInactive) {
-            activateOption.style.display = 'block';
-        }
-    } aqui no unciona la accion e activar o desactivar en lo te los emas si es funcional */
 
     function updateBatchActionsState() {
     const selectedRows = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr'));
@@ -1258,6 +1227,23 @@ async function renderEditForm(product) {
 
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
+
+
+        const sortableHeader = target.closest('th.sortable');
+    if (sortableHeader) {
+        const sortBy = sortableHeader.dataset.sort;
+        if (currentFilters.sort.by === sortBy) {
+            // Si ya se ordena por esta columna, invierte el orden
+            currentFilters.sort.order = currentFilters.sort.order === 'ASC' ? 'DESC' : 'ASC';
+        } else {
+            // Si es una nueva columna, ordena de forma ascendente
+            currentFilters.sort.by = sortBy;
+            currentFilters.sort.order = 'ASC';
+        }
+        currentFilters.page = 1; // Vuelve a la primera página con cada nuevo ordenamiento
+        await fetchAndRenderProducts();
+        return; // Detiene la ejecución para no procesar otros clics
+    }
 
     // --- LÓGICA PARA BOTONES DE LA CINTA DE OPCIONES ---
     const actionButton = target.closest('.action-btn[data-action]');
@@ -2353,7 +2339,9 @@ function initializeInventoryForm(type) {
 
 
 
-function renderInventoryActionForm(product, type) {
+// REEMPLAZA esta función completa en tu archivo admin/js/admin.js
+
+async function renderInventoryActionForm(product, type) {
     const container = document.getElementById(`${type}-form-container`);
     container.classList.remove('hidden');
 
@@ -2378,10 +2366,26 @@ function renderInventoryActionForm(product, type) {
             break;
     }
 
+    // --- INICIO DE LA LÓGICA INTELIGENTE ---
+    let tiendaInputHtml = '';
+    if (USER_ROLE === 'administrador') {
+        // Si es admin, crea el menú desplegable para seleccionar la tienda
+        tiendaInputHtml = `
+            <div class="form-group">
+                <label for="id_tienda">Aplicar a Tienda:</label>
+                <select id="id_tienda" name="id_tienda" required>
+                    <option value="">Cargando tiendas...</option>
+                </select>
+            </div>
+        `;
+    } 
+    // Si es empleado, no se genera HTML, por lo que no verá el selector.
+    // --- FIN DE LA LÓGICA INTELIGENTE ---
+
     container.innerHTML = `
         <h4>${title}: ${product.nombre_producto}</h4>
         <p><strong>Código:</strong> ${product.codigo_producto}</p>
-        <p><strong>Stock Actual:</strong> <span style="font-weight:bold; color:green;">${product.stock_actual}</span></p>
+        <p><strong>Stock Actual (Total):</strong> <span style="font-weight:bold; color:green;">${product.stock_actual}</span></p>
         
         <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #dee2e6;">
             <p><strong>Precio Venta (Actual):</strong> $${parseFloat(product.precio_venta).toFixed(2)}</p>
@@ -2389,23 +2393,19 @@ function renderInventoryActionForm(product, type) {
         
         <form id="${type}-action-form">
             <input type="hidden" name="product_id" value="${product.id_producto}">
-
-
+            ${tiendaInputHtml} 
             <div class="form-group">
                 <label for="${inputName}">${label}</label>
                 <input type="number" id="${inputName}" name="${inputName}" ${minVal ? `min="${minVal}"` : ''} required placeholder="${placeholder}">
             </div>        
-
             <div class="form-group">
                 <label for="precio_compra">Nuevo Precio Compra (Costo)</label>
                 <input type="number" id="precio_compra" name="precio_compra" value="${parseFloat(product.precio_compra).toFixed(2)}" step="0.01" min="0" required>
             </div>
-
             <div class="form-group">
                 <label for="precio_mayoreo">Nuevo Precio Mayoreo</label>
                 <input type="number" id="precio_mayoreo" name="precio_mayoreo" value="${parseFloat(product.precio_mayoreo).toFixed(2)}" step="0.01" min="0" required>
             </div>
-
             <div class="form-group">
                 <label for="notes">Notas (Opcional)</label>
                 <input type="text" id="notes" name="notes" placeholder="Ej: Compra a proveedor X / Conteo físico">
@@ -2414,6 +2414,26 @@ function renderInventoryActionForm(product, type) {
             <button type="submit" class="action-btn form-submit-btn">${buttonText}</button>
         </form>
     `;
+
+    // Si es admin, poblamos el selector de tiendas
+    if (USER_ROLE === 'administrador') {
+        const tiendaSelect = document.getElementById('id_tienda');
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getTiendas`);
+            const result = await response.json();
+            if (result.success) {
+                tiendaSelect.innerHTML = '<option value="">Seleccione una tienda</option>';
+                result.tiendas.forEach(tienda => {
+                    const option = document.createElement('option');
+                    option.value = tienda.id_tienda;
+                    option.textContent = tienda.nombre_tienda;
+                    tiendaSelect.appendChild(option);
+                });
+            }
+        } catch (e) {
+            tiendaSelect.innerHTML = '<option value="">Error al cargar tiendas</option>';
+        }
+    }
 
     document.getElementById(`${type}-action-form`).addEventListener('submit', handleInventoryActionSubmit);
 }
@@ -2939,12 +2959,15 @@ async function fetchAndRenderUserSales() {
 
 
 
-    function initializeUserManagement() {
+// Reemplaza tu función initializeUserManagement con esta
+
+function initializeUserManagement() {
     fetchAndRenderUsers();
 
     const createUserForm = document.getElementById('create-user-form');
     if (createUserForm) {
         createUserForm.addEventListener('submit', handleUserFormSubmit);
+        initializeLiveUserValidation(); // <-- ¡LÍNEA AÑADIDA!
     }
 
     const modal = document.getElementById('permissions-modal');
@@ -2992,6 +3015,57 @@ async function fetchAndRenderUsers() {
     }
 }
 
+// Reemplaza la función handleUserFormSubmit en tu archivo admin.js
+// Reemplaza esta función en: admin/js/admin.js
+
+function initializeLiveUserValidation() {
+    const usernameInput = document.getElementById('new_nombre_usuario');
+    const form = usernameInput ? usernameInput.closest('form') : null;
+    const feedbackDiv = document.getElementById('create-user-feedback');
+    const submitButton = form ? form.querySelector('.form-submit-btn') : null;
+
+    if (!usernameInput || !form || !feedbackDiv || !submitButton) return;
+
+    let debounceTimer;
+    usernameInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const username = usernameInput.value.trim();
+        submitButton.disabled = true; // Deshabilita el botón mientras se verifica
+
+        if (username.length < 4) {
+            feedbackDiv.innerHTML = '';
+            return;
+        }
+
+        debounceTimer = setTimeout(async () => {
+            feedbackDiv.className = 'form-message';
+            feedbackDiv.textContent = 'Verificando...';
+
+            try {
+                // --- ¡LA CORRECCIÓN ESTÁ AQUÍ! ---
+                // Se cambió API_URL por API_BASE_URL, que es la constante correcta en tu archivo.
+                const response = await fetch(`${API_BASE_URL}?resource=admin/check-username&username=${encodeURIComponent(username)}`);
+                const result = await response.json();
+
+                if (result.is_available) {
+                    feedbackDiv.className = 'form-message success';
+                    feedbackDiv.textContent = 'Nombre de usuario disponible.';
+                    submitButton.disabled = false; // Habilita el botón
+                } else {
+                    feedbackDiv.className = 'form-message error';
+                    feedbackDiv.textContent = 'Este nombre de usuario ya está en uso.';
+                    submitButton.disabled = true; // Mantiene el botón deshabilitado
+                }
+            } catch (error) {
+                feedbackDiv.className = 'form-message error';
+                feedbackDiv.textContent = 'Error al verificar el usuario.';
+                submitButton.disabled = true;
+            }
+        }, 500);
+    });
+}
+
+
 async function handleUserFormSubmit(event) {
     event.preventDefault();
     const form = event.target;
@@ -3000,7 +3074,9 @@ async function handleUserFormSubmit(event) {
 
     const data = {
         nombre_usuario: form.querySelector('#new_nombre_usuario').value,
-        password: form.querySelector('#new_password').value
+        password: form.querySelector('#new_password').value,
+        rol: form.querySelector('#rol_usuario').value,
+        id_tienda: form.querySelector('#id_tienda_usuario').value
     };
 
     submitButton.disabled = true;
@@ -3028,7 +3104,6 @@ async function handleUserFormSubmit(event) {
         submitButton.textContent = 'Crear Empleado';
     }
 }
-
 mainContent.addEventListener('click', (event) => {
     if (event.target.classList.contains('edit-permissions-btn')) {
         const row = event.target.closest('tr');

@@ -193,7 +193,6 @@ CREATE TABLE `detalle_ventas` (
 
 LOCK TABLES `detalle_ventas` WRITE;
 /*!40000 ALTER TABLE `detalle_ventas` DISABLE KEYS */;
-INSERT INTO `detalle_ventas` VALUES (269,220,1121,1,0.20,0.20);
 /*!40000 ALTER TABLE `detalle_ventas` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -296,7 +295,7 @@ CREATE TABLE `listas_compras` (
   KEY `fk_lista_proveedor` (`id_proveedor`),
   CONSTRAINT `fk_lista_proveedor` FOREIGN KEY (`id_proveedor`) REFERENCES `proveedor` (`id_proveedor`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_lista_usuario` FOREIGN KEY (`id_usuario_creador`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -329,7 +328,7 @@ CREATE TABLE `listas_compras_items` (
   KEY `fk_item_producto` (`id_producto`),
   CONSTRAINT `fk_item_lista` FOREIGN KEY (`id_lista`) REFERENCES `listas_compras` (`id_lista`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_item_producto` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_producto`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -537,13 +536,11 @@ CREATE TABLE `proveedor` (
   PRIMARY KEY (`id_proveedor`),
   UNIQUE KEY `codigo_proveedor` (`codigo_proveedor`),
   UNIQUE KEY `nombre_proveedor` (`nombre_proveedor`),
-  UNIQUE KEY `direccion` (`direccion`),
-  UNIQUE KEY `telefono` (`telefono`),
   KEY `fk_prov_usuario_creador` (`creado_por_usuario_id`),
   KEY `fk_prov_usuario_modificador` (`modificado_por_usuario_id`),
   CONSTRAINT `fk_prov_usuario_creador` FOREIGN KEY (`creado_por_usuario_id`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_prov_usuario_modificador` FOREIGN KEY (`modificado_por_usuario_id`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -552,7 +549,7 @@ CREATE TABLE `proveedor` (
 
 LOCK TABLES `proveedor` WRITE;
 /*!40000 ALTER TABLE `proveedor` DISABLE KEYS */;
-INSERT INTO `proveedor` VALUES (1,'PR-001','Local',0,'',NULL,NULL);
+INSERT INTO `proveedor` VALUES (1,'PR-001','Local',73714148,'',NULL,NULL),(4,'pr-002','Rodrigo Valdivieso',79572043,'',NULL,NULL),(5,'pr-003','Libreria',68345121,'',NULL,NULL);
 /*!40000 ALTER TABLE `proveedor` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -572,7 +569,7 @@ CREATE TABLE `registros_actividad` (
   PRIMARY KEY (`id_registro`),
   KEY `idx_usuario` (`id_usuario`),
   CONSTRAINT `fk_actividad_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=336 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=341 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -581,7 +578,7 @@ CREATE TABLE `registros_actividad` (
 
 LOCK TABLES `registros_actividad` WRITE;
 /*!40000 ALTER TABLE `registros_actividad` DISABLE KEYS */;
-INSERT INTO `registros_actividad` VALUES (334,1,'Entrada de Stock Inicial','Se agregaron 50 unidades al producto: Folder Normal Carta (284) a un costo de $0.07','2025-08-26 23:29:40'),(335,1,'Entrada de Stock','Se agregaron 20 unidades al producto: Folder Normal Carta (284) a un costo de $0.07','2025-08-26 23:30:13');
+INSERT INTO `registros_actividad` VALUES (334,1,'Entrada de Stock Inicial','Se agregaron 50 unidades al producto: Folder Normal Carta (284) a un costo de $0.07','2025-08-26 23:29:40'),(335,1,'Entrada de Stock','Se agregaron 20 unidades al producto: Folder Normal Carta (284) a un costo de $0.07','2025-08-26 23:30:13'),(336,1,'Lista de Compras Creada','Creó la nueva lista de compras: \'urgente\'.','2025-08-27 15:33:16'),(337,1,'Modificación de Lista','Añadió \'Folder Normal Carta\' a la lista \'urgente\'.','2025-08-27 15:33:20'),(338,1,'Modificación de Lista','Añadió \'Boligrafo Bic Clasico Color Azul Punto Medio\' a la lista \'urgente\'.','2025-08-27 15:33:35'),(339,1,'Lista de Compras Eliminada','Eliminó la lista de compras: \'urgente\'.','2025-08-27 15:40:05'),(340,1,'Tienda Eliminada','Se eliminó la tienda: \'Local Despensa\'.','2025-08-27 16:59:21');
 /*!40000 ALTER TABLE `registros_actividad` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -638,7 +635,7 @@ CREATE TABLE `tiendas` (
   `direccion` text DEFAULT NULL,
   `telefono` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id_tienda`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -647,7 +644,7 @@ CREATE TABLE `tiendas` (
 
 LOCK TABLES `tiendas` WRITE;
 /*!40000 ALTER TABLE `tiendas` DISABLE KEYS */;
-INSERT INTO `tiendas` VALUES (1,'Tienda Central','Calle Melendez, contiguo a Hospital de San Bartolo','73714148'),(2,'Libreria','Calle Melendez, Local 8','68345121');
+INSERT INTO `tiendas` VALUES (1,'Tienda Central','Calle Melendez, contiguo a Hospital de San Bartolo','73714148'),(2,'Libreria','San Bartolo, Calle Melendez, Local 8, Frete a Edif #1 INSAB','68345121');
 /*!40000 ALTER TABLE `tiendas` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -780,4 +777,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-08-27  7:51:49
+-- Dump completed on 2025-08-27 11:05:14

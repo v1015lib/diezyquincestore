@@ -1,24 +1,44 @@
+<?php
+// admin/actions/usuarios/gestion.php
+require_once __DIR__ . '/../../../config/config.php';
+$tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY nombre_tienda")->fetchAll(PDO::FETCH_ASSOC);
+?>
 <div id="users-manager-container">
 
     <fieldset class="form-fieldset">
         <legend class="form-section-header">Añadir Nuevo Empleado</legend>
         <form id="create-user-form" class="form-container" style="padding: 1rem; border: none; box-shadow: none;">
             <div id="create-user-feedback" class="form-message"></div>
-                <div class="form-group">
-                    <label for="rol_usuario">Rol:</label>
-                    <select id="rol_usuario" name="rol">
-                        <option value="empleado">Empleado</option>
-                        <option value="administrador">Administrador</option>
-                    </select>
-                </div>
+            
+            <div class="form-group">
+                <label for="new_nombre_usuario">Nombre de Usuario:</label>
+                <input type="text" id="new_nombre_usuario" name="nombre_usuario" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="new_password">Contraseña:</label>
+                <input type="password" id="new_password" name="password" required>
+            </div>
 
-                <div class="form-group" id="tienda-assignment-group">
-                    <label for="id_tienda_usuario">Asignar a Tienda:</label>
-                    <select id="id_tienda_usuario" name="id_tienda">
-                        <option value="1">Tienda San Bartolo</option>
-                        <option value="2">Tienda Ilopango Centro</option>
-                    </select>
-                </div>
+            <div class="form-group">
+                <label for="rol_usuario">Rol:</label>
+                <select id="rol_usuario" name="rol">
+                    <option value="empleado">Empleado</option>
+                    <option value="administrador">Administrador</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="tienda-assignment-group">
+                <label for="id_tienda_usuario">Asignar a Tienda:</label>
+                <select id="id_tienda_usuario" name="id_tienda" required>
+                    <option value="">Seleccione una tienda</option>
+                    <?php foreach ($tiendas as $tienda): ?>
+                        <option value="<?php echo htmlspecialchars($tienda['id_tienda']); ?>">
+                            <?php echo htmlspecialchars($tienda['nombre_tienda']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
                 
             <div class="form-group" style="justify-content: center;">
                  <button type="submit" class="action-btn form-submit-btn">Crear Empleado</button>
