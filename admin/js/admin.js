@@ -521,7 +521,7 @@ async function showProcessedFiles() {
                     row.dataset.status = (product.nombre_estado || '').toLowerCase();
                     const statusClass = (product.nombre_estado || '').toLowerCase() === 'activo' ? 'status-active' : 'status-inactive';
                     const usaInventarioText = product.usa_inventario == 1 ? 'Sí' : 'No';
-                    const stockClass = (product.usa_inventario == 1 && parseInt(product.stock_actual) <= parseInt(product.stock_minimo)) ? 'stock-low' : '';
+                    const stockClass = (product.usa_inventario == 1 && parseInt(product.stock_minimo) > 0 && parseInt(product.stock_actual) < parseInt(product.stock_minimo)) ? 'stock-low' : '';
                     row.innerHTML = `
                         <td><input type="checkbox" class="product-checkbox"></td>
                         <td>${product.codigo_producto}</td>
