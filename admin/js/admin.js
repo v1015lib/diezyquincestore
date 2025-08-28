@@ -2461,7 +2461,8 @@ async function handleInventoryActionSubmit(event) {
             data = { 
                 product_id: rawData.product_id,
                 adjustment_value: rawData.adjustment_value,
-                notes: rawData.notes
+                notes: rawData.notes,
+                id_tienda: rawData.id_tienda
             };
             break;
     }

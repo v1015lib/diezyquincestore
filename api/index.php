@@ -5,11 +5,8 @@ require_once __DIR__ . '/../config/config.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-//header('Access-Control-Allow-Origin: https://diezyquince.store'); 
 
 
-// =================== INICIO DEL NUEVO BLOQUE ===================
-// Este bloque intercepta las peticiones de "pre-vuelo" (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     // Le dice al navegador qué métodos están permitidos
     header('Access-Control-Allow-Methods: POST, GET, DELETE, PUT, OPTIONS');
