@@ -4080,6 +4080,58 @@ case 'admin/updateProduct':
     }
     break;
 
+
+
+
+case 'admin/updateProductField':
+    // require_admin(); 
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productId = $data['id'] ?? null;
+    $field = $data['field'] ?? null;
+    $value = $data['value'] ?? null;
+    $userId = $_SESSION['id_usuario'] ?? null;
+
+    $allowed_fields = ['nombre_producto', 'precio_venta']; 
+    
+    if ($productId && in_array($field, $allowed_fields) && $value !== null && $userId) {
+        $pdo->beginTransaction();
+        try {
+            // Obtenemos el nombre del producto para el log
+            $stmt_info = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
+            $stmt_info->execute([':id' => $productId]);
+            $productName = $stmt_info->fetchColumn();
+
+            // Actualizamos el producto (como antes, pero ahora también modificado_por_usuario_id)
+            $stmt = $pdo->prepare(
+                "UPDATE productos SET {$field} = :value, modificado_por_usuario_id = :user_id WHERE id_producto = :id"
+            );
+            $stmt->execute([':value' => $value, ':user_id' => $userId, ':id' => $productId]);
+            
+            // Insertamos el registro del evento
+            $stmt_log = $pdo->prepare(
+                "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion) 
+                 VALUES (:id_usuario, :tipo_accion, :descripcion)"
+            );
+            $description = "Actualización rápida en '$productName': campo '$field' cambió a '$value'.";
+            $stmt_log->execute([
+                ':id_usuario' => $userId,
+                ':tipo_accion' => 'Producto Modificado',
+                ':descripcion' => $description
+            ]);
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Producto actualizado.']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
+        }
+    } else {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos o sesión no iniciada.']);
+    }
+    break;
+
 // ... (resto de cases) ...
 case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)
