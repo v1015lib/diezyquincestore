@@ -1,53 +1,48 @@
-<?php
-// Lógica de seguridad para asegurar que este archivo no se cargue directamente.
-//session_start();
-//if (!isset($_SESSION['loggedin']) || $_SESSION['rol'] != 'administrador') {
-  //  die('Acceso denegado.');
-//}
-?>
-<div class="list-header">
-    <div class="search-container">
-        <input type="text" id="product-search-input" placeholder="Buscar por nombre o código...">
-    </div>
-    <div class="filter-container">
-        <select id="department-filter">
-            <option value="">Todos los departamentos</option>
-            </select>
+
+
+<div class="product-list-header">
+    <div class="filters-container">
+        <input type="text" id="product-search-input" class="form-control" placeholder="Buscar por nombre o código...">
+        
+        <select id="department-filter" class="form-control">
+            <option value="">Filtrar por departamento</option>
+        </select>
+        
+        <select id="store-filter" class="form-control">
+            <option value="">Filtrar por tienda</option>
+        </select>
+
     </div>
     <div class="batch-actions-container">
-        <select id="batch-action-selector" disabled>
+        <select id="batch-action-selector" class="form-control" disabled>
             <option value="">Acciones en lote...</option>
-            <option value="delete">Eliminar Seleccionados</option>
-            <option value="activate" style="display: none;">Activar en Tienda</option>
-            <option value="deactivate" style="display: none;">Inactivar en Tienda</option>
-            <option value="change-department">Cambiar Departamento</option>
+            <option value="activate" style="display:none;">Activar seleccionados</option>
+            <option value="deactivate" style="display:none;">Desactivar seleccionados</option>
+            <option value="change-department">Cambiar departamento</option>
         </select>
         <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
     </div>
 </div>
 
-<div class="product-list-container" id="product-list-container">
+<div id="product-list-container" class="table-container">
     <table class="product-table">
         <thead>
             <tr>
                 <th><input type="checkbox" id="select-all-products"></th>
-                <th>Código</th>
-                <th class="sortable" data-sort="nombre_producto">Nombre del Producto</th>
-                <th class="sortable" data-sort="departamento">Departamento</th>
-                <th class="sortable" data-sort="precio_venta">Precio Venta</th>
-                <th class="sortable" data-sort="stock_actual">Stock</th>
-                <th>Mín.</th>
-                <th>Máx.</th>
-                <th class="sortable" data-sort="usa_inventario">Usa Inv.</th>
-                <th class="sortable" data-sort="nombre_estado">Estado</th>
-                <th>Acción</th>
+                <th class="sortable" data-sort="p.codigo_producto">Código</th>
+                <th class="sortable" data-sort="p.nombre_producto">Nombre</th>
+                <th class="sortable" data-sort="d.departamento">Departamento</th>
+                <th class="sortable" data-sort="p.precio_venta">Precio Venta</th>
+                <th class="sortable" data-sort="stock_actual">Stock Actual</th>
+                <th>Stock Mín.</th>
+                <th>Stock Máx.</th>
+                <th>Usa Inventario</th>
+                <th>Estado</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody id="product-table-body">
             </tbody>
     </table>
-</div>
-
-<div id="loading-indicator" style="display: none; text-align: center; font-size: .7rem;">
-    <p>Cargando más productos...</p>
+    <div id="loading-indicator" style="display: none; text-align: center; padding: 1rem;">Cargando más productos...</div>
 </div>

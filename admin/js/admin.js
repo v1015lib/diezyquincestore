@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilters = {
         search: '',
         department: '',
+        store: '', 
         page: 1,
         sort: {
             by: 'nombre_producto',
@@ -484,83 +485,126 @@ async function showProcessedFiles() {
 
 
 
-    // --- LÓGICA DE CARGA Y RENDERIZADO DE PRODUCTOS (SCROLL INFINITO) ---
-    async function fetchAndRenderProducts() {
-        if (isLoading) return;
-        isLoading = true;
 
-        const tableBody = document.getElementById('product-table-body');
-        const loadingIndicator = document.getElementById('loading-indicator');
-        if (!tableBody || !loadingIndicator) {
-            isLoading = false;
-            return;
+async function fetchAndRenderProducts() {
+    if (isLoading) return;
+    isLoading = true;
+
+    const tableBody = document.getElementById('product-table-body');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (!tableBody || !loadingIndicator) {
+        isLoading = false;
+        return;
+    }
+
+    if (currentFilters.page === 1) {
+        tableBody.innerHTML = `<tr><td colspan="11">Buscando...</td></tr>`;
+    }
+    loadingIndicator.style.display = 'block';
+
+    const { search, department, store, sort, page } = currentFilters;
+    const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department_id=${department}&store_id=${store}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
+
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`Error en la API: ${response.statusText}`);
+        
+        const data = await response.json();
+
+        if (page === 1) {
+            tableBody.innerHTML = '';
         }
 
-        if (currentFilters.page === 1) {
-            tableBody.innerHTML = `<tr><td colspan="11">Buscando...</td></tr>`;
-        }
-        loadingIndicator.style.display = 'block';
+        if (data.success && data.products.length > 0) {
+            data.products.forEach(product => {
+                const row = document.createElement('tr');
+                row.dataset.productId = product.id_producto;
+                row.dataset.status = (product.nombre_estado || '').toLowerCase();
+                const statusClass = (product.nombre_estado || '').toLowerCase() === 'activo' ? 'status-active' : 'status-inactive';
+                const usaInventarioText = product.usa_inventario == 1 ? 'Sí' : 'No';
+                
+                // Lógica mejorada para bajo stock que maneja valores NULL
+                const stockMinimo = parseInt(product.stock_minimo, 10);
+                const stockActual = parseInt(product.stock_actual, 10);
+                const stockClass = (product.usa_inventario == 1 && !isNaN(stockMinimo) && stockMinimo > 0 && stockActual < stockMinimo) ? 'stock-low' : '';
 
-        const { search, department, sort, page } = currentFilters;
-        const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department_id=${department}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
+                row.innerHTML = `
+                    <td><input type="checkbox" class="product-checkbox"></td>
+                    <td>${product.codigo_producto}</td>
+                    <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
+                    <td>${product.departamento}</td>
+                    <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
+                    <td class="${stockClass}">${product.stock_actual ?? 'N/A'}</td>
+                    <td>${product.stock_minimo ?? 'N/A'}</td>
+                    <td>${product.stock_maximo ?? 'N/A'}</td>
+                    <td>${usaInventarioText}</td>
+                    <td><span class="status-badge ${statusClass}">${product.nombre_estado}</span></td>
+                    <td><button class="action-btn edit-product-btn">Editar</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
 
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) throw new Error(`Error en la API: ${response.statusText}`);
-            
-            const data = await response.json();
-
-            if (page === 1) {
-                tableBody.innerHTML = '';
-            }
-
-            if (data.success && data.products.length > 0) {
-                data.products.forEach(product => {
-                    const row = document.createElement('tr');
-                    row.dataset.productId = product.id_producto;
-                    row.dataset.status = (product.nombre_estado || '').toLowerCase();
-                    const statusClass = (product.nombre_estado || '').toLowerCase() === 'activo' ? 'status-active' : 'status-inactive';
-                    const usaInventarioText = product.usa_inventario == 1 ? 'Sí' : 'No';
-                    const stockClass = (product.usa_inventario == 1 && parseInt(product.stock_minimo) > 0 && parseInt(product.stock_actual) < parseInt(product.stock_minimo)) ? 'stock-low' : '';
-                    row.innerHTML = `
-                        <td><input type="checkbox" class="product-checkbox"></td>
-                        <td>${product.codigo_producto}</td>
-                        <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
-                        <td>${product.departamento}</td>
-                        <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
-                        <td class="${stockClass}">${product.stock_actual}</td>
-                        <td>${product.stock_minimo}</td>
-                        <td>${product.stock_maximo}</td>
-                        <td>${usaInventarioText}</td>
-                        <td><span class="status-badge ${statusClass}">${product.nombre_estado}</span></td>
-                        <td><button class="action-btn edit-product-btn">Editar</button></td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-
-                if (data.products.length < 25) { // Ajusta el '25' si cambias el límite en la API
-                    currentFilters.page = -1;
-                }
-
-            } else {
-                if (page === 1) {
-                    tableBody.innerHTML = `<tr><td colspan="11">No se encontraron productos.</td></tr>`;
-                }
+            if (data.products.length < 25) {
                 currentFilters.page = -1;
             }
 
-            updateSortIndicators();
-            updateBatchActionsState();
-
-        } catch (error) {
+        } else {
             if (page === 1) {
-                tableBody.innerHTML = `<tr><td colspan="11" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="11">No se encontraron productos para los filtros seleccionados.</td></tr>`;
             }
-        } finally {
-            isLoading = false;
-            loadingIndicator.style.display = 'none';
+            currentFilters.page = -1;
         }
+
+        updateSortIndicators();
+        updateBatchActionsState();
+
+    } catch (error) {
+        if (page === 1) {
+            tableBody.innerHTML = `<tr><td colspan="11" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
+        }
+    } finally {
+        isLoading = false;
+        loadingIndicator.style.display = 'none';
     }
+}
+
+
+
+
+
+
+
+
+
+// EN: admin/js/admin.js
+// AÑADE esta nueva función (puede ser después de populateDepartmentFilter)
+
+async function populateStoreFilter() {
+    const filterSelect = document.getElementById('store-filter');
+    if (!filterSelect) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getTiendas`);
+        const result = await response.json();
+        if (result.success && result.tiendas.length > 0) {
+            filterSelect.innerHTML = `<option value="">Todas las tiendas</option>`;
+            result.tiendas.forEach(tienda => {
+                const option = document.createElement('option');
+                option.value = tienda.id_tienda;
+                option.textContent = tienda.nombre_tienda;
+                filterSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error al cargar tiendas:', error);
+        filterSelect.innerHTML = `<option value="">Error al cargar</option>`;
+    }
+}
+
+
+
+
+
+
 
     // --- LÓGICA DE MENÚ Y CARGA DE MÓDULOS ---
 
@@ -634,6 +678,7 @@ async function loadActionContent(actionPath) {
         if (actionPath === 'productos/todos_los_productos') {
             currentFilters.page = 1;
             await populateDepartmentFilter();
+            await populateStoreFilter();
             await fetchAndRenderProducts();
             document.getElementById('product-list-container')?.addEventListener('scroll', handleScroll);
         } else if (actionPath === 'productos/agregar_producto') {
@@ -1480,6 +1525,11 @@ mainContent.addEventListener('change', async (event) => {
 
     if (target.id === 'department-filter') {
         currentFilters.department = target.value;
+        currentFilters.page = 1;
+        await fetchAndRenderProducts();
+    }
+        if (target.id === 'store-filter') {
+        currentFilters.store = target.value;
         currentFilters.page = 1;
         await fetchAndRenderProducts();
     }

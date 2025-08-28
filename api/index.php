@@ -1,4 +1,6 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 session_start();
 
 require_once __DIR__ . '/../config/config.php'; 
@@ -4094,100 +4096,79 @@ case 'admin/createProduct':
     }
     break;
 
-// REEMPLAZA ESTE BLOQUE COMPLETO EN api/index.php
+
+// EN: api/index.php
+// REEMPLAZA este case completo. Asegúrate de que no haya otros duplicados de 'updateProduct' en el archivo.
+
 case 'admin/updateProduct':
     $pdo->beginTransaction();
     try {
-        $productId = $_POST['id_producto'] ?? 0;
+        // --- INICIO DE LA MODIFICACIÓN: Leemos desde el body como JSON ---
+        $data = json_decode(file_get_contents('php://input'), true);
+        $productId = filter_var($data['id_producto'] ?? 0, FILTER_VALIDATE_INT);
         $userId = $_SESSION['id_usuario'] ?? null;
+        // --- FIN DE LA MODIFICACIÓN ---
 
-        if (!$productId) { throw new Exception('ID de producto no válido.'); }
-        if (!$userId) { throw new Exception('Sesión de administrador no válida.'); }
+        if (!$productId || !$userId) {
+            throw new Exception('ID de producto o de usuario no válido.');
+        }
 
-        // --- INICIO DE LA NUEVA LÓGICA ---
-        // 1. Obtenemos el estado ACTUAL del producto desde la BD ANTES de cualquier cambio.
-        $stmt_check = $pdo->prepare("SELECT stock_actual, usa_inventario FROM productos WHERE id_producto = :id");
+        // 1. Obtenemos el estado ACTUAL del producto desde la BD.
+        $stmt_check = $pdo->prepare("SELECT stock_actual, usa_inventario FROM inventario_tienda WHERE id_producto = :id");
         $stmt_check->execute([':id' => $productId]);
         $product_current_state = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
-        if (!$product_current_state) {
-            throw new Exception('El producto que intentas modificar no existe.');
-        }
+        // Si no hay registro de inventario, asumimos stock 0
+        $current_stock = $product_current_state ? (int)$product_current_state['stock'] : 0;
         
-        $current_stock = (int)$product_current_state['stock_actual'];
-        $current_usa_inventario = (int)$product_current_state['usa_inventario'];
+        $stmt_prod_info = $pdo->prepare("SELECT usa_inventario FROM productos WHERE id_producto = :id");
+        $stmt_prod_info->execute([':id' => $productId]);
+        $current_usa_inventario = $stmt_prod_info->fetchColumn();
+
+        // 2. Determinamos el NUEVO estado del inventario desde el formulario.
+        $new_usa_inventario_from_form = !empty($data['usa_inventario_checkbox']);
+
+        // 3. Lógica de decisión final para el inventario
+        $final_usa_inventario = $new_usa_inventario_from_form ? 1 : 0;
         
-        // 2. Recolectamos los datos del formulario
-        $final_usa_inventario = isset($_POST['usa_inventario_checkbox']) ? 1 : 0;
-        $new_stock_from_form = $final_usa_inventario ? filter_var($_POST['stock_actual'] ?? 0, FILTER_VALIDATE_INT) : 0;
-
-        // Si el producto ya gestiona inventario y tiene stock, no se puede desactivar desde el formulario
-        if ($current_usa_inventario === 1 && $current_stock > 0) {
-            $final_usa_inventario = 1;
-        }
-
-        // El resto de la recolección de datos
-        $codigo_producto = trim($_POST['codigo_producto'] ?? '');
-        $nombre_producto = trim($_POST['nombre_producto'] ?? '');
-        $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
-        $precio_venta = filter_var($_POST['precio_venta'] ?? '', FILTER_VALIDATE_FLOAT);
-
-        if (empty($codigo_producto) || empty($nombre_producto) || $departamento_id === false || $precio_venta === false) {
-            throw new Exception("Por favor, completa todos los campos obligatorios.");
-        }
+        // No se modifica el stock desde este formulario para productos ya existentes.
+        // Eso se hace desde los módulos de inventario.
         
-        $precio_compra = filter_var($_POST['precio_compra'] ?? 0, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE) ?? 0.00;
-        $precio_mayoreo = filter_var($_POST['precio_mayoreo'] ?? 0, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE) ?? 0.00;
-        $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? '', FILTER_VALIDATE_INT);
-        $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
-        $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
-        $stock_minimo = $final_usa_inventario ? filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
-        $stock_maximo = $final_usa_inventario ? filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
-        $url_imagen = $_POST['url_imagen'] ?? '';
+        // Recolección del resto de los datos del JSON
+        $codigo_producto = trim($data['codigo_producto'] ?? '');
+        $nombre_producto = trim($data['nombre_producto'] ?? '');
+        $departamento_id = filter_var($data['departamento'] ?? 0, FILTER_VALIDATE_INT);
+        $precio_venta = filter_var($data['precio_venta'] ?? 0.0, FILTER_VALIDATE_FLOAT);
+        // ... (resto de campos)
+        $precio_compra = filter_var($data['precio_compra'] ?? 0, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE) ?? 0.00;
+        $precio_mayoreo = filter_var($data['precio_mayoreo'] ?? 0, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE) ?? 0.00;
+        $tipo_de_venta_id = filter_var($data['tipo_de_venta'] ?? null, FILTER_VALIDATE_INT);
+        $estado_id = filter_var($data['estado'] ?? null, FILTER_VALIDATE_INT);
+        $proveedor_id = filter_var($data['proveedor'] ?? null, FILTER_VALIDATE_INT);
+        $stock_minimo = $final_usa_inventario ? filter_var($data['stock_minimo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+        $stock_maximo = $final_usa_inventario ? filter_var($data['stock_maximo'] ?? 0, FILTER_VALIDATE_INT) : 0;
+        $url_imagen = $data['url_imagen'] ?? '';
 
-        // 3. Actualización en la base de datos
+
+        // 4. Actualización en la base de datos
         $sql_update = "UPDATE productos SET 
                         codigo_producto = :codigo_producto, nombre_producto = :nombre_producto, departamento = :departamento, 
                         precio_compra = :precio_compra, precio_venta = :precio_venta, precio_mayoreo = :precio_mayoreo, 
-                        url_imagen = :url_imagen, stock_actual = :stock_actual, stock_minimo = :stock_minimo, 
-                        stock_maximo = :stock_maximo, tipo_de_venta = :tipo_de_venta, estado = :estado, 
-                        usa_inventario = :usa_inventario, proveedor = :proveedor, modificado_por_usuario_id = :user_id 
+                        url_imagen = :url_imagen, stock_minimo = :stock_minimo, stock_maximo = :stock_maximo, 
+                        tipo_de_venta = :tipo_de_venta, estado = :estado, usa_inventario = :usa_inventario, 
+                        proveedor = :proveedor, modificado_por_usuario_id = :user_id 
                        WHERE id_producto = :id_producto";
                        
         $stmt_update = $pdo->prepare($sql_update);
         $stmt_update->execute([
             ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':departamento' => $departamento_id,
             ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta, ':precio_mayoreo' => $precio_mayoreo,
-            ':url_imagen' => $url_imagen, ':stock_actual' => $new_stock_from_form, ':stock_minimo' => $stock_minimo,
-            ':stock_maximo' => $stock_maximo, ':tipo_de_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
-            ':usa_inventario' => $final_usa_inventario, ':proveedor' => $proveedor_id, 
-            ':user_id' => $userId,
-            ':id_producto' => $productId
+            ':url_imagen' => $url_imagen, ':stock_minimo' => $stock_minimo, ':stock_maximo' => $stock_maximo, 
+            ':tipo_de_venta' => $tipo_de_venta_id, ':estado' => $estado_id, ':usa_inventario' => $final_usa_inventario, 
+            ':proveedor' => $proveedor_id, ':user_id' => $userId, ':id_producto' => $productId
         ]);
         
-        // 4. LÓGICA CONDICIONAL PARA REGISTRAR STOCK INICIAL
-        // Solo si el stock anterior era 0 y el nuevo es mayor a 0 Y se está usando inventario
-        if ($current_stock === 0 && $new_stock_from_form > 0 && $final_usa_inventario == 1) {
-            $stmt_estado_entrada = $pdo->query("SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada' LIMIT 1");
-            $id_estado_entrada = $stmt_estado_entrada->fetchColumn();
-
-            $stmt_log_stock = $pdo->prepare(
-                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
-                 VALUES (:product_id, :id_estado, :cantidad, 0, :stock_nuevo, :user_id, 'Inicio de uso de Inventario al habilitar inventario')"
-            );
-            $stmt_log_stock->execute([
-                ':product_id' => $productId,
-                ':id_estado' => $id_estado_entrada,
-                ':cantidad' => $new_stock_from_form,
-                ':stock_nuevo' => $new_stock_from_form,
-                ':user_id' => $userId
-            ]);
-            
-            logActivity($pdo, $userId, 'Entrada de Stock Inicial', "Se registró un Inicio de uso de Inventario de {$new_stock_from_form} para el producto: {$nombre_producto} ({$codigo_producto})");
-        }
-        
-        // Log de modificación general del producto (siempre se registra)
-        logActivity($pdo, $userId, 'Producto Modificado', "Se actualizó el producto (formulario): '{$nombre_producto}' (Código: {$codigo_producto})");
+        logActivity($pdo, $userId, 'Producto Modificado', "Se actualizó el producto (formulario): '" . $nombre_producto . "' (Código: " . $codigo_producto . ")");
 
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Producto actualizado correctamente.']);
@@ -4203,57 +4184,6 @@ case 'admin/updateProduct':
 
 
 
-
-case 'admin/updateProductField':
-    // require_admin(); 
-    $data = json_decode(file_get_contents('php://input'), true);
-    $productId = $data['id'] ?? null;
-    $field = $data['field'] ?? null;
-    $value = $data['value'] ?? null;
-    $userId = $_SESSION['id_usuario'] ?? null;
-
-    $allowed_fields = ['nombre_producto', 'precio_venta']; 
-    
-    if ($productId && in_array($field, $allowed_fields) && $value !== null && $userId) {
-        $pdo->beginTransaction();
-        try {
-            // Obtenemos el nombre del producto para el log
-            $stmt_info = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
-            $stmt_info->execute([':id' => $productId]);
-            $productName = $stmt_info->fetchColumn();
-
-            // Actualizamos el producto (como antes, pero ahora también modificado_por_usuario_id)
-            $stmt = $pdo->prepare(
-                "UPDATE productos SET {$field} = :value, modificado_por_usuario_id = :user_id WHERE id_producto = :id"
-            );
-            $stmt->execute([':value' => $value, ':user_id' => $userId, ':id' => $productId]);
-            
-            // Insertamos el registro del evento
-            $stmt_log = $pdo->prepare(
-                "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion) 
-                 VALUES (:id_usuario, :tipo_accion, :descripcion)"
-            );
-            $description = "Actualización rápida en '$productName': campo '$field' cambió a '$value'.";
-            $stmt_log->execute([
-                ':id_usuario' => $userId,
-                ':tipo_accion' => 'Producto Modificado',
-                ':descripcion' => $description
-            ]);
-            
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Producto actualizado.']);
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
-        }
-    } else {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Datos inválidos o sesión no iniciada.']);
-    }
-    break;
-
-// ... (resto de cases) ...
 case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)
      
@@ -4337,77 +4267,117 @@ case 'toggle-inventory':
       }
       break;
 
-    
-    // Reemplaza este case en tu api/index.php
+
+
+
+// EN: api/index.php
+// REEMPLAZA SOLAMENTE este 'case' en tu archivo para corregir el filtro de departamento.
 
 case 'admin/getProducts':
-    // Se requiere autenticación...
-    if (!isset($_SESSION['loggedin']) || !isset($_SESSION['rol'])) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
-        break;
-    }
+    if ($method == 'GET') {
+        try {
+            // Parámetros de entrada
+            $searchTerm = $_GET['search'] ?? '';
+            $departmentId = $_GET['department_id'] ?? '';
+            $storeId = $_GET['store_id'] ?? '';
+            $sortBy = $_GET['sort_by'] ?? 'nombre_producto';
+            $order = $_GET['order'] ?? 'ASC';
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = 25;
+            $offset = ($page - 1) * $limit;
 
-    try {
-        $rol = $_SESSION['rol'];
-        $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
-        $params = [];
+            $allowedSortCols = ['codigo_producto', 'nombre_producto', 'departamento', 'precio_venta', 'stock_actual'];
+            if (!in_array($sortBy, $allowedSortCols)) {
+                $sortBy = 'nombre_producto';
+            }
 
-        $stock_selection_sql = "";
-        if ($rol === 'administrador') {
-            // ---- 👇 AQUÍ ESTÁ LA CORRECCIÓN 👇 ----
-            $stock_selection_sql = "COALESCE((SELECT SUM(it.stock) FROM inventario_tienda it WHERE it.id_producto = p.id_producto), 0) AS stock_actual";
-        } else if ($rol === 'empleado' && !empty($id_tienda_usuario)) {
-            $stock_selection_sql = "COALESCE((SELECT it.stock FROM inventario_tienda it WHERE it.id_producto = p.id_producto AND it.id_tienda = :id_tienda_usuario), 0) AS stock_actual";
-            $params[':id_tienda_usuario'] = $id_tienda_usuario;
-        } else {
-            $stock_selection_sql = "0 AS stock_actual";
+            $params = [];
+            $where_clauses = [];
+            $baseQuery = "";
+
+            // --- INICIO DE LA LÓGICA CORREGIDA Y MEJORADA ---
+
+            // 1. Construir las condiciones del WHERE de forma dinámica
+            $where_clauses[] = "(p.nombre_producto LIKE :searchTerm OR p.codigo_producto LIKE :searchTerm)";
+            $params[':searchTerm'] = "%$searchTerm%";
+
+            if (!empty($departmentId)) {
+                $where_clauses[] = "p.departamento = :departmentId";
+                $params[':departmentId'] = $departmentId;
+            }
+
+            // Unir todas las condiciones del WHERE
+            $whereSql = " WHERE " . implode(' AND ', $where_clauses);
+
+            // 2. Construir la consulta base dependiendo de si se filtra por tienda o no
+            if (!empty($storeId)) {
+                // CONSULTA PARA UNA TIENDA ESPECÍFICA
+                $baseQuery = "
+                    SELECT p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, p.usa_inventario, 
+                           d.departamento, e.nombre_estado,
+                           it.stock AS stock_actual, p.stock_minimo, p.stock_maximo
+                    FROM productos p
+                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                    LEFT JOIN estados e ON p.estado = e.id_estado
+                    INNER JOIN inventario_tienda it ON p.id_producto = it.id_producto AND it.id_tienda = :storeId
+                    " . $whereSql; // Se añade el WHERE aquí
+                $params[':storeId'] = $storeId;
+            } else {
+                // CONSULTA PARA TODAS LAS TIENDAS
+                $baseQuery = "
+                    SELECT p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, p.usa_inventario, 
+                           d.departamento, e.nombre_estado,
+                           COALESCE(SUM(it.stock), 0) as stock_actual,
+                           p.stock_minimo, 
+                           p.stock_maximo
+                    FROM productos p
+                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                    LEFT JOIN estados e ON p.estado = e.id_estado
+                    LEFT JOIN inventario_tienda it ON p.id_producto = it.id_producto
+                    " . $whereSql . " -- Se añade el WHERE aquí, antes del GROUP BY
+                    GROUP BY p.id_producto
+                ";
+            }
+            
+            // Mapeo de columnas para el ORDER BY
+            $sortByMapping = [
+                'stock_actual' => 'stock_actual',
+                'departamento' => 'departamento',
+                'nombre_producto' => 'nombre_producto',
+                'codigo_producto' => 'codigo_producto',
+                'precio_venta' => 'precio_venta'
+            ];
+            $orderByColumn = $sortByMapping[$sortBy] ?? 'nombre_producto';
+
+            // 3. Envolver la consulta final para aplicar ordenamiento y paginación
+            $fullQuery = "
+                SELECT * FROM (" . $baseQuery . ") AS products_with_stock
+                ORDER BY $orderByColumn $order
+                LIMIT :limit OFFSET :offset
+            ";
+            
+            // --- FIN DE LA LÓGICA CORREGIDA ---
+
+            $stmt = $pdo->prepare($fullQuery);
+            foreach($params as $key => &$val) {
+                 $stmt->bindParam($key, $val);
+            }
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'products' => $products]);
+
+        } catch (PDOException $e) {
+            http_response_code(500); 
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error de SQL',
+                'message' => $e->getMessage()
+            ]);
         }
-        
-        // El resto de la lógica de este case (búsqueda, filtros, etc.) permanece igual...
-        $search = $_GET['search'] ?? '';
-        $department_id = $_GET['department_id'] ?? '';
-        $sort_by = $_GET['sort_by'] ?? 'p.nombre_producto';
-        $order = $_GET['order'] ?? 'ASC';
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit = 25;
-        $offset = ($page - 1) * $limit;
-
-        $allowed_sort_columns = ['p.nombre_producto', 'd.departamento', 'p.precio_venta', 'stock_actual', 'p.usa_inventario', 'e.nombre_estado'];
-        if (!in_array($sort_by, $allowed_sort_columns)) {
-            $sort_by = 'p.nombre_producto';
-        }
-        $order = strtoupper($order) === 'DESC' ? 'DESC' : 'ASC';
-
-        $sql = "SELECT p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, p.usa_inventario, p.stock_minimo, p.stock_maximo, d.departamento, e.nombre_estado, {$stock_selection_sql} FROM productos p LEFT JOIN departamentos d ON p.departamento = d.id_departamento LEFT JOIN estados e ON p.estado = e.id_estado";
-        
-        $where_clauses = [];
-        if (!empty($search)) {
-            $where_clauses[] = "(p.nombre_producto LIKE :search OR p.codigo_producto LIKE :search)";
-            $params[':search'] = "%$search%";
-        }
-        if (!empty($department_id)) {
-            $where_clauses[] = "p.departamento = :department_id";
-            $params[':department_id'] = $department_id;
-        }
-        if (count($where_clauses) > 0) {
-            $sql .= " WHERE " . implode(' AND ', $where_clauses);
-        }
-
-        $sql .= " ORDER BY {$sort_by} {$order} LIMIT :limit OFFSET :offset";
-
-        $stmt = $pdo->prepare($sql);
-        foreach ($params as $key => &$val) { $stmt->bindParam($key, $val); }
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode(['success' => true, 'products' => $products]);
-
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error en la base de datos: ' . $e->getMessage()]);
     }
     break;
 
