@@ -53,6 +53,9 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
                 <thead>
                     <tr>
                         <th>Nombre de Usuario</th>
+                        <th>Tienda</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>

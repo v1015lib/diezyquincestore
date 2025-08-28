@@ -3039,6 +3039,7 @@ async function fetchAndRenderUsers() {
                 row.innerHTML = `
                     <td>${user.nombre_usuario}</td>
                     <td>${user.nombre_tienda || 'Sin asignar'}</td>
+                    <td>${user.rol.charAt(0).toUpperCase() + user.rol.slice(1)}</td>
                     <td>
                         <span style="background-color: ${estadoColor}; color: ${estadoTextColor}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
                             ${user.estado}
@@ -3155,6 +3156,10 @@ mainContent.addEventListener('click', (event) => {
         const username = row.querySelector('td:first-child').textContent;
         const permissions = JSON.parse(row.dataset.permissions);
         renderPermissionsModal(userId, username, permissions);
+
+        const currentRol = row.dataset.rol; // <--- Se obtiene el rol de la fila
+        renderPermissionsModal(userId, username, permissions, currentRol); // <--- Se pasa a la función
+     
     }
     if (event.target.classList.contains('delete-user-btn')) {
         const row = event.target.closest('tr');
@@ -3166,7 +3171,7 @@ mainContent.addEventListener('click', (event) => {
     }
 });
 
-function renderPermissionsModal(userId, username, permissions) {
+function renderPermissionsModal(userId, username, permissions, currentRol) { // <--- Se añade currentRol
     const modal = document.getElementById('permissions-modal');
     document.getElementById('permissions-modal-title').textContent = `Permisos para: ${username}`;
     document.getElementById('edit-user-id').value = userId;
@@ -3183,15 +3188,27 @@ function renderPermissionsModal(userId, username, permissions) {
         { id: 'web_admin', label: 'Web Admin' },
         { id: 'utilidades', label: 'Utilidades' },
         { id: 'pos', label: 'Punto de Venta' },
-        { id: 'listas_compras', label: 'Listas de Compras' } // <-- LÍNEA CORREGIDA
+        { id: 'listas_compras', label: 'Listas de Compras' }
     ];
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    const rolSelectorHtml = `
+        <div class="form-group" style="border-top: 1px solid #ccc; padding-top: 1rem; margin-top: 1rem;">
+            <label for="edit-rol-usuario">Rol del Usuario</label>
+            <select id="edit-rol-usuario" name="rol">
+                <option value="empleado" ${currentRol === 'empleado' ? 'selected' : ''}>Empleado</option>
+                <option value="administrador" ${currentRol === 'administrador' ? 'selected' : ''}>Administrador</option>
+            </select>
+        </div>
+    `;
+    // --- FIN DE LA MODIFICACIÓN ---
 
     container.innerHTML = modules.map(module => `
         <div class="form-group setting-toggle" style="justify-content: flex-start;">
             <label for="perm-${module.id}">${module.label}</label>
             <input type="checkbox" id="perm-${module.id}" name="permisos[${module.id}]" class="switch" ${permissions[module.id] ? 'checked' : ''}>
         </div>
-    `).join('');
+    `).join('') + rolSelectorHtml; // Se añade el HTML del selector al final
 
     modal.style.display = 'flex';
 }
@@ -3217,7 +3234,8 @@ async function handlePermissionsFormSubmit(event) {
 
     const data = {
         id_usuario: userId,
-        permisos: permissions
+        permisos: permissions,
+        rol: form.querySelector('#edit-rol-usuario').value // <--- Se obtiene el valor del selector
     };
 
     submitButton.disabled = true;
@@ -3236,12 +3254,11 @@ async function handlePermissionsFormSubmit(event) {
         feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
         setTimeout(() => {
             closePermissionsModal();
-            fetchAndRenderUsers(); // Recarga la lista para mostrar los cambios
+            fetchAndRenderUsers();
         }, 1500);
 
     } catch (error) {
         feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
-    } finally {
         submitButton.disabled = false;
         submitButton.textContent = 'Guardar Cambios';
     }
