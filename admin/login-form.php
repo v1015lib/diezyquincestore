@@ -180,7 +180,7 @@ if (isset($_SESSION['login_error'])) {
     <div class="login-container">
         <div class="login-header">
             <h1>Iniciar sesión</h1>
-            <p>Usa tu cuenta de administrador</p>
+            <p>Usa tu cuenta asignada</p>
         </div>
         
         <?php if (!empty($error_message)): ?>
@@ -192,7 +192,7 @@ if (isset($_SESSION['login_error'])) {
                 <div class="input-group">
                     <div class="input-wrapper">
                         <input type="text" id="username" name="username" placeholder=" " required>
-                        <label for="username">Correo electrónico o nombre de usuario</label>
+                        <label for="username">Usuario</label>
                     </div>
                     <div id="username-status" class="error"></div> 
                 </div>

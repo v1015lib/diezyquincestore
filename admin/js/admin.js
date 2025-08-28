@@ -1228,6 +1228,15 @@ async function renderEditForm(product) {
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
 
+if (event.target.classList.contains('reactivate-user-btn')) {
+        const row = event.target.closest('tr');
+        const userId = row.dataset.userId;
+        const username = row.querySelector('td:first-child').textContent;
+        if (confirm(`¿Estás seguro de que quieres reactivar al usuario "${username}"?`)) {
+            reactivateUser(userId);
+        }
+    }
+
 
         const sortableHeader = target.closest('th.sortable');
     if (sortableHeader) {
@@ -2989,37 +2998,64 @@ function initializeUserManagement() {
     }
 }
 
+
 async function fetchAndRenderUsers() {
     const tableBody = document.getElementById('users-table-body');
     if (!tableBody) return;
-    tableBody.innerHTML = '<tr><td colspan="2">Cargando empleados...</td></tr>';
-
+    
+    tableBody.innerHTML = '<tr><td colspan="4">Cargando empleados...</td></tr>';
+    
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/getUsers`);
         const result = await response.json();
-
+        
         tableBody.innerHTML = '';
+        
         if (result.success && result.users.length > 0) {
             result.users.forEach(user => {
                 const row = document.createElement('tr');
                 row.dataset.userId = user.id_usuario;
-                // Guardamos los permisos en un data-attribute para fácil acceso
                 row.dataset.permissions = user.permisos || '{}';
+                
+                const isActivo = user.estado === 'Activo';
+                
+                const estadoColor = isActivo ? '#d4edda' : '#f8d7da';
+                const estadoTextColor = isActivo ? '#155724' : '#721c24';
+
+                // --- INICIO DE LA LÓGICA DE BOTONES CONDICIONALES ---
+                let actionButtons = '';
+                if (isActivo) {
+                    actionButtons = `
+                        <button class="action-btn edit-permissions-btn">Editar Permisos</button>
+                        <button class="action-btn delete-user-btn" style="background-color: #f8d7da;">Dar de Baja</button>
+                    `;
+                } else {
+                    actionButtons = `
+                        <button class="action-btn reactivate-user-btn" style="background-color: #cce5ff; color: #004085;">Reactivar</button>
+                    `;
+                }
+                // --- FIN DE LA LÓGICA DE BOTONES CONDICIONALES ---
                 
                 row.innerHTML = `
                     <td>${user.nombre_usuario}</td>
+                    <td>${user.nombre_tienda || 'Sin asignar'}</td>
                     <td>
-                        <button class="action-btn edit-permissions-btn">Editar Permisos</button>
-                        <button class="action-btn delete-user-btn" style="background-color: #f8d7da;">Eliminar</button>
+                        <span style="background-color: ${estadoColor}; color: ${estadoTextColor}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                            ${user.estado}
+                        </span>
+                    </td>
+                    <td>
+                        ${actionButtons}
                     </td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="2">No hay empleados registrados.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="4">No hay empleados registrados.</td></tr>';
         }
     } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="2" style="color:red;">Error al cargar usuarios.</td></tr>`;
+        console.error('Error fetching users:', error);
+        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar usuarios.</td></tr>`;
     }
 }
 
@@ -3109,7 +3145,7 @@ async function handleUserFormSubmit(event) {
         feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
     } finally {
         submitButton.disabled = false;
-        submitButton.textContent = 'Crear Empleado';
+        submitButton.textContent = 'Empleado';
     }
 }
 mainContent.addEventListener('click', (event) => {
@@ -3124,7 +3160,7 @@ mainContent.addEventListener('click', (event) => {
         const row = event.target.closest('tr');
         const userId = row.dataset.userId;
         const username = row.querySelector('td:first-child').textContent;
-        if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"? Esta acción no se puede deshacer.`)) {
+        if (confirm(`¿Estás seguro de que quieres dar de baja al usuario "${username}"? (Se podra dar de alta en un futuro).`)) {
             deleteUser(userId);
         }
     }
@@ -3210,7 +3246,6 @@ async function handlePermissionsFormSubmit(event) {
         submitButton.textContent = 'Guardar Cambios';
     }
 }
-
 async function deleteUser(userId) {
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/deleteUser`, {
@@ -3221,12 +3256,16 @@ async function deleteUser(userId) {
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
 
-        // Elimina la fila de la tabla visualmente
-        document.querySelector(`tr[data-user-id="${userId}"]`).remove();
-        alert('Usuario eliminado.');
+        // Mensaje de confirmación
+        alert('Usuario dado de baja correctamente.');
+
+        // --- LA CORRECCIÓN CLAVE ---
+        // En lugar de quitar la fila, recargamos toda la tabla para
+        // que se actualice y muestre el nuevo estado del usuario.
+        fetchAndRenderUsers();
 
     } catch (error) {
-        alert(`Error al eliminar: ${error.message}`);
+        alert(`Error al dar de baja al usuario: ${error.message}`);
     }
 }
 // En admin/js/admin.js, puedes agregarlas al final del archivo
@@ -3896,7 +3935,23 @@ async function saveProveedorFieldUpdate(proveedorId, field, value, cell) {
 
 // --- FIN: LÓGICA PARA PROVEEDORES ---
 
+async function reactivateUser(userId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/reactivateUser`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_usuario: userId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
 
+        alert('Usuario reactivado.');
+        fetchAndRenderUsers(); // Recargamos la tabla para que se actualice
+
+    } catch (error) {
+        alert(`Error al reactivar: ${error.message}`);
+    }
+}
 
 
 

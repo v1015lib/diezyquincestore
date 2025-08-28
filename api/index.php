@@ -1300,6 +1300,77 @@ case 'pos_get_product_by_code':
             echo json_encode(['is_available' => !$stmt->fetch()]);
             break;
 
+
+case 'admin/reactivateUser':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
+    $adminUserId = $_SESSION['id_usuario'] ?? null;
+
+    if (!$userId || !$adminUserId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'ID de usuario no válido o sesión no iniciada.']);
+        break;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 1. Obtener el nombre de usuario ANTES de reactivarlo.
+        $stmt_info = $pdo->prepare("SELECT nombre_usuario FROM usuarios WHERE id_usuario = :id");
+        $stmt_info->execute([':id' => $userId]);
+        $username = $stmt_info->fetchColumn();
+        
+        if (!$username) {
+            throw new Exception("El usuario no existe.");
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        // 2. Se actualiza el estado a 'activo'.
+        $stmt = $pdo->prepare("UPDATE usuarios SET estado = 'activo' WHERE id_usuario = :id AND rol = 'empleado'");
+        $stmt->execute([':id' => $userId]);
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 3. Registrar el log con el mensaje personalizado.
+        logActivity($pdo, $adminUserId, 'Usuario Reactivado', "Usuario '" . $username . "' dado de alta.");
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Usuario reactivado correctamente.']);
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al reactivar el usuario: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/getUsers':
+    try {
+        // --- CORRECCIÓN ---
+        // Se ajustó la consulta para usar los nombres de columna correctos ('nombre_usuario' y 't.nombre_tienda')
+        // y se añadió el filtro para mostrar solo a los empleados.
+        $stmt = $pdo->query("
+            SELECT 
+                u.id_usuario, 
+                u.nombre_usuario,
+                u.permisos,
+                t.nombre_tienda AS nombre_tienda,
+                CASE 
+                    WHEN u.estado = 'activo' THEN 'Activo'
+                    ELSE 'Inactivo' 
+                END AS estado
+            FROM usuarios u
+            LEFT JOIN tiendas t ON u.id_tienda = t.id_tienda
+            WHERE u.rol = 'empleado'
+            ORDER BY u.nombre_usuario ASC
+        ");
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'users' => $users]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Error al obtener usuarios: ' . $e->getMessage()]);
+    }
+    break;
 case 'admin/createUser':
     $data = json_decode(file_get_contents('php://input'), true);
     $username = trim($data['nombre_usuario'] ?? '');
@@ -1339,7 +1410,7 @@ case 'admin/createUser':
     }
     break;
 
-        case 'admin/updateUserPermissions':
+case 'admin/updateUserPermissions':
             
             $data = json_decode(file_get_contents('php://input'), true);
             $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
@@ -1359,27 +1430,51 @@ case 'admin/createUser':
                 http_response_code(500);
                 echo json_encode(['success' => false, 'error' => 'Error al guardar los permisos.']);
             }
-            break;
+    break;
 
-        case 'admin/deleteUser':
-            
-            $data = json_decode(file_get_contents('php://input'), true);
-            $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
+case 'admin/deleteUser':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
+    $adminUserId = $_SESSION['id_usuario'] ?? null;
 
-            if (!$userId) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'ID de usuario no válido.']);
-                break;
-            }
-            try {
-                $stmt = $pdo->prepare("DELETE FROM usuarios WHERE id_usuario = :id AND rol = 'empleado'");
-                $stmt->execute([':id' => $userId]);
-                echo json_encode(['success' => true, 'message' => 'Usuario eliminado correctamente.']);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al eliminar el usuario.']);
-            }
-            break;
+    if (!$userId || !$adminUserId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos o sesión no iniciada.']);
+        break;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 1. Obtener la información del usuario ANTES de desactivarlo.
+        $stmt_info = $pdo->prepare("SELECT nombre_usuario, rol FROM usuarios WHERE id_usuario = :id");
+        $stmt_info->execute([':id' => $userId]);
+        $userInfo = $stmt_info->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$userInfo) {
+            throw new Exception("El usuario no existe.");
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
+        // 2. Se actualiza el estado a 'inactivo'.
+        $stmt_update = $pdo->prepare("UPDATE usuarios SET estado = 'inactivo' WHERE id_usuario = :id AND rol = 'empleado'");
+        $stmt_update->execute([':id' => $userId]);
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 3. Registrar el log con el mensaje personalizado.
+        $logDescription = "Usuario '" . $userInfo['nombre_usuario'] . "' (Rol: " . ucfirst($userInfo['rol']) . ") ha sido dado de baja.";
+        logActivity($pdo, $adminUserId, 'Usuario Desactivado', $logDescription);
+        // --- FIN DE LA MODIFICACIÓN ---
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Usuario desactivado correctamente.']);
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al desactivar el usuario: ' . $e->getMessage()]);
+    }
+    break;
 
 /**************************************************************************************/
 /**************************************************************************************/

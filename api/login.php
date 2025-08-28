@@ -14,12 +14,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // --- 1. SE AÑADE "id_tienda" A LA CONSULTA ---
-        $stmt = $pdo->prepare("SELECT id_usuario, nombre_usuario, cod_acceso, rol, permisos, id_tienda FROM usuarios WHERE nombre_usuario = :username");
+        // --- 1. SE AÑADE "estado" A LA CONSULTA ---
+        $stmt = $pdo->prepare("SELECT id_usuario, nombre_usuario, cod_acceso, rol, permisos, id_tienda, estado FROM usuarios WHERE nombre_usuario = :username");
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['cod_acceso'])) {
+            
+            // --- 2. SE AÑADE LA NUEVA VALIDACIÓN DE ESTADO ---
+            if ($user['estado'] === 'inactivo') {
+                $_SESSION['login_error'] = 'Acceso bloqueado. Contacta a un administrador.';
+                
+                header('Location: ../login-form.php');
+                exit;
+            }
+            // --- FIN DE LA VALIDACIÓN ---
+
             if ($user['rol'] === 'administrador' || $user['rol'] === 'empleado') {
                 
                 session_regenerate_id(true);
@@ -28,9 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['id_usuario'] = $user['id_usuario'];
                 $_SESSION['nombre_usuario'] = $user['nombre_usuario'];
                 $_SESSION['rol'] = $user['rol'];
-                
-                // --- 2. SE GUARDA EL "id_tienda" EN LA SESIÓN ---
-                $_SESSION['id_tienda'] = $user['id_tienda']; // <-- LÍNEA AÑADIDA
+                $_SESSION['id_tienda'] = $user['id_tienda'];
                 
                 if ($user['rol'] === 'empleado') {
                     $_SESSION['permisos'] = $user['permisos'];
@@ -54,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 } else {
+    // Redirigir si no es una solicitud POST
     header('Location: ../login-form.php');
     exit;
 }
