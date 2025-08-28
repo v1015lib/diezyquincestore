@@ -3003,7 +3003,7 @@ async function fetchAndRenderUsers() {
     const tableBody = document.getElementById('users-table-body');
     if (!tableBody) return;
     
-    tableBody.innerHTML = '<tr><td colspan="4">Cargando empleados...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando usuarios...</td></tr>';
     
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/getUsers`);
@@ -3016,47 +3016,45 @@ async function fetchAndRenderUsers() {
                 const row = document.createElement('tr');
                 row.dataset.userId = user.id_usuario;
                 row.dataset.permissions = user.permisos || '{}';
-                
+                row.dataset.rol = user.rol;
+
                 const isActivo = user.estado === 'Activo';
-                
                 const estadoColor = isActivo ? '#d4edda' : '#f8d7da';
                 const estadoTextColor = isActivo ? '#155724' : '#721c24';
-
-                // --- INICIO DE LA LÓGICA DE BOTONES CONDICIONALES ---
                 let actionButtons = '';
+
+                // --- INICIO DE LA LÓGICA DE BOTONES MEJORADA ---
                 if (isActivo) {
-                    actionButtons = `
-                        <button class="action-btn edit-permissions-btn">Editar Permisos</button>
-                        <button class="action-btn delete-user-btn" style="background-color: #f8d7da;">Dar de Baja</button>
-                    `;
+                    actionButtons = `<button class="action-btn edit-permissions-btn">Editar</button>`;
+                    // Si el usuario NO es 'admin', se añade el botón de desactivar.
+                    if (user.nombre_usuario !== 'admin') {
+                        actionButtons += ` <button class="action-btn delete-user-btn" style="background-color: #f8d7da;">Desactivar</button>`;
+                    }
                 } else {
-                    actionButtons = `
-                        <button class="action-btn reactivate-user-btn" style="background-color: #cce5ff; color: #004085;">Reactivar</button>
-                    `;
+                    // Si no está activo, siempre se puede reactivar.
+                    actionButtons = `<button class="action-btn reactivate-user-btn" style="background-color: #cce5ff; color: #004085;">Reactivar</button>`;
                 }
-                // --- FIN DE LA LÓGICA DE BOTONES CONDICIONALES ---
+                // --- FIN DE LA LÓGICA DE BOTONES MEJORADA ---
                 
                 row.innerHTML = `
                     <td>${user.nombre_usuario}</td>
-                    <td>${user.nombre_tienda || 'Sin asignar'}</td>
+                    <td>${user.nombre_tienda || 'N/A'}</td>
                     <td>${user.rol.charAt(0).toUpperCase() + user.rol.slice(1)}</td>
                     <td>
                         <span style="background-color: ${estadoColor}; color: ${estadoTextColor}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
                             ${user.estado}
                         </span>
                     </td>
-                    <td>
-                        ${actionButtons}
-                    </td>
+                    <td>${actionButtons}</td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="4">No hay empleados registrados.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">No hay usuarios registrados.</td></tr>';
         }
     } catch (error) {
         console.error('Error fetching users:', error);
-        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar usuarios.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error al cargar usuarios.</td></tr>`;
     }
 }
 
@@ -3171,13 +3169,16 @@ mainContent.addEventListener('click', (event) => {
     }
 });
 
-function renderPermissionsModal(userId, username, permissions, currentRol) { // <--- Se añade currentRol
+function renderPermissionsModal(userId, username, permissions, currentRol) {
     const modal = document.getElementById('permissions-modal');
     document.getElementById('permissions-modal-title').textContent = `Permisos para: ${username}`;
     document.getElementById('edit-user-id').value = userId;
 
     const container = document.getElementById('permissions-checkbox-container');
+    const modalBody = modal.querySelector('.modal-body'); // <-- Obtener el cuerpo del modal
+
     const modules = [
+        // ... (tu lista de módulos no cambia)
         { id: 'dashboard', label: 'Dashboard' },
         { id: 'productos', label: 'Productos' },
         { id: 'departamentos', label: 'Departamentos' },
@@ -3191,31 +3192,53 @@ function renderPermissionsModal(userId, username, permissions, currentRol) { // 
         { id: 'listas_compras', label: 'Listas de Compras' }
     ];
 
-    // --- INICIO DE LA MODIFICACIÓN ---
+    const isSuperAdmin = username === 'admin';
+    const disabledAttribute = isSuperAdmin ? 'disabled' : '';
+    const helpText = isSuperAdmin ? '<small>El rol del administrador principal no se puede cambiar.</small>' : '';
+
     const rolSelectorHtml = `
         <div class="form-group" style="border-top: 1px solid #ccc; padding-top: 1rem; margin-top: 1rem;">
-            <label for="edit-rol-usuario">Rol del Usuario</label>
-            <select id="edit-rol-usuario" name="rol">
+            <label for="edit-rol-usuario">Rol</label>
+            <select id="edit-rol-usuario" name="rol" ${disabledAttribute}>
                 <option value="empleado" ${currentRol === 'empleado' ? 'selected' : ''}>Empleado</option>
                 <option value="administrador" ${currentRol === 'administrador' ? 'selected' : ''}>Administrador</option>
             </select>
+            ${helpText}
         </div>
     `;
-    // --- FIN DE LA MODIFICACIÓN ---
 
+    // --- CAMBIO PRINCIPAL ---
+    // Renderiza los checkboxes dentro de su contenedor
     container.innerHTML = modules.map(module => `
         <div class="form-group setting-toggle" style="justify-content: flex-start;">
             <label for="perm-${module.id}">${module.label}</label>
             <input type="checkbox" id="perm-${module.id}" name="permisos[${module.id}]" class="switch" ${permissions[module.id] ? 'checked' : ''}>
         </div>
-    `).join('') + rolSelectorHtml; // Se añade el HTML del selector al final
+    `).join('');
+
+    // Elimina el selector de rol anterior si existe
+    const oldRolSelector = modalBody.querySelector('.form-group:has(#edit-rol-usuario)');
+    if (oldRolSelector) {
+        oldRolSelector.remove();
+    }
+    
+    // Inserta el nuevo selector de rol al final del modal-body, pero fuera del contenedor de checkboxes
+    modalBody.insertAdjacentHTML('beforeend', rolSelectorHtml);
+    // --- FIN DEL CAMBIO ---
 
     modal.style.display = 'flex';
 }
-
 function closePermissionsModal() {
     const modal = document.getElementById('permissions-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+        
+        // ✨ CORRECCIÓN: Se limpia el mensaje al cerrar el modal.
+        const feedbackDiv = document.getElementById('permissions-modal-feedback');
+        if (feedbackDiv) {
+            feedbackDiv.innerHTML = '';
+        }
+    }
 }
 
 async function handlePermissionsFormSubmit(event) {
@@ -3235,7 +3258,7 @@ async function handlePermissionsFormSubmit(event) {
     const data = {
         id_usuario: userId,
         permisos: permissions,
-        rol: form.querySelector('#edit-rol-usuario').value // <--- Se obtiene el valor del selector
+        rol: form.querySelector('#edit-rol-usuario').value
     };
 
     submitButton.disabled = true;
@@ -3259,6 +3282,8 @@ async function handlePermissionsFormSubmit(event) {
 
     } catch (error) {
         feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        // ✨ CORRECCIÓN: Este bloque se asegura de que el botón siempre se restaure.
         submitButton.disabled = false;
         submitButton.textContent = 'Guardar Cambios';
     }

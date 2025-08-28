@@ -1350,7 +1350,6 @@ case 'admin/getUsers':
         $stmt = $pdo->query("
             SELECT 
                 u.id_usuario, 
-
                 u.nombre_usuario,
                 u.permisos,
                 u.rol,
@@ -1361,7 +1360,7 @@ case 'admin/getUsers':
                 END AS estado
             FROM usuarios u
             LEFT JOIN tiendas t ON u.id_tienda = t.id_tienda
-            WHERE u.rol = 'empleado' OR u.rol = 'administrador'  /*Mostrar tambien a los administradores*/
+            WHERE u.rol = 'empleado' OR u.rol = 'administrador'
             ORDER BY u.nombre_usuario ASC
         ");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1410,11 +1409,12 @@ case 'admin/createUser':
     }
     break;
 
+
 case 'admin/updateUserPermissions':
     $data = json_decode(file_get_contents('php://input'), true);
     $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
     $permissions = $data['permisos'] ?? [];
-    $rol = $data['rol'] ?? ''; // <--- 1. Se captura el nuevo rol
+    $rol = $data['rol'] ?? '';
     $adminUserId = $_SESSION['id_usuario'] ?? null;
 
     if (!$userId || !in_array($rol, ['empleado', 'administrador'])) {
@@ -1425,9 +1425,20 @@ case 'admin/updateUserPermissions':
 
     $pdo->beginTransaction();
     try {
-        $permissionsJson = json_encode($permissions);
+        // --- INICIO DE LA EXCEPCIÓN ---
+        // 1. Verificamos el nombre de usuario que se está editando.
+        $stmt_info = $pdo->prepare("SELECT nombre_usuario FROM usuarios WHERE id_usuario = :id");
+        $stmt_info->execute([':id' => $userId]);
+        $username_to_edit = $stmt_info->fetchColumn();
 
-        // --- 2. Se añade el campo 'rol' a la consulta de actualización ---
+        // 2. Si es 'admin' y se intenta cambiar el rol, bloqueamos la operación.
+        if ($username_to_edit === 'admin' && $rol !== 'administrador') {
+            http_response_code(403); // Prohibido
+            throw new Exception("El rol del usuario 'admin' no puede ser modificado.");
+        }
+        // --- FIN DE LA EXCEPCIÓN ---
+
+        $permissionsJson = json_encode($permissions);
         $stmt = $pdo->prepare("UPDATE usuarios SET permisos = :permissions, rol = :rol WHERE id_usuario = :id");
         $stmt->execute([
             ':permissions' => $permissionsJson,
@@ -1435,19 +1446,20 @@ case 'admin/updateUserPermissions':
             ':id' => $userId
         ]);
 
-        // --- 3. Se añade un log para el cambio de rol (opcional pero recomendado) ---
-        logActivity($pdo, $adminUserId, 'Rol de Usuario Modificado', "Se actualizó el rol para el usuario ID #${userId} a '${rol}'.");
-
+        logActivity($pdo, $adminUserId, 'Permisos Modificados', "Se actualizaron los permisos/rol para el usuario ID #${userId}.");
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Permisos y rol actualizados.']);
 
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error al guardar los cambios.']);
+        $errorCode = http_response_code() !== 200 ? http_response_code() : 500;
+        http_response_code($errorCode);
+        echo json_encode(['success' => false, 'error' => 'Error al guardar: ' . $e->getMessage()]);
     }
     break;
 
+
+   
 case 'admin/deleteUser':
     $data = json_decode(file_get_contents('php://input'), true);
     $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
@@ -1461,8 +1473,6 @@ case 'admin/deleteUser':
 
     $pdo->beginTransaction();
     try {
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // 1. Obtener la información del usuario ANTES de desactivarlo.
         $stmt_info = $pdo->prepare("SELECT nombre_usuario, rol FROM usuarios WHERE id_usuario = :id");
         $stmt_info->execute([':id' => $userId]);
         $userInfo = $stmt_info->fetch(PDO::FETCH_ASSOC);
@@ -1470,28 +1480,31 @@ case 'admin/deleteUser':
         if (!$userInfo) {
             throw new Exception("El usuario no existe.");
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
-        // 2. Se actualiza el estado a 'inactivo'.
-        $stmt_update = $pdo->prepare("UPDATE usuarios SET estado = 'inactivo' WHERE id_usuario = :id AND rol = 'empleado'");
+        // --- INICIO DE LA EXCEPCIÓN PARA EL SUPER ADMIN ---
+        // Si se intenta desactivar al usuario con el nombre de usuario 'admin', se bloquea la acción.
+        if ($userInfo['nombre_usuario'] === 'admin') {
+            http_response_code(403); // Código de "Prohibido"
+            throw new Exception("La cuenta principal 'admin' no puede ser desactivada.");
+        }
+        // --- FIN DE LA EXCEPCIÓN ---
+
+        $stmt_update = $pdo->prepare("UPDATE usuarios SET estado = 'inactivo' WHERE id_usuario = :id");
         $stmt_update->execute([':id' => $userId]);
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // 3. Registrar el log con el mensaje personalizado.
         $logDescription = "Usuario '" . $userInfo['nombre_usuario'] . "' (Rol: " . ucfirst($userInfo['rol']) . ") ha sido dado de baja.";
         logActivity($pdo, $adminUserId, 'Usuario Desactivado', $logDescription);
-        // --- FIN DE LA MODIFICACIÓN ---
         
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Usuario desactivado correctamente.']);
 
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error al desactivar el usuario: ' . $e->getMessage()]);
+        $errorCode = http_response_code() !== 200 ? http_response_code() : 500;
+        http_response_code($errorCode);
+        echo json_encode(['success' => false, 'error' => 'Error al desactivar: ' . $e->getMessage()]);
     }
     break;
-
 /**************************************************************************************/
 /**************************************************************************************/
 /**************************************************************************************/

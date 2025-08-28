@@ -10,6 +10,11 @@
   color: black;
 }
 
+button {
+  all: unset;
+  padding: 0.5rem;
+}
+
 .dashboard-header {
   display: -webkit-box;
   display: -ms-flexbox;
@@ -1312,6 +1317,168 @@
   .sidemenu-collapsed #sidemenu-collapse-btn {
     -webkit-transform: rotate(180deg);
             transform: rotate(180deg);
+  }
+}
+/* --- ESTILOS COMPACTOS PARA TABLETS Y MÓVILES --- */
+/* Aplica a pantallas de tablet y más pequeñas */
+@media (max-width: 991px) {
+  .main-content {
+    padding: 1rem;
+  }
+  .dashboard-widget {
+    padding: 1rem;
+  }
+  .action-ribbon {
+    gap: 0.5rem;
+    -ms-flex-wrap: wrap;
+        flex-wrap: wrap;
+  }
+  .action-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .form-group {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: start;
+        -ms-flex-align: start;
+            align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .form-group label {
+    margin-bottom: 0;
+  }
+}
+/* Aplica solo a pantallas de móviles */
+@media (max-width: 767px) {
+  #sidemenu-collapse-btn span {
+    display: none;
+  }
+  .table-responsive thead {
+    display: none;
+  }
+  .table-responsive tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.5rem;
+  }
+  .table-responsive td {
+    display: block;
+    text-align: right;
+    position: relative;
+    padding-left: 50%;
+    border-bottom: 1px dotted #eee;
+    margin-bottom: 5px;
+  }
+  .table-responsive td:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+  .table-responsive td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 5px;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: bold;
+  }
+  /* Asignación de etiquetas para la tabla de USUARIOS */
+  #users-table-body td:nth-of-type(1)::before {
+    content: "Usuario:";
+  }
+  #users-table-body td:nth-of-type(2)::before {
+    content: "Tienda:";
+  }
+  #users-table-body td:nth-of-type(3)::before {
+    content: "Rol:";
+  }
+  #users-table-body td:nth-of-type(4)::before {
+    content: "Estado:";
+  }
+  #users-table-body td:nth-of-type(5)::before {
+    content: "Acciones:";
+  }
+  /* Asignación de etiquetas para la tabla de PRODUCTOS */
+  #product-table-body td:nth-of-type(1) {
+    padding-left: 0;
+  }
+  #product-table-body td:nth-of-type(1)::before {
+    display: none;
+  }
+  #product-table-body td:nth-of-type(2)::before {
+    content: "Código:";
+  }
+  #product-table-body td:nth-of-type(3)::before {
+    content: "Nombre:";
+  }
+  #product-table-body td:nth-of-type(4)::before {
+    content: "Depto:";
+  }
+  #product-table-body td:nth-of-type(5)::before {
+    content: "Precio:";
+  }
+  #product-table-body td:nth-of-type(6)::before {
+    content: "Stock:";
+  }
+  #product-table-body td:nth-of-type(7)::before {
+    content: "Mínimo:";
+  }
+  #product-table-body td:nth-of-type(8)::before {
+    content: "Máximo:";
+  }
+  #product-table-body td:nth-of-type(9)::before {
+    content: "Usa Inv:";
+  }
+  #product-table-body td:nth-of-type(10)::before {
+    content: "Estado:";
+  }
+  #product-table-body td:nth-of-type(11)::before {
+    content: "Acciones:";
+  }
+  .table-responsive td:has(.action-btn) {
+    text-align: center;
+    padding-left: 0;
+  }
+  .table-responsive td:has(.action-btn)::before {
+    display: none;
+  }
+}
+/* --- ESTILOS COMPACTOS PARA EL MODAL DE PERMISOS --- */
+@media (max-width: 767px) {
+  #permissions-modal .modal-content {
+    width: 95%;
+    max-height: 80vh;
+  }
+  #permissions-modal .modal-body {
+    padding: 1rem;
+  }
+  #permissions-modal #permissions-checkbox-container {
+    display: -ms-grid;
+    display: grid;
+    -ms-grid-columns: 1fr 1rem 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1rem;
+  }
+  #permissions-modal #permissions-checkbox-container .form-group.setting-toggle {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  #permissions-modal #permissions-checkbox-container .form-group.setting-toggle label {
+    font-size: 0.9rem;
+  }
+  #permissions-modal .form-group:has(#edit-rol-usuario) {
+    grid-column: 1/-1;
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+  #permissions-modal .form-group:has(#edit-rol-usuario) label, #permissions-modal .form-group:has(#edit-rol-usuario) select, #permissions-modal .form-group:has(#edit-rol-usuario) small {
+    font-size: 0.9rem;
   }
 }
 /* admin/css/styles.css */
