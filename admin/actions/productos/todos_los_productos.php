@@ -1,5 +1,3 @@
-
-
 <div class="product-list-header">
     <div class="filters-container">
         <input type="text" id="product-search-input" class="form-control" placeholder="Buscar por nombre o código...">
@@ -8,9 +6,11 @@
             <option value="">Filtrar por departamento</option>
         </select>
         
+        <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador'): ?>
         <select id="store-filter" class="form-control">
             <option value="">Filtrar por tienda</option>
         </select>
+        <?php endif; ?>
 
     </div>
     <div class="batch-actions-container">
@@ -23,7 +23,6 @@
         <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
     </div>
 </div>
-
 <div id="product-list-container" class="table-container">
     <table class="product-table">
         <thead>

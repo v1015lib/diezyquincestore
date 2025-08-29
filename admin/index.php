@@ -84,6 +84,9 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
     </div>
 
     <script>
+
+
+        
         // Esta variable global le informa a admin.js el rol del usuario actual.
         const USER_ROLE = '<?php echo $_SESSION['rol'] ?? "empleado"; ?>';
     </script>

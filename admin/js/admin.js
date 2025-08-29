@@ -709,6 +709,9 @@ async function loadActionContent(actionPath) {
             await populateDepartmentFilter();
             await populateStoreFilter();
             await fetchAndRenderProducts();
+            if (USER_ROLE === 'administrador') {
+                await populateStoreFilter();
+            }
             // --- AÑADIR el listener de scroll al contenedor principal ---
             mainContentContainer?.addEventListener('scroll', handleScroll);
         } else if (actionPath === 'productos/agregar_producto') {

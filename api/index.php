@@ -4328,9 +4328,10 @@ case 'toggle-inventory':
 
 
 
-// EN: admin/api/index.php
 
-// ... (otro código del switch) ...
+
+
+// EN: api/index.php
 
 case 'admin/getProducts':
     if ($method == 'GET') {
@@ -4341,7 +4342,7 @@ case 'admin/getProducts':
 
             $searchTerm = $_GET['search'] ?? '';
             $departmentId = $_GET['department'] ?? '';
-            $storeId = $_GET['store'] ?? ''; 
+            $storeId_filter = $_GET['store'] ?? ''; // Filtro explícito del admin
             $sortBy = $_GET['sort_by'] ?? 'nombre_producto';
             $order = $_GET['order'] ?? 'ASC';
             
@@ -4350,24 +4351,30 @@ case 'admin/getProducts':
                 $sortBy = 'nombre_producto';
             }
 
+            // Lógica de roles y tiendas
             $rol = $_SESSION['rol'] ?? 'empleado';
             $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
             
+            $where_clauses = [];
+            $params = [];
+
             // --- INICIO DE LA CORRECCIÓN CLAVE ---
-            // Ahora la subconsulta para el stock depende de si se ha filtrado por una tienda.
             $stock_subquery = "";
-            if (!empty($storeId)) {
-                // Si hay un filtro de tienda, obtenemos el stock específico de esa tienda.
-                $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($storeId) . "), 0)";
+            if ($rol === 'administrador_global') {
+                // Si el admin filtra por una tienda, muestra el stock de esa tienda.
+                if (!empty($storeId_filter)) {
+                    $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($storeId_filter) . "), 0)";
+                } else {
+                    // Si no filtra, muestra la suma del stock de todas las tiendas.
+                    $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
+                }
             } else {
-                // Si no hay filtro, mostramos la suma total (comportamiento anterior).
-                 $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
+                // Para cualquier otro rol (bodeguero, cajero, etc.), siempre muestra el stock de su tienda asignada.
+                $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($id_tienda_usuario) . "), 0)";
             }
             // --- FIN DE LA CORRECCIÓN CLAVE ---
 
-
-            $where_clauses = [];
-            $params = [];
+            // Filtros generales (búsqueda, departamento). Estos no cambian.
             if (!empty($searchTerm)) {
                 $where_clauses[] = "(p.nombre_producto LIKE :searchTerm OR p.codigo_producto LIKE :searchTerm)";
                 $params[':searchTerm'] = '%' . $searchTerm . '%';
@@ -4376,25 +4383,23 @@ case 'admin/getProducts':
                 $where_clauses[] = "p.departamento = :departmentId";
                 $params[':departmentId'] = $departmentId;
             }
-            if ($rol === 'administrador_global' && !empty($storeId)) {
+            // Si el admin filtra por tienda, también se asegura de mostrar solo productos que existan en esa tienda.
+            if ($rol === 'administrador_global' && !empty($storeId_filter)) {
                 $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :storeId)";
-                $params[':storeId'] = $storeId;
+                $params[':storeId'] = $storeId_filter;
             }
 
             $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
-
+            
+            // El resto de la función (conteo, ordenamiento, etc.) permanece igual.
             $sql_total = "SELECT COUNT(p.id_producto) FROM productos p" . $where_sql;
             $stmt_total = $pdo->prepare($sql_total);
             $stmt_total->execute($params);
             $total_products = $stmt_total->fetchColumn();
 
             $sortByMapping = [
-                'stock_actual' => 'stock_actual',
-                'departamento' => 'd.departamento',
-                'nombre_producto' => 'p.nombre_producto',
-                'codigo_producto' => 'p.codigo_producto',
-                'precio_venta' => 'p.precio_venta',
-                'nombre_estado' => 'e.nombre_estado'
+                'stock_actual' => 'stock_actual', 'departamento' => 'd.departamento', 'nombre_producto' => 'p.nombre_producto',
+                'codigo_producto' => 'p.codigo_producto', 'precio_venta' => 'p.precio_venta', 'nombre_estado' => 'e.nombre_estado'
             ];
             $orderByColumn = $sortByMapping[$sortBy] ?? 'p.nombre_producto';
             
@@ -4424,10 +4429,6 @@ case 'admin/getProducts':
         }
     }
     break;
-
-// ... (resto del código del switch) ...
-
-
 
 
 
