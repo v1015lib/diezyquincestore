@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
             order: 'ASC'
         }
     };
+
     let isLoading = false;
        async function fetchAndRenderActiveOffers() {
         const tableBody = document.getElementById('active-offers-table-body');
@@ -544,8 +545,8 @@ async function fetchAndRenderProducts() {
                 tableBody.appendChild(row);
             });
 
-            if (data.products.length < 25) {
-                currentFilters.page = -1;
+              if (data.products.length < 50) { 
+                currentFilters.page = -1; // Detiene futuras cargas
             }
 
         } else {
@@ -3282,46 +3283,69 @@ mainContent.addEventListener('click', (event) => {
     }
 });
 
+
+
+
+
+
+
 function renderPermissionsModal(userId, username, permissions, currentRol) {
     const modal = document.getElementById('permissions-modal');
+    if (!modal) return;
+    
     document.getElementById('permissions-modal-title').textContent = `Permisos para: ${username}`;
     document.getElementById('edit-user-id').value = userId;
 
     const container = document.getElementById('permissions-checkbox-container');
-    const modalBody = modal.querySelector('.modal-body'); // <-- Obtener el cuerpo del modal
+    const modalBody = modal.querySelector('.modal-body');
 
     const modules = [
-        // ... (tu lista de módulos no cambia)
         { id: 'dashboard', label: 'Dashboard' },
+        { id: 'tiendas', label: 'Gestión de Tiendas' },
+        { id: 'proveedores', label: 'Proveedores' },
+        { id: 'pos', label: 'Punto de Venta' },
+        { id: 'listas_compras', label: 'Listas de Compras' },
         { id: 'productos', label: 'Productos' },
         { id: 'departamentos', label: 'Departamentos' },
         { id: 'clientes', label: 'Clientes' },
+        { id: 'usuarios', label: 'Gestión de Usuarios' },
         { id: 'tarjetas', label: 'Tarjetas' },
         { id: 'inventario', label: 'Inventario' },
         { id: 'estadisticas', label: 'Estadísticas' },
         { id: 'web_admin', label: 'Web Admin' },
-        { id: 'utilidades', label: 'Utilidades' },
-        { id: 'pos', label: 'Punto de Venta' },
-        { id: 'listas_compras', label: 'Listas de Compras' }
+        { id: 'utilidades', label: 'Utilidades' }
     ];
 
     const isSuperAdmin = username === 'admin';
     const disabledAttribute = isSuperAdmin ? 'disabled' : '';
-    const helpText = isSuperAdmin ? '<small>El rol del administrador principal no se puede cambiar.</small>' : '';
+    const helpText = isSuperAdmin ? '<small>El rol del administrador principal no puede ser modificado.</small>' : '';
+
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    // 1. Se define la lista de roles SIN 'administrador_global'.
+    const roles = [
+        { value: 'cajero', text: 'Cajero (POS)' },
+        { value: 'bodeguero', text: 'Bodeguero (Inventario)' },
+        { value: 'admin_tienda', text: 'Admin de Tienda' },
+        { value: 'empleado', text: 'Empleado (Personalizado)' }
+    ];
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
+
+    // 2. Se genera el HTML para las opciones del select dinámicamente.
+    let rolOptionsHtml = roles.map(rol => 
+        `<option value="${rol.value}" ${currentRol === rol.value ? 'selected' : ''}>${rol.text}</option>`
+    ).join('');
 
     const rolSelectorHtml = `
-        <div class="form-group" style="border-top: 1px solid #ccc; padding-top: 1rem; margin-top: 1rem;">
-            <label for="edit-rol-usuario">Rol</label>
+        <div class="form-group" id="rol-selector-container" style="border-top: 1px solid #dee2e6; padding-top: 1rem; margin-top: 1rem;">
+            <label for="edit-rol-usuario">Rol del Usuario</label>
             <select id="edit-rol-usuario" name="rol" ${disabledAttribute}>
-                <option value="empleado" ${currentRol === 'empleado' ? 'selected' : ''}>Empleado</option>
-                <option value="administrador" ${currentRol === 'administrador' ? 'selected' : ''}>Administrador</option>
+                ${rolOptionsHtml}
             </select>
             ${helpText}
         </div>
     `;
 
-    // --- CAMBIO PRINCIPAL ---
-    // Renderiza los checkboxes dentro de su contenedor
+    // Se renderizan los checkboxes de permisos.
     container.innerHTML = modules.map(module => `
         <div class="form-group setting-toggle" style="justify-content: flex-start;">
             <label for="perm-${module.id}">${module.label}</label>
@@ -3329,18 +3353,22 @@ function renderPermissionsModal(userId, username, permissions, currentRol) {
         </div>
     `).join('');
 
-    // Elimina el selector de rol anterior si existe
-    const oldRolSelector = modalBody.querySelector('.form-group:has(#edit-rol-usuario)');
+    // Se asegura de reemplazar el selector de rol si ya existía, en lugar de duplicarlo.
+    const oldRolSelector = modalBody.querySelector('#rol-selector-container');
     if (oldRolSelector) {
         oldRolSelector.remove();
     }
     
-    // Inserta el nuevo selector de rol al final del modal-body, pero fuera del contenedor de checkboxes
     modalBody.insertAdjacentHTML('beforeend', rolSelectorHtml);
-    // --- FIN DEL CAMBIO ---
 
     modal.style.display = 'flex';
 }
+
+
+
+
+
+
 function closePermissionsModal() {
     const modal = document.getElementById('permissions-modal');
     if (modal) {

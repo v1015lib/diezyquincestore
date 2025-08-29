@@ -37,7 +37,7 @@
                 <th>Stock Mín.</th>
                 <th>Stock Máx.</th>
                 <th>Usa Inventario</th>
-                <th>Estado</th>
+                <th class="sortable">Estado</th>
                 <th>Acciones</th>
             </tr>
         </thead>

@@ -1349,6 +1349,7 @@ case 'admin/reactivateUser':
 
 case 'admin/getUsers':
     try {
+        // La consulta selecciona los datos correctos, incluyendo el 'rol' y el 'estado' tal como están en la base de datos.
         $stmt = $pdo->query("
             SELECT 
                 u.id_usuario, 
@@ -1362,7 +1363,6 @@ case 'admin/getUsers':
                 END AS estado
             FROM usuarios u
             LEFT JOIN tiendas t ON u.id_tienda = t.id_tienda
-            WHERE u.rol = 'empleado' OR u.rol = 'administrador'
             ORDER BY u.nombre_usuario ASC
         ");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1372,11 +1372,12 @@ case 'admin/getUsers':
         echo json_encode(['success' => false, 'message' => 'Error al obtener usuarios: ' . $e->getMessage()]);
     }
     break;
+
 case 'admin/createUser':
     $data = json_decode(file_get_contents('php://input'), true);
     $username = trim($data['nombre_usuario'] ?? '');
     $password = $data['password'] ?? '';
-    $rol = $data['rol'] ?? 'empleado';
+    $rol = $data['rol'] ?? '';
     $id_tienda = filter_var($data['id_tienda'] ?? null, FILTER_VALIDATE_INT);
 
     if (empty($username) || empty($password) || empty($rol)) {
@@ -1385,17 +1386,18 @@ case 'admin/createUser':
         break;
     }
     
-    if ($rol === 'empleado' && empty($id_tienda)) {
+    // CORRECCIÓN: Se requiere una tienda para todos los roles EXCEPTO el administrador global.
+    if ($rol !== 'administrador_global' && empty($id_tienda)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Debe asignar una tienda a los empleados.']);
+        echo json_encode(['success' => false, 'error' => 'Debe asignar una tienda a este tipo de rol.']);
         break;
     }
 
     try {
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
         
-        // Si el rol es administrador, el id_tienda se guarda como NULL
-        $tienda_para_db = ($rol === 'administrador') ? null : $id_tienda;
+        // CORRECCIÓN: Si el rol es 'administrador_global', el id_tienda siempre será NULL.
+        $tienda_para_db = ($rol === 'administrador_global') ? null : $id_tienda;
 
         $stmt = $pdo->prepare("INSERT INTO usuarios (nombre_usuario, cod_acceso, rol, id_tienda) VALUES (:username, :password, :rol, :id_tienda)");
         $stmt->execute([
@@ -1412,6 +1414,7 @@ case 'admin/createUser':
     break;
 
 
+
 case 'admin/updateUserPermissions':
     $data = json_decode(file_get_contents('php://input'), true);
     $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
@@ -1419,7 +1422,9 @@ case 'admin/updateUserPermissions':
     $rol = $data['rol'] ?? '';
     $adminUserId = $_SESSION['id_usuario'] ?? null;
 
-    if (!$userId || !in_array($rol, ['empleado', 'administrador'])) {
+    // CORRECCIÓN: Se actualiza la lista de roles válidos.
+    $valid_roles = ['administrador_global', 'admin_tienda', 'bodeguero', 'cajero', 'empleado'];
+    if (!$userId || !in_array($rol, $valid_roles)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Datos de usuario o rol no válidos.']);
         break;
@@ -1427,18 +1432,15 @@ case 'admin/updateUserPermissions':
 
     $pdo->beginTransaction();
     try {
-        // --- INICIO DE LA EXCEPCIÓN ---
-        // 1. Verificamos el nombre de usuario que se está editando.
         $stmt_info = $pdo->prepare("SELECT nombre_usuario FROM usuarios WHERE id_usuario = :id");
         $stmt_info->execute([':id' => $userId]);
         $username_to_edit = $stmt_info->fetchColumn();
 
-        // 2. Si es 'admin' y se intenta cambiar el rol, bloqueamos la operación.
-        if ($username_to_edit === 'admin' && $rol !== 'administrador') {
+        // CORRECCIÓN: Se actualiza la protección para que aplique al rol 'administrador_global'.
+        if ($username_to_edit === 'admin' && $rol !== 'administrador_global') {
             http_response_code(403); // Prohibido
             throw new Exception("El rol del usuario 'admin' no puede ser modificado.");
         }
-        // --- FIN DE LA EXCEPCIÓN ---
 
         $permissionsJson = json_encode($permissions);
         $stmt = $pdo->prepare("UPDATE usuarios SET permisos = :permissions, rol = :rol WHERE id_usuario = :id");
@@ -1459,7 +1461,6 @@ case 'admin/updateUserPermissions':
         echo json_encode(['success' => false, 'error' => 'Error al guardar: ' . $e->getMessage()]);
     }
     break;
-
 
    
 case 'admin/deleteUser':
@@ -1507,6 +1508,11 @@ case 'admin/deleteUser':
         echo json_encode(['success' => false, 'error' => 'Error al desactivar: ' . $e->getMessage()]);
     }
     break;
+
+
+
+
+
 /**************************************************************************************/
 /**************************************************************************************/
 /**************************************************************************************/
@@ -4321,117 +4327,94 @@ case 'toggle-inventory':
 
 
 
-// EN: api/index.php
-// REEMPLAZA SOLAMENTE este 'case' en tu archivo para corregir el filtro de departamento.
+// api/index.php
+
+// ... (otro código del switch) ...
 
 case 'admin/getProducts':
     if ($method == 'GET') {
         try {
-            // Parámetros de entrada
-            $searchTerm = $_GET['search'] ?? '';
-            $departmentId = $_GET['department_id'] ?? '';
-            $storeId = $_GET['store_id'] ?? '';
-            $sortBy = $_GET['sort_by'] ?? 'nombre_producto';
-            $order = $_GET['order'] ?? 'ASC';
             $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $limit = 25;
+            $limit = 50; 
             $offset = ($page - 1) * $limit;
 
-            $allowedSortCols = ['codigo_producto', 'nombre_producto', 'departamento', 'precio_venta', 'stock_actual'];
+            $searchTerm = $_GET['search'] ?? '';
+            $departmentId = $_GET['department'] ?? '';
+            $storeId = $_GET['store'] ?? ''; 
+            $sortBy = $_GET['sort_by'] ?? 'nombre_producto';
+            $order = $_GET['order'] ?? 'ASC';
+            
+            $allowedSortCols = ['codigo_producto', 'nombre_producto', 'departamento', 'precio_venta', 'stock_actual', 'nombre_estado'];
             if (!in_array($sortBy, $allowedSortCols)) {
                 $sortBy = 'nombre_producto';
             }
 
-            $params = [];
+            $rol = $_SESSION['rol'] ?? 'empleado';
+            $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
+            
+            $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
+            if ($rol !== 'administrador_global' && !empty($id_tienda_usuario)) {
+                $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($id_tienda_usuario) . "), 0)";
+            }
+
             $where_clauses = [];
-            $baseQuery = "";
-
-            // --- INICIO DE LA LÓGICA CORREGIDA Y MEJORADA ---
-
-            // 1. Construir las condiciones del WHERE de forma dinámica
-            $where_clauses[] = "(p.nombre_producto LIKE :searchTerm OR p.codigo_producto LIKE :searchTerm)";
-            $params[':searchTerm'] = "%$searchTerm%";
-
+            $params = [];
+            if (!empty($searchTerm)) {
+                $where_clauses[] = "(p.nombre_producto LIKE :searchTerm OR p.codigo_producto LIKE :searchTerm)";
+                $params[':searchTerm'] = '%' . $searchTerm . '%';
+            }
             if (!empty($departmentId)) {
                 $where_clauses[] = "p.departamento = :departmentId";
                 $params[':departmentId'] = $departmentId;
             }
-
-            // Unir todas las condiciones del WHERE
-            $whereSql = " WHERE " . implode(' AND ', $where_clauses);
-
-            // 2. Construir la consulta base dependiendo de si se filtra por tienda o no
-            if (!empty($storeId)) {
-                // CONSULTA PARA UNA TIENDA ESPECÍFICA
-                $baseQuery = "
-                    SELECT p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, p.usa_inventario, 
-                           d.departamento, e.nombre_estado,
-                           it.stock AS stock_actual, p.stock_minimo, p.stock_maximo
-                    FROM productos p
-                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento
-                    LEFT JOIN estados e ON p.estado = e.id_estado
-                    INNER JOIN inventario_tienda it ON p.id_producto = it.id_producto AND it.id_tienda = :storeId
-                    " . $whereSql; // Se añade el WHERE aquí
+            if ($rol === 'administrador_global' && !empty($storeId)) {
+                $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :storeId)";
                 $params[':storeId'] = $storeId;
-            } else {
-                // CONSULTA PARA TODAS LAS TIENDAS
-                $baseQuery = "
-                    SELECT p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, p.usa_inventario, 
-                           d.departamento, e.nombre_estado,
-                           COALESCE(SUM(it.stock), 0) as stock_actual,
-                           p.stock_minimo, 
-                           p.stock_maximo
-                    FROM productos p
-                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento
-                    LEFT JOIN estados e ON p.estado = e.id_estado
-                    LEFT JOIN inventario_tienda it ON p.id_producto = it.id_producto
-                    " . $whereSql . " -- Se añade el WHERE aquí, antes del GROUP BY
-                    GROUP BY p.id_producto
-                ";
             }
-            
-            // Mapeo de columnas para el ORDER BY
+
+            $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
+
+            $sql_total = "SELECT COUNT(p.id_producto) FROM productos p" . $where_sql;
+            $stmt_total = $pdo->prepare($sql_total);
+            $stmt_total->execute($params);
+            $total_products = $stmt_total->fetchColumn();
+
             $sortByMapping = [
                 'stock_actual' => 'stock_actual',
-                'departamento' => 'departamento',
-                'nombre_producto' => 'nombre_producto',
-                'codigo_producto' => 'codigo_producto',
-                'precio_venta' => 'precio_venta'
+                'departamento' => 'd.departamento',
+                'nombre_producto' => 'p.nombre_producto',
+                'codigo_producto' => 'p.codigo_producto',
+                'precio_venta' => 'p.precio_venta',
+                'nombre_estado' => 'e.nombre_estado'
             ];
-            $orderByColumn = $sortByMapping[$sortBy] ?? 'nombre_producto';
-
-            // 3. Envolver la consulta final para aplicar ordenamiento y paginación
-            $fullQuery = "
-                SELECT * FROM (" . $baseQuery . ") AS products_with_stock
-                ORDER BY $orderByColumn $order
-                LIMIT :limit OFFSET :offset
-            ";
+            $orderByColumn = $sortByMapping[$sortBy] ?? 'p.nombre_producto';
             
-            // --- FIN DE LA LÓGICA CORREGIDA ---
+            // --- INICIO DE LA CORRECCIÓN CLAVE ---
+            // Se añade la variable $where_sql que faltaba para aplicar los filtros
+            $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, $stock_subquery AS stock_actual
+                    FROM productos p
+                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                    LEFT JOIN estados e ON p.estado = e.id_estado"
+                    . $where_sql . // <-- ESTA ES LA LÍNEA QUE SE CORRIGIÓ
+                    " ORDER BY $orderByColumn $order";
+            // --- FIN DE LA CORRECCIÓN CLAVE ---
 
-            $stmt = $pdo->prepare($fullQuery);
-            foreach($params as $key => &$val) {
-                 $stmt->bindParam($key, $val);
-            }
-            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
+            $sql .= " LIMIT $limit OFFSET $offset";
             
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(['success' => true, 'products' => $products]);
-
+            echo json_encode(['success' => true, 'products' => $products, 'total' => $total_products]);
+            
         } catch (PDOException $e) {
-            http_response_code(500); 
-            echo json_encode([
-                'success' => false,
-                'error' => 'Error de SQL',
-                'message' => $e->getMessage()
-            ]);
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()]);
         }
     }
     break;
 
+// ... (otro código del switch) ...
 
 case 'admin/updateProduct':
     $pdo->beginTransaction();

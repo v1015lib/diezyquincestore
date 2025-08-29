@@ -30,7 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             // --- FIN DE LA VALIDACIÓN ---
 
-            if ($user['rol'] === 'administrador' || $user['rol'] === 'empleado') {
+            // --- CORRECCIÓN: Se usan los nombres de rol correctos ('bodeguero', 'cajero') ---
+            if ($user['rol'] === 'administrador_global' || $user['rol'] === 'admin_tienda' || $user['rol'] === 'empleado' || $user['rol'] === 'bodeguero' || $user['rol'] === 'cajero') {
                 
                 session_regenerate_id(true);
                 

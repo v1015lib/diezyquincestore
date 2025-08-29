@@ -6,15 +6,36 @@
         <ul>
             <?php
             // Lógica para mostrar enlaces basados en el rol y permisos
-            $rol = $_SESSION['rol'] ?? 'empleado';
+            $rol = $_SESSION['rol'] ?? 'empleado'; // Usamos 'empleado' como default seguro
             $permisos = isset($_SESSION['permisos']) ? json_decode($_SESSION['permisos'], true) : [];
             
+            // --- INICIO DE LA CORRECCIÓN ---
             function can_access($module, $rol, $permisos) {
-                if ($rol === 'administrador') {
+                // El Administrador Global siempre tiene acceso a todo.
+                if ($rol === 'administrador_global') {
                     return true;
                 }
+
+                // El Admin de Tienda tiene acceso a casi todo, excepto a la gestión de usuarios globales y tiendas.
+                if ($rol === 'admin_tienda') {
+                    // Módulos prohibidos para el Admin de Tienda
+                    $restricted_modules = ['usuarios', 'tiendas'];
+                    if (in_array($module, $restricted_modules)) {
+                        return false;
+                    }
+                    return true;
+                }
+                
+                // El Bodeguero tiene acceso a módulos específicos de inventario y compras.
+                if ($rol === 'bodeguero') {
+                    $allowed_modules = ['inventario', 'listas_compras', 'proveedores', 'productos'];
+                    return in_array($module, $allowed_modules);
+                }
+
+                // Para roles como 'cajero' o 'empleado', el acceso depende de los permisos JSON.
                 return isset($permisos[$module]) && $permisos[$module];
             }
+            // --- FIN DE LA CORRECCIÓN ---
             ?>
 
             <?php if (can_access('dashboard', $rol, $permisos)): ?>
@@ -34,15 +55,13 @@
             </a></li>
             <?php endif; ?>
 
-            <?php // --- AÑADIR ESTE BLOQUE --- ?>
             <?php if (can_access('proveedores', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="proveedores">
                 <span class="menu-icon">🚚</span>
                 <span class="menu-text">Proveedores</span>
             </a></li>
             <?php endif; ?>
-            <?php // --- FIN DEL BLOQUE A AÑADIR --- ?>
-            <?php /* INICIO DEL NUEVO BLOQUE POS */ ?>
+            
             <?php if (can_access('pos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="pos">
                 <span class="menu-icon">🛒</span> 
@@ -51,7 +70,6 @@
             <?php endif; ?>
 
             
-            <?php /* FIN DEL NUEVO BLOQUE POS */ ?>
             <?php if (can_access('listas_compras', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="listas_compras">
                 <span class="menu-icon">📝</span>
@@ -81,7 +99,7 @@
             </a></li>
             <?php endif; ?>
             
-            <?php if ($rol === 'administrador'): // Solo para Administradores ?>
+            <?php if ($rol === 'administrador_global'): // Corregido: Solo el admin global ve esto ?>
             <li><a href="#" class="nav-link" data-module="usuarios">
                 <span class="menu-icon">👤</span>
                 <span class="menu-text">Usuarios</span>

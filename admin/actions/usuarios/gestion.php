@@ -1,7 +1,22 @@
 <?php
 // admin/actions/usuarios/gestion.php
 require_once __DIR__ . '/../../../config/config.php';
+
+// Obtener las tiendas (código original)
 $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY nombre_tienda")->fetchAll(PDO::FETCH_ASSOC);
+
+// --- INICIO DE LA LÓGICA MODIFICADA ---
+// Obtener los roles directamente de la definición de la columna ENUM
+$stmt_roles = $pdo->query("SHOW COLUMNS FROM usuarios LIKE 'rol'");
+$rol_column_info = $stmt_roles->fetch(PDO::FETCH_ASSOC);
+preg_match("/^enum\(\'(.*)\'\)$/", $rol_column_info['Type'], $matches);
+$all_roles = explode("','", $matches[1]);
+
+// Excluir el rol 'administrador_global' de la lista
+$roles_para_mostrar = array_filter($all_roles, function($rol) {
+    return $rol !== 'administrador_global';
+});
+// --- FIN DE LA LÓGICA MODIFICADA ---
 ?>
 <div id="users-manager-container">
 
@@ -23,10 +38,13 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
             <div class="form-group">
                 <label for="rol_usuario">Rol:</label>
                 <select id="rol_usuario" name="rol">
-                    <option value="empleado">Empleado</option>
-                    <option value="administrador">Administrador</option>
+                    <?php foreach ($roles_para_mostrar as $rol): ?>
+                        <option value="<?php echo htmlspecialchars($rol); ?>">
+                            <?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $rol))); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
-            </div>
+                </div>
 
             <div class="form-group" id="tienda-assignment-group">
                 <label for="id_tienda_usuario">Asignar a Tienda:</label>
