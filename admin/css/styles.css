@@ -1651,8 +1651,11 @@ button {
 /* --- ESTILOS PARA EL ENCABEZADO FIJO (STICKY HEADER) --- */
 .product-list-container {
   /* Altura máxima para que el scroll se active dentro de este contenedor */
-  max-height: 70vh; /* Ajusta este valor según tus necesidades */
+  /* ELIMINA ESTAS DOS LÍNEAS */
+  max-height: 70vh;
   overflow-y: auto;
+  /* MANTIENES ESTA LÍNEA SI ES NECESARIA PARA TABLAS ANCHAS */
+  overflow-x: auto;
 }
 
 .product-table thead th { /* Para Safari */
@@ -1900,3 +1903,7 @@ button {
   -webkit-transform: translateX(18px);
           transform: translateX(18px);
 }
+
+/* --- INICIO: SOLUCIÓN DEFINITIVA PARA ENCABEZADOS STICKY --- */
+/* 1. Contenedor principal del contenido */
+/* Se asegura de que el área de scroll principal tenga un fondo blanco */

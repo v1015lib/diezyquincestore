@@ -4327,7 +4327,9 @@ case 'toggle-inventory':
 
 
 
-// api/index.php
+
+
+// EN: admin/api/index.php
 
 // ... (otro código del switch) ...
 
@@ -4352,10 +4354,18 @@ case 'admin/getProducts':
             $rol = $_SESSION['rol'] ?? 'empleado';
             $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
             
-            $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
-            if ($rol !== 'administrador_global' && !empty($id_tienda_usuario)) {
-                $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($id_tienda_usuario) . "), 0)";
+            // --- INICIO DE LA CORRECCIÓN CLAVE ---
+            // Ahora la subconsulta para el stock depende de si se ha filtrado por una tienda.
+            $stock_subquery = "";
+            if (!empty($storeId)) {
+                // Si hay un filtro de tienda, obtenemos el stock específico de esa tienda.
+                $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($storeId) . "), 0)";
+            } else {
+                // Si no hay filtro, mostramos la suma total (comportamiento anterior).
+                 $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
             }
+            // --- FIN DE LA CORRECCIÓN CLAVE ---
+
 
             $where_clauses = [];
             $params = [];
@@ -4389,23 +4399,25 @@ case 'admin/getProducts':
             ];
             $orderByColumn = $sortByMapping[$sortBy] ?? 'p.nombre_producto';
             
-            // --- INICIO DE LA CORRECCIÓN CLAVE ---
-            // Se añade la variable $where_sql que faltaba para aplicar los filtros
             $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, $stock_subquery AS stock_actual
                     FROM productos p
                     LEFT JOIN departamentos d ON p.departamento = d.id_departamento
                     LEFT JOIN estados e ON p.estado = e.id_estado"
-                    . $where_sql . // <-- ESTA ES LA LÍNEA QUE SE CORRIGIÓ
-                    " ORDER BY $orderByColumn $order";
-            // --- FIN DE LA CORRECCIÓN CLAVE ---
-
-            $sql .= " LIMIT $limit OFFSET $offset";
+                    . $where_sql .
+                    " ORDER BY $orderByColumn $order LIMIT :limit OFFSET :offset";
             
             $stmt = $pdo->prepare($sql);
-            $stmt->execute($params);
+            
+            foreach ($params as $key => &$val) {
+                $stmt->bindParam($key, $val, PDO::PARAM_STR);
+            }
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+
+            $stmt->execute();
             $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(['success' => true, 'products' => $products, 'total' => $total_products]);
+            echo json_encode(['success' => true, 'products' => $products, 'total' => $total_products, 'limit' => $limit]);
             
         } catch (PDOException $e) {
             http_response_code(500);
@@ -4414,7 +4426,22 @@ case 'admin/getProducts':
     }
     break;
 
-// ... (otro código del switch) ...
+// ... (resto del código del switch) ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 case 'admin/updateProduct':
     $pdo->beginTransaction();

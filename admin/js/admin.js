@@ -26,8 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    let isLoading = false;
-       async function fetchAndRenderActiveOffers() {
+let isLoading = false;       
+
+
+
+async function fetchAndRenderActiveOffers() {
         const tableBody = document.getElementById('active-offers-table-body');
         if (!tableBody) return;
         tableBody.innerHTML = '<tr><td colspan="5">Cargando ofertas...</td></tr>';
@@ -487,8 +490,11 @@ async function showProcessedFiles() {
 
 
 
+
+
+
 async function fetchAndRenderProducts() {
-    if (isLoading) return;
+    if (isLoading || currentFilters.page === -1) return; // Si ya está cargando o no hay más páginas, no hace nada
     isLoading = true;
 
     const tableBody = document.getElementById('product-table-body');
@@ -504,7 +510,7 @@ async function fetchAndRenderProducts() {
     loadingIndicator.style.display = 'block';
 
     const { search, department, store, sort, page } = currentFilters;
-    const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department_id=${department}&store_id=${store}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
+    const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department=${department}&store=${store}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
 
     try {
         const response = await fetch(apiUrl);
@@ -513,18 +519,18 @@ async function fetchAndRenderProducts() {
         const data = await response.json();
 
         if (page === 1) {
-            tableBody.innerHTML = '';
+            tableBody.innerHTML = ''; // Limpia la tabla solo si es la primera página de una nueva búsqueda/filtro
         }
 
         if (data.success && data.products.length > 0) {
             data.products.forEach(product => {
                 const row = document.createElement('tr');
-                row.dataset.productId = product.id_producto;
+                // ... (el código para crear la fila es el mismo, no es necesario cambiarlo)
+                 row.dataset.productId = product.id_producto;
                 row.dataset.status = (product.nombre_estado || '').toLowerCase();
                 const statusClass = (product.nombre_estado || '').toLowerCase() === 'activo' ? 'status-active' : 'status-inactive';
                 const usaInventarioText = product.usa_inventario == 1 ? 'Sí' : 'No';
                 
-                // Lógica mejorada para bajo stock que maneja valores NULL
                 const stockMinimo = parseInt(product.stock_minimo, 10);
                 const stockActual = parseInt(product.stock_actual, 10);
                 const stockClass = (product.usa_inventario == 1 && !isNaN(stockMinimo) && stockMinimo > 0 && stockActual < stockMinimo) ? 'stock-low' : '';
@@ -533,7 +539,7 @@ async function fetchAndRenderProducts() {
                     <td><input type="checkbox" class="product-checkbox"></td>
                     <td>${product.codigo_producto}</td>
                     <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
-                    <td>${product.departamento}</td>
+                    <td>${product.nombre_departamento}</td>
                     <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
                     <td class="${stockClass}">${product.stock_actual ?? 'N/A'}</td>
                     <td>${product.stock_minimo ?? 'N/A'}</td>
@@ -545,15 +551,18 @@ async function fetchAndRenderProducts() {
                 tableBody.appendChild(row);
             });
 
-              if (data.products.length < 50) { 
+            // Si la API devuelve menos productos que el límite, significa que es la última página.
+            if (data.products.length < 50) { 
                 currentFilters.page = -1; // Detiene futuras cargas
+            } else {
+                currentFilters.page++; // Prepara para cargar la siguiente página
             }
 
         } else {
             if (page === 1) {
                 tableBody.innerHTML = `<tr><td colspan="11">No se encontraron productos para los filtros seleccionados.</td></tr>`;
             }
-            currentFilters.page = -1;
+            currentFilters.page = -1; // Detiene futuras cargas ya que no hay más productos
         }
 
         updateSortIndicators();
@@ -570,10 +579,17 @@ async function fetchAndRenderProducts() {
 }
 
 
+function handleScroll() {
+    const container = document.getElementById('product-list-container');
+    if (!container) return;
+    
+    // Comprueba si el usuario ha llegado al 80% del final del scroll
+    const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight * 0.8;
 
-
-
-
+    if (nearBottom && !isLoading && currentFilters.page !== -1) {
+        fetchAndRenderProducts(); // Llama a cargar la siguiente página de productos
+    }
+}
 
 
 
@@ -666,22 +682,35 @@ async function loadModule(moduleName) {
 // REEMPLAZA ESTA FUNCIÓN COMPLETA
 
 
+
+// admin/js/admin.js
+
+// admin/js/admin.js
+
 async function loadActionContent(actionPath) {
     const actionContent = document.getElementById('action-content');
     if (!actionContent) return;
+
+    // --- IMPORTANTE: Quitar el listener del contenedor principal para evitar duplicados ---
+    const mainContentContainer = document.getElementById('main-content');
+    if(mainContentContainer) {
+        mainContentContainer.removeEventListener('scroll', handleScroll);
+    }
+    
     actionContent.innerHTML = '<p>Cargando...</p>';
     try {
         const response = await fetch(`actions/${actionPath}.php`);
         if (!response.ok) throw new Error('Acción no encontrada.');
         actionContent.innerHTML = await response.text();
 
-        // Llama a la función de inicialización correspondiente después de cargar el HTML
+        // Llama a la función de inicialización correspondiente
         if (actionPath === 'productos/todos_los_productos') {
             currentFilters.page = 1;
             await populateDepartmentFilter();
             await populateStoreFilter();
             await fetchAndRenderProducts();
-            document.getElementById('product-list-container')?.addEventListener('scroll', handleScroll);
+            // --- AÑADIR el listener de scroll al contenedor principal ---
+            mainContentContainer?.addEventListener('scroll', handleScroll);
         } else if (actionPath === 'productos/agregar_producto') {
             initializeAddProductForm();
         } else if (actionPath === 'productos/modificar_producto') {
@@ -742,31 +771,39 @@ async function loadActionContent(actionPath) {
 }
 
 
-
-
    // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 
     // --- FUNCIONES AUXILIARES Y DE FORMULARIOS ---
+// EN: admin/js/admin.js
+// REEMPLAZA esta función completa
 
-    async function populateDepartmentFilter(selectorId = 'department-filter') {
-        const filterSelect = document.getElementById(selectorId);
-        if (!filterSelect) return;
-        try {
-            const response = await fetch(`${API_BASE_URL}?resource=departments`);
-            const departments = await response.json();
-            if (departments && departments.length > 0) {
-                filterSelect.innerHTML = `<option value="">Selecciona un departamento</option>`;
-                departments.forEach(dept => {
-                    const option = document.createElement('option');
-                    option.value = dept.id_departamento;
-                    option.textContent = dept.departamento;
-                    filterSelect.appendChild(option);
-                });
-            }
-        } catch (error) {
-            console.error('Error al cargar departamentos:', error);
+async function populateDepartmentFilter(selectorId = 'department-filter') {
+    const filterSelect = document.getElementById(selectorId);
+    if (!filterSelect) return;
+    try {
+        // CORRECCIÓN: Se apunta al endpoint correcto que devuelve todos los departamentos.
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getDepartments`);
+        const result = await response.json(); // La API devuelve un objeto { success: true, departments: [...] }
+
+        // Se verifica la estructura de la respuesta de la API
+        if (result.success && result.departments && result.departments.length > 0) {
+            // MEJORA: El texto inicial es más claro para un filtro.
+            filterSelect.innerHTML = `<option value="">Todos los departamentos</option>`;
+            result.departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id_departamento;
+                option.textContent = dept.departamento; // Se usa la propiedad correcta del objeto
+                filterSelect.appendChild(option);
+            });
+        } else {
+             filterSelect.innerHTML = `<option value="">No hay departamentos</option>`;
         }
+    } catch (error) {
+        console.error('Error al cargar departamentos:', error);
+        // Se añade un mensaje de error en el propio select si la petición falla.
+        filterSelect.innerHTML = `<option value="">Error al cargar</option>`;
     }
+}
 
     function updateSortIndicators() {
         document.querySelectorAll('.product-table th.sortable').forEach(th => {
@@ -1599,17 +1636,6 @@ mainContent.addEventListener('change', async (event) => {
     }
 });
 
-    const handleScroll = async () => {
-        const container = document.getElementById('product-list-container');
-        if (!container) return;
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        if (clientHeight + scrollTop >= scrollHeight - 15) {
-            if (!isLoading && currentFilters.page !== -1) {
-                currentFilters.page++;
-                await fetchAndRenderProducts();
-            }
-        }
-    };
 
 
     
