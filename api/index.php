@@ -1302,7 +1302,6 @@ case 'pos_get_product_by_code':
             echo json_encode(['is_available' => !$stmt->fetch()]);
             break;
 
-
 case 'admin/reactivateUser':
     $data = json_decode(file_get_contents('php://input'), true);
     $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
@@ -1328,7 +1327,7 @@ case 'admin/reactivateUser':
         // --- FIN DE LA MODIFICACIÓN ---
 
         // 2. Se actualiza el estado a 'activo'.
-        $stmt = $pdo->prepare("UPDATE usuarios SET estado = 'activo' WHERE id_usuario = :id AND rol = 'empleado'");
+        $stmt = $pdo->prepare("UPDATE usuarios SET estado = 'activo' WHERE id_usuario = :id");
         $stmt->execute([':id' => $userId]);
 
         // --- INICIO DE LA MODIFICACIÓN ---

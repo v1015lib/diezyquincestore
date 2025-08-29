@@ -1374,13 +1374,14 @@ mainContent.addEventListener('click', async (event) => {
         }
 
 
-if (event.target.classList.contains('reactivate-user-btn')) {
-        const row = event.target.closest('tr');
+if (target.classList.contains('reactivate-user-btn')) {
+        const row = target.closest('tr');
         const userId = row.dataset.userId;
         const username = row.querySelector('td:first-child').textContent;
         if (confirm(`¿Estás seguro de que quieres reactivar al usuario "${username}"?`)) {
             reactivateUser(userId);
         }
+        return; // Detiene la ejecución para no afectar otros botones
     }
 
 
