@@ -1268,10 +1268,73 @@ async function renderEditForm(product) {
 
     let searchTimeout;
 
-// REEMPLAZA LOS TRES BLOQUES DE 'mainContent.addEventListener('click', ...)' CON ESTE ÚNICO BLOQUE
 
+//mian 1
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
+
+    // --- INICIO DE LA CORRECCIÓN: Lógica para abrir la galería de imágenes ---
+    if (target.id === 'open-gallery-btn') {
+        openImageGallery();
+        return; // Detiene la ejecución para no procesar otros clics
+    }
+
+           if (target.id === 'batch-action-execute') {
+            const selector = mainContent.querySelector('#batch-action-selector');
+            const action = selector.value;
+            const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
+
+            if (!action || productIds.length === 0) {
+                alert('Por favor, selecciona una acción y al menos un producto.');
+                return;
+            }
+
+            if (action === 'change-department') {
+                openDepartmentModal(); // La lógica para esto ya existe y funciona bien
+                return;
+            }
+
+            let confirmationMessage = '';
+            switch (action) {
+                case 'delete':
+                    confirmationMessage = `¿Estás seguro de que quieres eliminar ${productIds.length} producto(s) seleccionados? Esta acción es irreversible.`;
+                    break;
+                case 'activate':
+                    confirmationMessage = `¿Estás seguro de que quieres activar ${productIds.length} producto(s) seleccionados?`;
+                    break;
+                case 'deactivate':
+                    confirmationMessage = `¿Estás seguro de que quieres desactivar ${productIds.length} producto(s) seleccionados?`;
+                    break;
+                default:
+                    confirmationMessage = `¿Estás seguro de que quieres ejecutar la acción "${action}" en ${productIds.length} producto(s)?`;
+            }
+
+            if (confirm(confirmationMessage)) {
+                try {
+                    target.disabled = true;
+                    target.textContent = 'Procesando...';
+                    const response = await fetch(`${API_BASE_URL}?resource=admin/batchAction`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action, productIds })
+                    });
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+                    
+                    alert(result.message);
+                    currentFilters.page = 1; // Resetea a la primera página
+                    await fetchAndRenderProducts(); // Recarga la lista de productos
+
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
+                } finally {
+                    target.disabled = false;
+                    target.textContent = 'Ejecutar';
+                }
+            }
+            return;
+        }
+
 
 if (event.target.classList.contains('reactivate-user-btn')) {
         const row = event.target.closest('tr');

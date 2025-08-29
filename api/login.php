@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($username) || empty($password)) {
         $_SESSION['login_error'] = 'Por favor, ingresa tu usuario y contraseña.';
-        header('Location: ../login-form.php');
+        header('Location: ../admin//login-form.php');
         exit;
     }
 
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user['estado'] === 'inactivo') {
                 $_SESSION['login_error'] = 'Acceso bloqueado. Contacta a un administrador.';
                 
-                header('Location: ../login-form.php');
+                header('Location: ../admin/login-form.php');
                 exit;
             }
             // --- FIN DE LA VALIDACIÓN ---
@@ -44,26 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['permisos'] = $user['permisos'];
                 }
 
-                header('Location: ../index.php');
+                header('Location: ../admin/index.php');
                 exit;
             } else {
                 $_SESSION['login_error'] = 'Tu rol de usuario no tiene un acceso definido.';
-                header('Location: ../login-form.php');
+                header('Location: ../admin/login-form.php');
                 exit;
             }
         } else {
             $_SESSION['login_error'] = 'Usuario o contraseña incorrectos.';
-            header('Location: ../login-form.php');
+            header('Location: ../admin/login-form.php');
             exit;
         }
     } catch (PDOException $e) {
         $_SESSION['login_error'] = 'Error en la conexión con la base de datos.';
-        header('Location: ../login-form.php');
+        header('Location: ../admin/login-form.php');
         exit;
     }
 } else {
     // Redirigir si no es una solicitud POST
-    header('Location: ../login-form.php');
+    header('Location: ../admin/login-form.php');
     exit;
 }
 ?>

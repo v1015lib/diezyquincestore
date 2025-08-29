@@ -187,7 +187,7 @@ if (isset($_SESSION['login_error'])) {
             <div class="error" style="text-align: center; margin-bottom: 10px;"><?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>
         
-        <form id="loginForm" action="api/login.php" method="POST" novalidate>
+        <form id="loginForm" action="../api/login.php" method="POST" novalidate>
             <div class="step step-username active">
                 <div class="input-group">
                     <div class="input-wrapper">
