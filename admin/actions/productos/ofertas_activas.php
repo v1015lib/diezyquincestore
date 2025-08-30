@@ -1,3 +1,5 @@
+
+
 <div class="list-header">
     <h3>Vista General de Ofertas Activas</h3>
 </div>

@@ -1,3 +1,8 @@
+<?php 
+
+if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador_global'): ?>
+
+
 <div class="form-container" id="delete-product-wrapper">
     
     <div id="product-search-container-delete">
@@ -17,4 +22,5 @@
     <div id="delete-product-container" class="hidden">
         </div>
 
-</div>
+</div>        
+<?php endif; ?>

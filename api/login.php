@@ -13,7 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT id_usuario, nombre_usuario, cod_acceso, rol, permisos, id_tienda, estado FROM usuarios WHERE nombre_usuario = :username");
+        $stmt = $pdo->prepare("
+        SELECT u.id_usuario, u.nombre_usuario, u.cod_acceso, u.rol, u.permisos, u.id_tienda, u.estado, t.nombre_tienda 
+        FROM usuarios u
+        LEFT JOIN tiendas t ON u.id_tienda = t.id_tienda
+        WHERE u.nombre_usuario = :username
+    ");
+        
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -35,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['nombre_usuario'] = $user['nombre_usuario'];
                 $_SESSION['rol'] = $user['rol'];
                 $_SESSION['id_tienda'] = $user['id_tienda'];
+        $_SESSION['nombre_tienda'] = $user['nombre_tienda']; 
                 
                 // --- CORRECCIÓN CLAVE ---
                 // Se guardan los permisos para cualquier rol que no sea administrador global.

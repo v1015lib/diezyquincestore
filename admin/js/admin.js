@@ -30,6 +30,28 @@ let isLoading = false;
 
 
 
+
+async function updateHeaderUserInfo() {
+    const adminInfoSpan = document.querySelector('.admin-info span');
+    if (!adminInfoSpan) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=get-session-info`);
+        const result = await response.json();
+
+        if (result.success) {
+            let displayText = `Hola, ${result.nombre_usuario}`;
+            if (result.nombre_tienda) {
+                displayText += ` (${result.nombre_tienda})`;
+            }
+            adminInfoSpan.textContent = displayText;
+        }
+    } catch (error) {
+        // No hacer nada en caso de error para no romper la interfaz
+        console.error("No se pudo cargar la información del usuario para el header.");
+    }
+}
+
 async function fetchAndRenderActiveOffers() {
         const tableBody = document.getElementById('active-offers-table-body');
         if (!tableBody) return;
@@ -2854,6 +2876,7 @@ function updateProcessorButtons() {
     initializeSidemenu();
     checkSidemenuState();
     loadModule('dashboard');
+    updateHeaderUserInfo();
 
 async function fetchAndRenderSalesSummary(startDate, endDate) {
     const salesWidget = document.getElementById('sales-summary-widget');

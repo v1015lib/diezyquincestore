@@ -1,3 +1,11 @@
+
+<?php 
+
+session_start();
+
+if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador_global' ||  $_SESSION['rol'] === 'admin_tienda'): 
+
+?>
 <div class="form-container" id="offer-management-wrapper">
 
     <div id="product-search-container-offer">
@@ -18,3 +26,4 @@
     </div>
 
 </div>
+        <?php endif; ?>

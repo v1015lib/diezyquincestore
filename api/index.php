@@ -29,6 +29,23 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+
+
+
+
+case 'get-session-info':
+    if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
+        echo json_encode([
+            'success' => true,
+            'nombre_usuario' => $_SESSION['nombre_usuario'] ?? 'Admin',
+            'nombre_tienda' => $_SESSION['nombre_tienda'] ?? null
+        ]);
+    } else {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'No hay sesión activa.']);
+    }
+    break;
+
 /**********************************************************************/
 
 case 'admin/getProveedores':
