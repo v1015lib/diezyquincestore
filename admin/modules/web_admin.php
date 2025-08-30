@@ -1,3 +1,4 @@
+
 <div class="module-header">
     <h2>Administración de la Tienda Web</h2>
     <div class="action-ribbon">
@@ -8,3 +9,5 @@
 
 <div id="action-content" class="module-content">
 </div>
+
+  
