@@ -3389,15 +3389,19 @@ async function handleRoleSelectChange(event) {
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
         const permissions = result.permissions;
-        container.innerHTML = allModules.map(module => {
-            const label = module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            const isChecked = permissions[module] ? 'checked' : '';
-            return `
-                <div class="form-group setting-toggle" style="justify-content: flex-start;">
-                    <input type="checkbox" id="perm-${module}" name="permisos[${module}]" class="switch" ${isChecked}>
-                    <label for="perm-${module}">${label}</label>
-                </div>`;
-        }).join('');
+container.innerHTML = allModules.map(module => {
+    const label = module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const isChecked = permissions[module] ? 'checked' : '';
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se cambia el orden: primero el input y luego el label.
+    // Se elimina la clase "switch" para usar el checkbox nativo.
+    return `
+        <div class="form-group setting-toggle">
+            <label for="perm-${module}">${label}</label>
+            <input type="checkbox" id="perm-${module}" name="permisos[${module}]" ${isChecked}>
+        </div>`;
+    // --- FIN DE LA CORRECCIÓN ---
+}).join('');
     } catch (error) {
         container.innerHTML = `<p style="color:red">${error.message}</p>`;
     }

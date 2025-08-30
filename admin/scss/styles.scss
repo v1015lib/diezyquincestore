@@ -301,7 +301,7 @@
 
 #departments-manager-container .product-table th,
 #departments-manager-container .product-table td {
-    padding: .1rem .4rem; /* Reduce el espacio interno de las celdas */
+    padding: .1rem ; /* Reduce el espacio interno de las celdas */
     font-size: 0.8rem;      /* Hace la letra un poco más pequeña */
 }
 
@@ -322,7 +322,8 @@
 
 #permissions-modal {
     .modal-content {
-        max-width: 600px; // Un poco más ancho para la cuadrícula
+        max-width: 400px; // Un poco más ancho para la cuadrícula
+
     }
 
     #permissions-checkbox-container {
@@ -363,7 +364,47 @@
 
 
 
-/* --- INICIO: SOLUCIÓN DEFINITIVA PARA ENCABEZADOS STICKY --- */
 
-/* 1. Contenedor principal del contenido */
-/* Se asegura de que el área de scroll principal tenga un fondo blanco */
+
+#permissions-manager-container{
+
+
+
+
+    .form-fieldset{
+
+            
+
+        #permissions-form{
+
+    width: clamp(50vw, 4vw, 100vw);
+
+            .form-group{
+
+               display: grid;
+               grid-template-columns: repeat(2, 1fr);
+
+
+
+            }
+            p{
+
+
+                text-wrap: wrap;
+                white-space: wrap;
+
+                word-break: wrap;
+                font-size: clamp(.8rem, 4vw, .9rem);
+               }
+
+            #permissions-checkbox-container{
+
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+
+            }
+
+        }
+    }    
+}
+
