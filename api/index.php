@@ -1498,6 +1498,8 @@ case 'admin/updateUserRole':
     }
     break;
 
+// ... dentro del switch en api/index.php ...
+
 case 'admin/getRolePermissions':
     try {
         $roleName = $_GET['rol'] ?? '';
@@ -1507,7 +1509,12 @@ case 'admin/getRolePermissions':
         $stmt = $pdo->prepare("SELECT permisos FROM roles WHERE nombre_rol = :rol");
         $stmt->execute([':rol' => $roleName]);
         $permissions = $stmt->fetchColumn();
-        echo json_encode(['success' => true, 'permissions' => json_decode($permissions, true) ?? []]);
+        
+        // Si los permisos son NULL en la BD, devolvemos un objeto vacío
+        $decoded_permissions = $permissions ? json_decode($permissions, true) : [];
+        
+        echo json_encode(['success' => true, 'permissions' => $decoded_permissions]);
+
     } catch (Exception $e) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -1525,18 +1532,25 @@ case 'admin/updateRolePermissions':
         echo json_encode(['success' => false, 'error' => 'Faltan datos para actualizar el rol.']);
         break;
     }
+    
     try {
         $permissionsJson = json_encode($permissions);
         $stmt = $pdo->prepare("UPDATE roles SET permisos = :permisos WHERE nombre_rol = :rol");
         $stmt->execute([':permisos' => $permissionsJson, ':rol' => $roleName]);
         
         logActivity($pdo, $adminUserId, 'Permisos de Rol Modificados', "Se actualizaron los permisos para el rol '${roleName}'.");
+        
         echo json_encode(['success' => true, 'message' => 'Permisos del rol actualizados.']);
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Error al guardar los permisos: ' . $e->getMessage()]);
     }
     break;
+
+// ... el resto de tus case ...
+
+    
 
 // ... el resto de tu switch en la API
 

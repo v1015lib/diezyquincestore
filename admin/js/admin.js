@@ -782,6 +782,8 @@ async function loadActionContent(actionPath) {
             await fetchAndRenderActivityLog();
         } else if (actionPath === 'usuarios/gestion') {
             initializeUserManagement();
+        }else if (actionPath === 'usuarios/permisos') { // <-- AÑADIR ESTE NUEVO BLOQUE
+            initializePermissionsManagement();
         } else if (actionPath === 'pos/vista_principal') {
             initializePOS();
         } else if (actionPath === 'pos/gestion_pedidos') { 
@@ -3190,7 +3192,20 @@ function initializeUserManagement() {
     }
 }
 
+function initializePermissionsManagement() {
+    const permissionsModal = document.getElementById('permissions-manager-container');
+    if (!permissionsModal) return;
 
+    const roleSelect = permissionsModal.querySelector('#role-select');
+    const permissionsForm = permissionsModal.querySelector('#permissions-form');
+
+    if (roleSelect) {
+        roleSelect.addEventListener('change', handleRoleSelectChange);
+    }
+    if (permissionsForm) {
+        permissionsForm.addEventListener('submit', handlePermissionsFormSubmit);
+    }
+}
 
 
 async function fetchAndRenderUsers() {

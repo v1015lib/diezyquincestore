@@ -9,16 +9,16 @@
             $rol = $_SESSION['rol'] ?? 'empleado'; // Usamos 'empleado' como default seguro
             $permisos = isset($_SESSION['permisos']) ? json_decode($_SESSION['permisos'], true) : [];
 
-            // --- INICIO DE LA CORRECCIÓN ---
-            // La función ahora se centra en los permisos del modal, no en roles fijos.
-function can_access($module, $rol, $permisos) {
-    // El administrador global siempre tiene acceso.
-    if ($rol === 'administrador_global') {
-        return true;
-    }
-    // Para todos los demás, revisa los permisos cargados en la sesión.
-    return isset($permisos[$module]) && $permisos[$module] === true;
-}
+
+                        // La función ahora se centra en los permisos del modal, no en roles fijos.
+            function can_access($module, $rol, $permisos) {
+                // El administrador global siempre tiene acceso.
+                if ($rol === 'administrador_global') {
+                    return true;
+                }
+                // Para todos los demás, revisa los permisos cargados en la sesión.
+                return isset($permisos[$module]) && $permisos[$module] === true;
+            }
             // --- FIN DE LA CORRECCIÓN ---
             ?>
 

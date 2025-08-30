@@ -2,8 +2,9 @@
     <h2>Gestión de Usuarios</h2>
     <div class="action-ribbon">
         <button class="action-btn active" data-action="usuarios/gestion">Gestionar Empleados</button>
+        <button class="action-btn" data-action="usuarios/permisos">Gestionar Permisos de Roles</button>
     </div>
 </div>
 
 <div id="action-content" class="module-content">
-    </div>	
+</div>
