@@ -687,11 +687,11 @@ async function loadModule(moduleName) {
 
 // admin/js/admin.js
 
+
 async function loadActionContent(actionPath) {
     const actionContent = document.getElementById('action-content');
     if (!actionContent) return;
 
-    // --- IMPORTANTE: Quitar el listener del contenedor principal para evitar duplicados ---
     const mainContentContainer = document.getElementById('main-content');
     if(mainContentContainer) {
         mainContentContainer.removeEventListener('scroll', handleScroll);
@@ -703,17 +703,24 @@ async function loadActionContent(actionPath) {
         if (!response.ok) throw new Error('Acción no encontrada.');
         actionContent.innerHTML = await response.text();
 
-        // Llama a la función de inicialización correspondiente
+        // --- INICIO DE LA LÓGICA CORREGIDA ---
         if (actionPath === 'productos/todos_los_productos') {
-            currentFilters.page = 1;
+            currentFilters.page = 1; // Reinicia la paginación
+
+            // Estas funciones se ejecutan para todos los roles que acceden a esta vista.
             await populateDepartmentFilter();
-            await populateStoreFilter();
-            await fetchAndRenderProducts();
-            if (USER_ROLE === 'administrador') {
+            
+            // Esta función se ejecuta SÓLO si el rol es 'administrador_global'.
+            if (USER_ROLE === 'administrador_global') {
                 await populateStoreFilter();
             }
-            // --- AÑADIR el listener de scroll al contenedor principal ---
+            
+            // La carga de productos se ejecuta para todos.
+            await fetchAndRenderProducts();
+            
+            // El listener para el scroll infinito se añade al final.
             mainContentContainer?.addEventListener('scroll', handleScroll);
+        
         } else if (actionPath === 'productos/agregar_producto') {
             initializeAddProductForm();
         } else if (actionPath === 'productos/modificar_producto') {
@@ -763,11 +770,12 @@ async function loadActionContent(actionPath) {
             initializeShoppingListManagement(); 
         } else if (actionPath === 'listas_compras/crear_lista') {
             initializeCreateShoppingListForm(); 
-        }else if (actionPath === 'tiendas/gestion') {
+        } else if (actionPath === 'tiendas/gestion') {
             initializeTiendaManagement();
-        }else if (actionPath === 'proveedores/gestion') { 
+        } else if (actionPath === 'proveedores/gestion') { 
             initializeProveedorManagement();
         }
+        // --- FIN DE LA LÓGICA CORREGIDA ---
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
     }
@@ -2521,7 +2529,7 @@ async function renderInventoryActionForm(product, type) {
 
     // --- INICIO DE LA LÓGICA INTELIGENTE ---
     let tiendaInputHtml = '';
-    if (USER_ROLE === 'administrador') {
+    if (USER_ROLE === 'admin_tienda') {
         // Si es admin, crea el menú desplegable para seleccionar la tienda
         tiendaInputHtml = `
             <div class="form-group">
@@ -2569,7 +2577,7 @@ async function renderInventoryActionForm(product, type) {
     `;
 
     // Si es admin, poblamos el selector de tiendas
-    if (USER_ROLE === 'administrador') {
+    if (USER_ROLE === 'admin_tienda') {
         const tiendaSelect = document.getElementById('id_tienda');
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/getTiendas`);

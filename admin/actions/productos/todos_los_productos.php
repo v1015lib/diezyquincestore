@@ -1,3 +1,7 @@
+<?php  
+ session_start(); //<------Fundamental para que reconozca los roles
+
+?>
 <div class="product-list-header">
     <div class="filters-container">
         <input type="text" id="product-search-input" class="form-control" placeholder="Buscar por nombre o código...">
@@ -6,7 +10,7 @@
             <option value="">Filtrar por departamento</option>
         </select>
         
-        <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador'): ?>
+        <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador_global'): ?>
         <select id="store-filter" class="form-control">
             <option value="">Filtrar por tienda</option>
         </select>
