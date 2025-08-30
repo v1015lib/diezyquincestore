@@ -12,7 +12,6 @@
             <span>
                 Hola, <?php echo isset($_SESSION['nombre_usuario']) ? htmlspecialchars($_SESSION['nombre_usuario']) : 'Admin'; ?>
                 <?php 
-                // Este bloque revisa si existe un nombre de tienda en la sesión y lo imprime.
                 if (!empty($_SESSION['nombre_tienda'])) {
                     echo ' (' . htmlspecialchars($_SESSION['nombre_tienda']) . ')';
                 }

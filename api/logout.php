@@ -1,6 +1,5 @@
 <?php
 // admin/logout.php
-
 // Inicia la sesión para poder acceder a las variables de sesión.
 session_start();
 
