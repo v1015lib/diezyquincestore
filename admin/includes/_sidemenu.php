@@ -11,17 +11,14 @@
 
             // --- INICIO DE LA CORRECCIÓN ---
             // La función ahora se centra en los permisos del modal, no en roles fijos.
-            function can_access($module, $rol, $permisos) {
-                // 1. El Administrador Global siempre tiene acceso a todo.
-                if ($rol === 'administrador_global') {
-                    return true;
-                }
-
-                // 2. Para TODOS los demás roles, el acceso depende exclusivamente de los permisos
-                //    otorgados desde el modal de usuarios.
-                //    Esto elimina las reglas fijas para 'admin_tienda' y 'bodeguero'.
-                return isset($permisos[$module]) && $permisos[$module] === true;
-            }
+function can_access($module, $rol, $permisos) {
+    // El administrador global siempre tiene acceso.
+    if ($rol === 'administrador_global') {
+        return true;
+    }
+    // Para todos los demás, revisa los permisos cargados en la sesión.
+    return isset($permisos[$module]) && $permisos[$module] === true;
+}
             // --- FIN DE LA CORRECCIÓN ---
             ?>
 

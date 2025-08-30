@@ -1364,22 +1364,27 @@ case 'admin/reactivateUser':
     break;
 
 
+//Usuarios
+
 case 'admin/getUsers':
     try {
-        // La consulta selecciona los datos correctos, incluyendo el 'rol' y el 'estado' tal como están en la base de datos.
+        // --- CONSULTA CORREGIDA ---
+        // Se añade "WHERE u.rol != 'administrador_global'" para excluir a ese tipo de usuario.
         $stmt = $pdo->query("
             SELECT 
                 u.id_usuario, 
                 u.nombre_usuario,
-                u.permisos,
                 u.rol,
                 t.nombre_tienda AS nombre_tienda,
+                r.permisos,
                 CASE 
                     WHEN u.estado = 'activo' THEN 'Activo'
                     ELSE 'Inactivo' 
                 END AS estado
             FROM usuarios u
             LEFT JOIN tiendas t ON u.id_tienda = t.id_tienda
+            LEFT JOIN roles r ON u.rol = r.nombre_rol
+            WHERE u.rol != 'administrador_global' -- <-- LÍNEA AÑADIDA
             ORDER BY u.nombre_usuario ASC
         ");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1390,6 +1395,37 @@ case 'admin/getUsers':
     }
     break;
 
+
+    case 'admin/getUserDetails':
+    try {
+        $userId = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$userId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'ID de usuario no válido.']);
+            break;
+        }
+        
+        // Esta consulta une usuarios con roles para obtener los permisos correctos
+        $stmt = $pdo->prepare("
+            SELECT u.id_usuario, u.nombre_usuario, u.rol, r.permisos
+            FROM usuarios u
+            LEFT JOIN roles r ON u.rol = r.nombre_rol
+            WHERE u.id_usuario = :id
+        ");
+        $stmt->execute([':id' => $userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            echo json_encode(['success' => true, 'user' => $user]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Usuario no encontrado.']);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error en la base de datos: ' . $e->getMessage()]);
+    }
+    break;
 case 'admin/createUser':
     $data = json_decode(file_get_contents('php://input'), true);
     $username = trim($data['nombre_usuario'] ?? '');
@@ -1432,16 +1468,90 @@ case 'admin/createUser':
 
 
 
+// En: api/index.php
+
+// ELIMINA EL CASE 'admin/updateUserPermissions' COMPLETO Y REEMPLÁZALO CON ESTOS TRES:
+
+case 'admin/updateUserRole':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
+    $rol = $data['rol'] ?? '';
+    $tiendaId = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+    $adminUserId = $_SESSION['id_usuario'] ?? null;
+
+    if (!$userId || !$rol || !$tiendaId || !$adminUserId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Faltan datos para actualizar el usuario.']);
+        break;
+    }
+    
+    try {
+        $stmt = $pdo->prepare("UPDATE usuarios SET rol = :rol, id_tienda = :id_tienda WHERE id_usuario = :id_usuario");
+        $stmt->execute([':rol' => $rol, ':id_tienda' => $tiendaId, ':id_usuario' => $userId]);
+        
+        logActivity($pdo, $adminUserId, 'Usuario Modificado', "Se actualizó el rol/tienda para el usuario ID #${userId}.");
+        echo json_encode(['success' => true, 'message' => 'Usuario actualizado correctamente.']);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar el usuario: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/getRolePermissions':
+    try {
+        $roleName = $_GET['rol'] ?? '';
+        if (empty($roleName)) {
+            throw new Exception('Nombre del rol no proporcionado.');
+        }
+        $stmt = $pdo->prepare("SELECT permisos FROM roles WHERE nombre_rol = :rol");
+        $stmt->execute([':rol' => $roleName]);
+        $permissions = $stmt->fetchColumn();
+        echo json_encode(['success' => true, 'permissions' => json_decode($permissions, true) ?? []]);
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/updateRolePermissions':
+     $data = json_decode(file_get_contents('php://input'), true);
+     $roleName = $data['nombre_rol'] ?? '';
+     $permissions = $data['permisos'] ?? [];
+     $adminUserId = $_SESSION['id_usuario'] ?? null;
+
+    if (empty($roleName) || !$adminUserId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Faltan datos para actualizar el rol.']);
+        break;
+    }
+    try {
+        $permissionsJson = json_encode($permissions);
+        $stmt = $pdo->prepare("UPDATE roles SET permisos = :permisos WHERE nombre_rol = :rol");
+        $stmt->execute([':permisos' => $permissionsJson, ':rol' => $roleName]);
+        
+        logActivity($pdo, $adminUserId, 'Permisos de Rol Modificados', "Se actualizaron los permisos para el rol '${roleName}'.");
+        echo json_encode(['success' => true, 'message' => 'Permisos del rol actualizados.']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al guardar los permisos: ' . $e->getMessage()]);
+    }
+    break;
+
+// ... el resto de tu switch en la API
+
+/*// En: api/index.php
+
+// REEMPLAZA ESTE CASE COMPLETO
 case 'admin/updateUserPermissions':
     $data = json_decode(file_get_contents('php://input'), true);
     $userId = filter_var($data['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
     $permissions = $data['permisos'] ?? [];
-    $rol = $data['rol'] ?? '';
+    $rol = $data['rol'] ?? ''; // El nuevo rol para el usuario
     $adminUserId = $_SESSION['id_usuario'] ?? null;
 
-    // CORRECCIÓN: Se actualiza la lista de roles válidos.
-    $valid_roles = ['administrador_global', 'admin_tienda', 'bodeguero', 'cajero', 'empleado'];
-    if (!$userId || !in_array($rol, $valid_roles)) {
+    $valid_roles = ['admin_tienda', 'bodeguero', 'cajero', 'empleado'];
+    if (!$userId || !in_array($rol, $valid_roles) || !$adminUserId) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Datos de usuario o rol no válidos.']);
         break;
@@ -1453,21 +1563,23 @@ case 'admin/updateUserPermissions':
         $stmt_info->execute([':id' => $userId]);
         $username_to_edit = $stmt_info->fetchColumn();
 
-        // CORRECCIÓN: Se actualiza la protección para que aplique al rol 'administrador_global'.
-        if ($username_to_edit === 'admin' && $rol !== 'administrador_global') {
-            http_response_code(403); // Prohibido
+        if ($username_to_edit === 'admin') {
+            http_response_code(403);
             throw new Exception("El rol del usuario 'admin' no puede ser modificado.");
         }
 
+        // --- INICIO DE LA LÓGICA CORREGIDA ---
+        // 1. Actualiza SOLAMENTE el ROL del USUARIO en la tabla 'usuarios'
+        $stmt_user_role = $pdo->prepare("UPDATE usuarios SET rol = :rol WHERE id_usuario = :id");
+        $stmt_user_role->execute([':rol' => $rol, ':id' => $userId]);
+        
+        // 2. Actualiza los PERMISOS del ROL en la tabla 'roles'
         $permissionsJson = json_encode($permissions);
-        $stmt = $pdo->prepare("UPDATE usuarios SET permisos = :permissions, rol = :rol WHERE id_usuario = :id");
-        $stmt->execute([
-            ':permissions' => $permissionsJson,
-            ':rol' => $rol,
-            ':id' => $userId
-        ]);
+        $stmt_role_perms = $pdo->prepare("UPDATE roles SET permisos = :permissions WHERE nombre_rol = :rol");
+        $stmt_role_perms->execute([':permissions' => $permissionsJson, ':rol' => $rol]);
+        // --- FIN DE LA LÓGICA CORREGIDA ---
 
-        logActivity($pdo, $adminUserId, 'Permisos Modificados', "Se actualizaron los permisos/rol para el usuario ID #${userId}.");
+        logActivity($pdo, $adminUserId, 'Permisos Modificados', "Se actualizaron los permisos y/o rol para el usuario ID #${userId}. Nuevo rol: ${rol}.");
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Permisos y rol actualizados.']);
 
@@ -1478,6 +1590,15 @@ case 'admin/updateUserPermissions':
         echo json_encode(['success' => false, 'error' => 'Error al guardar: ' . $e->getMessage()]);
     }
     break;
+*/
+
+
+
+
+
+
+
+
 
    
 case 'admin/deleteUser':

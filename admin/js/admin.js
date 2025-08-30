@@ -1340,101 +1340,116 @@ async function renderEditForm(product) {
     let searchTimeout;
 
 
-//mian 1
+
+
+
+
+
+
+
+
+
+
+// admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
 
-    // --- INICIO DE LA CORRECCIÓN: Lógica para abrir la galería de imágenes ---
-    if (target.id === 'open-gallery-btn') {
-        openImageGallery();
-        return; // Detiene la ejecución para no procesar otros clics
+    if (target.classList.contains('edit-user-btn')) {
+        const row = target.closest('tr');
+        const userId = row.dataset.userId;
+        const username = row.querySelector('td:first-child').textContent;
+        const currentRol = row.dataset.rol;
+        const currentStoreId = row.dataset.storeId;
+
+        openEditUserModal(userId, username, currentRol, currentStoreId);
+        return;
     }
 
-           if (target.id === 'batch-action-execute') {
-            const selector = mainContent.querySelector('#batch-action-selector');
-            const action = selector.value;
-            const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
+    if (target.id === 'open-gallery-btn') {
+        openImageGallery();
+        return;
+    }
 
-            if (!action || productIds.length === 0) {
-                alert('Por favor, selecciona una acción y al menos un producto.');
-                return;
-            }
+    if (target.id === 'batch-action-execute') {
+        const selector = mainContent.querySelector('#batch-action-selector');
+        const action = selector.value;
+        const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
 
-            if (action === 'change-department') {
-                openDepartmentModal(); // La lógica para esto ya existe y funciona bien
-                return;
-            }
-
-            let confirmationMessage = '';
-            switch (action) {
-                case 'delete':
-                    confirmationMessage = `¿Estás seguro de que quieres eliminar ${productIds.length} producto(s) seleccionados? Esta acción es irreversible.`;
-                    break;
-                case 'activate':
-                    confirmationMessage = `¿Estás seguro de que quieres activar ${productIds.length} producto(s) seleccionados?`;
-                    break;
-                case 'deactivate':
-                    confirmationMessage = `¿Estás seguro de que quieres desactivar ${productIds.length} producto(s) seleccionados?`;
-                    break;
-                default:
-                    confirmationMessage = `¿Estás seguro de que quieres ejecutar la acción "${action}" en ${productIds.length} producto(s)?`;
-            }
-
-            if (confirm(confirmationMessage)) {
-                try {
-                    target.disabled = true;
-                    target.textContent = 'Procesando...';
-                    const response = await fetch(`${API_BASE_URL}?resource=admin/batchAction`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action, productIds })
-                    });
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-                    
-                    alert(result.message);
-                    currentFilters.page = 1; // Resetea a la primera página
-                    await fetchAndRenderProducts(); // Recarga la lista de productos
-
-                } catch (error) {
-                    alert(`Error: ${error.message}`);
-                } finally {
-                    target.disabled = false;
-                    target.textContent = 'Ejecutar';
-                }
-            }
+        if (!action || productIds.length === 0) {
+            alert('Por favor, selecciona una acción y al menos un producto.');
             return;
         }
 
+        if (action === 'change-department') {
+            openDepartmentModal();
+            return;
+        }
 
-if (target.classList.contains('reactivate-user-btn')) {
+        let confirmationMessage = '';
+        switch (action) {
+            case 'delete':
+                confirmationMessage = `¿Estás seguro de que quieres eliminar ${productIds.length} producto(s) seleccionados? Esta acción es irreversible.`;
+                break;
+            case 'activate':
+                confirmationMessage = `¿Estás seguro de que quieres activar ${productIds.length} producto(s) seleccionados?`;
+                break;
+            case 'deactivate':
+                confirmationMessage = `¿Estás seguro de que quieres desactivar ${productIds.length} producto(s) seleccionados?`;
+                break;
+            default:
+                confirmationMessage = `¿Estás seguro de que quieres ejecutar la acción "${action}" en ${productIds.length} producto(s)?`;
+        }
+
+        if (confirm(confirmationMessage)) {
+            try {
+                target.disabled = true;
+                target.textContent = 'Procesando...';
+                const response = await fetch(`${API_BASE_URL}?resource=admin/batchAction`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, productIds })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                alert(result.message);
+                currentFilters.page = 1;
+                await fetchAndRenderProducts();
+
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                target.disabled = false;
+                target.textContent = 'Ejecutar';
+            }
+        }
+        return;
+    }
+
+    if (target.classList.contains('reactivate-user-btn')) {
         const row = target.closest('tr');
         const userId = row.dataset.userId;
         const username = row.querySelector('td:first-child').textContent;
         if (confirm(`¿Estás seguro de que quieres reactivar al usuario "${username}"?`)) {
             reactivateUser(userId);
         }
-        return; // Detiene la ejecución para no afectar otros botones
+        return;
     }
 
-
-        const sortableHeader = target.closest('th.sortable');
+    const sortableHeader = target.closest('th.sortable');
     if (sortableHeader) {
         const sortBy = sortableHeader.dataset.sort;
         if (currentFilters.sort.by === sortBy) {
-            // Si ya se ordena por esta columna, invierte el orden
             currentFilters.sort.order = currentFilters.sort.order === 'ASC' ? 'DESC' : 'ASC';
         } else {
-            // Si es una nueva columna, ordena de forma ascendente
             currentFilters.sort.by = sortBy;
             currentFilters.sort.order = 'ASC';
         }
-        currentFilters.page = 1; // Vuelve a la primera página con cada nuevo ordenamiento
+        currentFilters.page = 1;
         await fetchAndRenderProducts();
-        return; // Detiene la ejecución para no procesar otros clics
+        return;
     }
 
-    // --- LÓGICA PARA BOTONES DE LA CINTA DE OPCIONES ---
     const actionButton = target.closest('.action-btn[data-action]');
     if (actionButton && !actionButton.id.startsWith('batch-action')) {
         const currentModule = document.querySelector('.nav-link.active')?.dataset.module;
@@ -1448,7 +1463,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return; 
     }
 
-    // --- LÓGICA DEL PROCESADOR DE IMÁGENES ---
     if (target.id === 'start-processing-btn') {
         const button = event.target;
         const outputConsole = document.getElementById('processor-output');
@@ -1487,9 +1501,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
     
-    // --- LÓGICA PARA BOTONES DE ACCIÓN EN FILAS DE TABLAS ---
-
-    // Botón Eliminar Tienda (AHORA FUNCIONARÁ)
     if (target.classList.contains('delete-tienda-btn')) {
         const row = target.closest('tr');
         const tiendaId = row.dataset.tiendaId;
@@ -1500,7 +1511,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
 
-    // Botón Eliminar Departamento
     if (target.classList.contains('delete-department-btn')) {
         const row = target.closest('tr');
         const departmentId = row.dataset.departmentId;
@@ -1523,7 +1533,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
 
-    // Botón Actualizar Estado de Pedido Web
     if (target.classList.contains('update-order-status-btn')) {
         const cartId = target.dataset.cartId;
         const newStatusId = target.dataset.newStatusId;
@@ -1545,7 +1554,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
 
-    // Botón Editar Cliente
     if (target.classList.contains('edit-customer-btn')) {
         const customerId = target.closest('tr').dataset.customerId;
         mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
@@ -1565,7 +1573,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
 
-    // Botón Eliminar Cliente
     if (target.classList.contains('delete-customer-btn')) {
         const row = target.closest('tr');
         const customerId = row.dataset.customerId;
@@ -1591,7 +1598,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
 
-    // Botón Editar Producto
     if (target.classList.contains('edit-product-btn')) {
         const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
         mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
@@ -1606,7 +1612,6 @@ if (target.classList.contains('reactivate-user-btn')) {
         return;
     }
 
-
     if (target.classList.contains('delete-proveedor-btn')) {
         const row = target.closest('tr');
         const proveedorId = row.dataset.proveedorId;
@@ -1616,8 +1621,16 @@ if (target.classList.contains('reactivate-user-btn')) {
         }
         return;
     }
-
 });
+
+
+
+
+
+
+
+
+
 
 
 mainContent.addEventListener('input', (event) => {
@@ -3151,7 +3164,6 @@ async function fetchAndRenderUserSales() {
 
 
 
-// Reemplaza tu función initializeUserManagement con esta
 
 function initializeUserManagement() {
     fetchAndRenderUsers();
@@ -3159,79 +3171,81 @@ function initializeUserManagement() {
     const createUserForm = document.getElementById('create-user-form');
     if (createUserForm) {
         createUserForm.addEventListener('submit', handleUserFormSubmit);
-        initializeLiveUserValidation(); // <-- ¡LÍNEA AÑADIDA!
+        initializeLiveUserValidation();
     }
-
-    const modal = document.getElementById('permissions-modal');
-    if (modal) {
-        modal.addEventListener('click', (event) => {
-            if (event.target.matches('.modal-close-btn, #modal-cancel-btn-perms')) {
-                closePermissionsModal();
-            }
-        });
-        document.getElementById('permissions-form').addEventListener('submit', handlePermissionsFormSubmit);
+    
+    // Listeners para los dos modales
+    const permissionsModal = document.getElementById('permissions-modal');
+    if (permissionsModal) {
+        document.getElementById('manage-roles-btn').addEventListener('click', () => permissionsModal.style.display = 'flex');
+        permissionsModal.querySelectorAll('.modal-close-btn').forEach(btn => btn.addEventListener('click', () => permissionsModal.style.display = 'none'));
+        permissionsModal.querySelector('#role-select').addEventListener('change', handleRoleSelectChange);
+        permissionsModal.querySelector('#permissions-form').addEventListener('submit', handlePermissionsFormSubmit);
+    }
+    
+    const editUserModal = document.getElementById('edit-user-modal');
+    if(editUserModal) {
+        editUserModal.querySelectorAll('.modal-close-btn').forEach(btn => btn.addEventListener('click', () => editUserModal.style.display = 'none'));
+        editUserModal.querySelector('#edit-user-form').addEventListener('submit', handleEditUserFormSubmit);
     }
 }
+
+
 
 
 async function fetchAndRenderUsers() {
     const tableBody = document.getElementById('users-table-body');
     if (!tableBody) return;
-    
-    tableBody.innerHTML = '<tr><td colspan="5">Cargando usuarios...</td></tr>';
-    
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/getUsers`);
         const result = await response.json();
-        
         tableBody.innerHTML = '';
-        
         if (result.success && result.users.length > 0) {
             result.users.forEach(user => {
                 const row = document.createElement('tr');
                 row.dataset.userId = user.id_usuario;
-                row.dataset.permissions = user.permisos || '{}';
                 row.dataset.rol = user.rol;
-
-                const isActivo = user.estado === 'Activo';
-                const estadoColor = isActivo ? '#d4edda' : '#f8d7da';
-                const estadoTextColor = isActivo ? '#155724' : '#721c24';
+                row.dataset.storeId = user.id_tienda;
+                const displayRol = user.rol.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const isActivo = user.estado.toLowerCase() === 'activo';
                 let actionButtons = '';
-
-                // --- INICIO DE LA LÓGICA DE BOTONES MEJORADA ---
                 if (isActivo) {
-                    actionButtons = `<button class="action-btn edit-permissions-btn">Editar</button>`;
-                    // Si el usuario NO es 'admin', se añade el botón de desactivar.
-                    if (user.nombre_usuario !== 'admin') {
-                        actionButtons += ` <button class="action-btn delete-user-btn" style="background-color: #f8d7da;">Desactivar</button>`;
-                    }
-                } else {
-                    // Si no está activo, siempre se puede reactivar.
-                    actionButtons = `<button class="action-btn reactivate-user-btn" style="background-color: #cce5ff; color: #004085;">Reactivar</button>`;
+                    actionButtons += `<button class="action-btn edit-user-btn" data-user-id="${user.id_usuario}" title="Editar Rol/Tienda">Editar</button>`;
                 }
-                // --- FIN DE LA LÓGICA DE BOTONES MEJORADA ---
-                
+                if (user.nombre_usuario !== 'admin') {
+                    if (isActivo) {
+                        actionButtons += `<button class="action-btn delete-user-btn" data-user-id="${user.id_usuario}" title="Desactivar">Desactivar</button>`;
+                    } else {
+                        actionButtons = `<button class="action-btn reactivate-user-btn" data-user-id="${user.id_usuario}" title="Reactivar">Reactivar</button>`;
+                    }
+                }
                 row.innerHTML = `
                     <td>${user.nombre_usuario}</td>
                     <td>${user.nombre_tienda || 'N/A'}</td>
-                    <td>${user.rol.charAt(0).toUpperCase() + user.rol.slice(1)}</td>
-                    <td>
-                        <span style="background-color: ${estadoColor}; color: ${estadoTextColor}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                            ${user.estado}
-                        </span>
-                    </td>
-                    <td>${actionButtons}</td>
+                    <td>${displayRol}</td>
+                    <td><span class="status-badge status-${user.estado.toLowerCase()}">${user.estado}</span></td>
+                    <td><div class="action-buttons">${actionButtons}</div></td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="5">No hay usuarios registrados.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">No hay empleados registrados.</td></tr>';
         }
     } catch (error) {
-        console.error('Error fetching users:', error);
-        tableBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error al cargar usuarios.</td></tr>`;
+        tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar usuarios.</td></tr>';
     }
 }
+
+
+
+
+
+
+
+
+
+
 
 // Reemplaza la función handleUserFormSubmit en tu archivo admin.js
 // Reemplaza esta función en: admin/js/admin.js
@@ -3241,38 +3255,29 @@ function initializeLiveUserValidation() {
     const form = usernameInput ? usernameInput.closest('form') : null;
     const feedbackDiv = document.getElementById('create-user-feedback');
     const submitButton = form ? form.querySelector('.form-submit-btn') : null;
-
     if (!usernameInput || !form || !feedbackDiv || !submitButton) return;
-
     let debounceTimer;
     usernameInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         const username = usernameInput.value.trim();
-        submitButton.disabled = true; // Deshabilita el botón mientras se verifica
-
+        submitButton.disabled = true;
         if (username.length < 4) {
-            feedbackDiv.innerHTML = '';
-            return;
+            feedbackDiv.innerHTML = ''; return;
         }
-
         debounceTimer = setTimeout(async () => {
             feedbackDiv.className = 'form-message';
             feedbackDiv.textContent = 'Verificando...';
-
             try {
-                // --- ¡LA CORRECCIÓN ESTÁ AQUÍ! ---
-                // Se cambió API_URL por API_BASE_URL, que es la constante correcta en tu archivo.
                 const response = await fetch(`${API_BASE_URL}?resource=admin/check-username&username=${encodeURIComponent(username)}`);
                 const result = await response.json();
-
                 if (result.is_available) {
                     feedbackDiv.className = 'form-message success';
                     feedbackDiv.textContent = 'Nombre de usuario disponible.';
-                    submitButton.disabled = false; // Habilita el botón
+                    submitButton.disabled = false;
                 } else {
                     feedbackDiv.className = 'form-message error';
                     feedbackDiv.textContent = 'Este nombre de usuario ya está en uso.';
-                    submitButton.disabled = true; // Mantiene el botón deshabilitado
+                    submitButton.disabled = true;
                 }
             } catch (error) {
                 feedbackDiv.className = 'form-message error';
@@ -3284,69 +3289,104 @@ function initializeLiveUserValidation() {
 }
 
 
+
 async function handleUserFormSubmit(event) {
     event.preventDefault();
     const form = event.target;
     const feedbackDiv = document.getElementById('create-user-feedback');
     const submitButton = form.querySelector('.form-submit-btn');
-
     const data = {
         nombre_usuario: form.querySelector('#new_nombre_usuario').value,
         password: form.querySelector('#new_password').value,
         rol: form.querySelector('#rol_usuario').value,
         id_tienda: form.querySelector('#id_tienda_usuario').value
     };
-
     submitButton.disabled = true;
     submitButton.textContent = 'Creando...';
     feedbackDiv.innerHTML = '';
-
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/createUser`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
-
         feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
         form.reset();
         fetchAndRenderUsers();
         setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
-
     } catch (error) {
         feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
     } finally {
         submitButton.disabled = false;
-        submitButton.textContent = 'Empleado';
+        submitButton.textContent = 'Crear Empleado';
     }
 }
-mainContent.addEventListener('click', (event) => {
-    if (event.target.classList.contains('edit-permissions-btn')) {
-        const row = event.target.closest('tr');
-        const userId = row.dataset.userId;
-        const username = row.querySelector('td:first-child').textContent;
-        const permissions = JSON.parse(row.dataset.permissions);
-        renderPermissionsModal(userId, username, permissions);
 
-        const currentRol = row.dataset.rol; // <--- Se obtiene el rol de la fila
-        renderPermissionsModal(userId, username, permissions, currentRol); // <--- Se pasa a la función
-     
+function openEditUserModal(userId, username, currentRol, currentStoreId) {
+    const modal = document.getElementById('edit-user-modal');
+    if (!modal) return;
+    document.getElementById('edit-user-modal-title').textContent = `Editar Empleado: ${username}`;
+    document.getElementById('edit-user-id-input').value = userId;
+    document.getElementById('edit_rol_usuario').value = currentRol;
+    document.getElementById('edit_id_tienda_usuario').value = currentStoreId;
+    modal.style.display = 'flex';
+}
+
+async function handleEditUserFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('edit-user-modal-feedback');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const data = {
+        id_usuario: form.querySelector('#edit-user-id-input').value,
+        rol: form.querySelector('#edit_rol_usuario').value,
+        id_tienda: form.querySelector('#edit_id_tienda_usuario').value,
+    };
+    submitButton.disabled = true;
+    feedbackDiv.innerHTML = '';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateUserRole`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        setTimeout(() => {
+            document.getElementById('edit-user-modal').style.display = 'none';
+            fetchAndRenderUsers();
+        }, 1200);
+    } catch(error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
     }
-    if (event.target.classList.contains('delete-user-btn')) {
-        const row = event.target.closest('tr');
-        const userId = row.dataset.userId;
-        const username = row.querySelector('td:first-child').textContent;
-        if (confirm(`¿Estás seguro de que quieres dar de baja al usuario "${username}"? (Se podra dar de alta en un futuro).`)) {
-            deleteUser(userId);
-        }
+}
+
+// --- NUEVA --- (Para cargar permisos cuando se elige un rol en el modal)
+async function handleRoleSelectChange(event) {
+    const roleName = event.target.value;
+    const container = document.getElementById('permissions-checkbox-container');
+    const allModules = ['dashboard', 'tiendas', 'proveedores', 'pos', 'listas_compras', 'productos', 'departamentos', 'clientes', 'usuarios', 'tarjetas', 'inventario', 'estadisticas', 'web_admin', 'utilidades'];
+    container.innerHTML = '';
+    if (!roleName) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getRolePermissions&rol=${roleName}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        const permissions = result.permissions;
+        container.innerHTML = allModules.map(module => {
+            const label = module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const isChecked = permissions[module] ? 'checked' : '';
+            return `
+                <div class="form-group setting-toggle" style="justify-content: flex-start;">
+                    <input type="checkbox" id="perm-${module}" name="permisos[${module}]" class="switch" ${isChecked}>
+                    <label for="perm-${module}">${label}</label>
+                </div>`;
+        }).join('');
+    } catch (error) {
+        container.innerHTML = `<p style="color:red">${error.message}</p>`;
     }
-});
-
-
-
-
+}
 
 
 
@@ -3443,53 +3483,75 @@ function closePermissionsModal() {
     }
 }
 
+
 async function handlePermissionsFormSubmit(event) {
     event.preventDefault();
     const form = event.target;
     const feedbackDiv = document.getElementById('permissions-modal-feedback');
-    const submitButton = document.getElementById('modal-save-btn-perms');
-
-    const userId = form.querySelector('#edit-user-id').value;
-    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const roleName = form.querySelector('#role-select').value;
+    if (!roleName) {
+        feedbackDiv.innerHTML = `<div class="message error">Debes seleccionar un rol.</div>`;
+        return;
+    }
     const permissions = {};
-    checkboxes.forEach(cb => {
+    form.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         const key = cb.name.match(/\[(.*?)\]/)[1];
         permissions[key] = cb.checked;
     });
-
-    const data = {
-        id_usuario: userId,
-        permisos: permissions,
-        rol: form.querySelector('#edit-rol-usuario').value
-    };
-
+    const data = { nombre_rol: roleName, permisos: permissions };
     submitButton.disabled = true;
-    submitButton.textContent = 'Guardando...';
     feedbackDiv.innerHTML = '';
-
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/updateUserPermissions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateRolePermissions`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
-        
         feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
         setTimeout(() => {
-            closePermissionsModal();
-            fetchAndRenderUsers();
-        }, 1500);
-
-    } catch (error) {
+             feedbackDiv.innerHTML = ``;
+        }, 2000);
+    } catch(error) {
         feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
     } finally {
-        // ✨ CORRECCIÓN: Este bloque se asegura de que el botón siempre se restaure.
         submitButton.disabled = false;
-        submitButton.textContent = 'Guardar Cambios';
     }
 }
+
+
+mainContent.addEventListener('click', (event) => {
+    if (event.target.classList.contains('edit-permissions-btn')) {
+        const row = event.target.closest('tr');
+        const userId = row.dataset.userId;
+        const username = row.querySelector('td:first-child').textContent;
+        const permissions = JSON.parse(row.dataset.permissions);
+        renderPermissionsModal(userId, username, permissions);
+
+        const currentRol = row.dataset.rol; // <--- Se obtiene el rol de la fila
+        renderPermissionsModal(userId, username, permissions, currentRol); // <--- Se pasa a la función
+     
+    }
+    if (event.target.classList.contains('delete-user-btn')) {
+        const row = event.target.closest('tr');
+        const userId = row.dataset.userId;
+        const username = row.querySelector('td:first-child').textContent;
+        if (confirm(`¿Estás seguro de que quieres dar de baja al usuario "${username}"? (Se podra dar de alta en un futuro).`)) {
+            deleteUser(userId);
+        }
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
 async function deleteUser(userId) {
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/deleteUser`, {
