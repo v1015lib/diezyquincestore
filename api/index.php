@@ -1900,18 +1900,37 @@ case 'admin/activityLog':
         break;
 
 
+
+// api/index.php
+
 case 'pos_start_sale':
     if ($method === 'POST') {
-        if (!isset($_SESSION['id_usuario']) || empty($_SESSION['id_usuario'])) {
+        if (!isset($_SESSION['id_usuario'])) {
             http_response_code(403); echo json_encode(['success' => false, 'error' => 'No autorizado.']); break;
         }
+
+        $data = json_decode(file_get_contents('php://input'), true);
         $id_usuario_actual = $_SESSION['id_usuario'];
-        
-        // Obtiene la tienda de la sesión (establecida al iniciar el POS)
-        $id_tienda_final = $_SESSION['pos_store_id'] ?? $_SESSION['id_tienda'] ?? null;
-        if (!$id_tienda_final) {
-            http_response_code(400); echo json_encode(['success' => false, 'error' => 'No se ha seleccionado una tienda para operar.']); break;
+        $rol = $_SESSION['rol'];
+
+        // Lógica para determinar la tienda de forma segura
+        $id_tienda_final = null;
+        if ($rol === 'administrador_global') {
+            // Para el admin, la tienda DEBE venir en la petición
+            $id_tienda_final = filter_var($data['store_id'] ?? null, FILTER_VALIDATE_INT);
+        } else {
+            // Para otros roles, se toma de su asignación
+            $id_tienda_final = $_SESSION['id_tienda'] ?? null;
         }
+
+        if (!$id_tienda_final) {
+            http_response_code(400); 
+            echo json_encode(['success' => false, 'error' => 'No se ha seleccionado una tienda para operar.']);
+            break;
+        }
+
+        // Una vez validada, la guardamos en la sesión del servidor para las demás operaciones
+        $_SESSION['pos_store_id'] = $id_tienda_final;
 
         $pdo->beginTransaction();
         try {
@@ -1954,8 +1973,7 @@ case 'pos_start_sale':
         }
     }
     break;
-
-            
+         
 case 'pos_add_item':
      if ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true);
@@ -1988,110 +2006,98 @@ case 'pos_add_item':
 
 
 
+// api/index.php
 
+case 'pos_finalize_sale':
+    if ($method === 'POST' && isset($inputData['sale_id'])) {
+        $saleId = $inputData['sale_id'];
+        $clientId = $inputData['client_id'];
+        $paymentMethodId = $inputData['payment_method_id'];
+        $totalAmount = $inputData['total_amount'];
+        $cardNumber = $inputData['card_number'] ?? null;
+        $userId = $_SESSION['id_usuario'];
 
-// Reemplaza este case en tu archivo /api/index.php
+        $pdo->beginTransaction();
 
-// Reemplaza este case en tu archivo: api/index.php
-
-
-
-
-
-
-    case 'pos_finalize_sale':
-        if ($method === 'POST' && isset($inputData['sale_id'])) {
-            $saleId = $inputData['sale_id'];
-            $clientId = $inputData['client_id'];
-            $paymentMethodId = $inputData['payment_method_id'];
-            $totalAmount = $inputData['total_amount'];
-            $cardNumber = $inputData['card_number'] ?? null;
-            $userId = $_SESSION['id_usuario'];
-
-            $pdo->beginTransaction();
-
-            try {
-                // *** CORRECCIÓN CLAVE 1: OBTENER LA TIENDA DIRECTAMENTE DE LA VENTA ***
-                // Esto hace que la operación sea segura y no dependa de la sesión del navegador.
-                $stmt_get_tienda = $pdo->prepare("SELECT id_tienda FROM ventas WHERE id_venta = :sale_id");
-                $stmt_get_tienda->execute([':sale_id' => $saleId]);
-                $id_tienda_de_la_venta = $stmt_get_tienda->fetchColumn();
-
-                if (!$id_tienda_de_la_venta) {
-                    throw new Exception("Error Crítico: No se pudo determinar la tienda de origen para esta venta.");
-                }
-
-                // Actualizar la venta principal
-                $stmt_update_venta = $pdo->prepare("UPDATE ventas SET id_cliente = :id_cliente, id_metodo_pago = :id_metodo_pago, monto_total = :monto_total, estado_id = 29, id_usuario_venta = :id_usuario_venta WHERE id_venta = :id_venta");
-                $stmt_update_venta->execute([':id_cliente' => $clientId, ':id_metodo_pago' => $paymentMethodId, ':monto_total' => $totalAmount, ':id_venta' => $saleId, ':id_usuario_venta' => $userId]);
-
-                // Lógica de pago con tarjeta (si aplica)
-                if ($paymentMethodId == 2 && !empty($cardNumber)) {
-                    // ... (tu lógica de tarjeta aquí, no necesita cambios)
-                }
-
-                // Lógica de inventario
-                $stmt_items = $pdo->prepare("
-                    SELECT dv.id_producto, dv.cantidad FROM detalle_ventas dv
-                    JOIN productos p ON dv.id_producto = p.id_producto
-                    WHERE dv.id_venta = :sale_id AND p.usa_inventario = 1
-                ");
-                $stmt_items->execute([':sale_id' => $saleId]);
-                $items_to_update = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
-
-                $stmt_get_stock = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :id_tienda FOR UPDATE");
-                $stmt_update_stock = $pdo->prepare("UPDATE inventario_tienda SET stock = stock - :quantity WHERE id_producto = :product_id AND id_tienda = :id_tienda");
-                $stmt_log_movement = $pdo->prepare(
-                    "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda)
-                     VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas, :id_tienda)"
-                );
-
-                foreach ($items_to_update as $item) {
-                    // *** CORRECCIÓN CLAVE 2: USAR EL ID DE TIENDA OBTENIDO DE LA VENTA ***
-                    $stmt_get_stock->execute([':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
-                    $stock_anterior = $stmt_get_stock->fetchColumn();
-                    
-                    if ($stock_anterior === false) $stock_anterior = 0; // Si no hay registro, asumimos 0
-
-                    $quantity_sold = $item['cantidad'];
-                    $stock_nuevo = (int)$stock_anterior - $quantity_sold;
-
-                    $stmt_update_stock->execute([':quantity' => $quantity_sold, ':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
-                    
-                    $stmt_log_movement->execute([
-                        ':product_id' => $item['id_producto'], 
-                        ':cantidad' => -$quantity_sold, 
-                        ':stock_anterior' => $stock_anterior, 
-                        ':stock_nuevo' => $stock_nuevo,
-                        ':user_id' => $userId, 
-                        ':notas' => "Venta POS No. {$saleId}",
-                        ':id_tienda' => $id_tienda_de_la_venta
-                    ]);
-                }
-                
-                logActivity($pdo, $userId, 'Venta POS Finalizada', "Se finalizó la venta POS No. {$saleId} con un total de $ {$totalAmount}.");
-
-                $pdo->commit();
-                echo json_encode(['success' => true, 'message' => 'Venta finalizada con éxito.']);
-
-            } catch (Exception $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        try {
+            // ================== INICIO DE LA CORRECCIÓN CLAVE ==================
+            // Usamos la tienda que ya está guardada en la sesión del POS. 
+            // Esto es más directo y seguro que volver a consultar la venta.
+            if (!isset($_SESSION['pos_store_id'])) {
+                 throw new Exception("Error Crítico: No se pudo determinar la tienda de origen para esta venta.");
             }
+            $id_tienda_de_la_venta = $_SESSION['pos_store_id'];
+            // =================== FIN DE LA CORRECCIÓN CLAVE ====================
+
+            // Actualizar la venta principal
+            $stmt_update_venta = $pdo->prepare("UPDATE ventas SET id_cliente = :id_cliente, id_metodo_pago = :id_metodo_pago, monto_total = :monto_total, estado_id = 29, id_usuario_venta = :id_usuario_venta WHERE id_venta = :id_venta");
+            $stmt_update_venta->execute([':id_cliente' => $clientId, ':id_metodo_pago' => $paymentMethodId, ':monto_total' => $totalAmount, ':id_venta' => $saleId, ':id_usuario_venta' => $userId]);
+
+            // Lógica de pago con tarjeta (si aplica)
+            if ($paymentMethodId == 2 && !empty($cardNumber)) {
+                $stmt_card = $pdo->prepare("SELECT id_tarjeta, saldo FROM tarjetas_recargables WHERE numero_tarjeta = :card_number AND estado_id = 1 FOR UPDATE");
+                $stmt_card->execute([':card_number' => $cardNumber]);
+                $tarjeta = $stmt_card->fetch(PDO::FETCH_ASSOC);
+
+                if (!$tarjeta || (float)$tarjeta['saldo'] < $totalAmount) {
+                    throw new Exception("Saldo insuficiente en la tarjeta.");
+                }
+
+                $nuevo_saldo = (float)$tarjeta['saldo'] - $totalAmount;
+                $stmt_update_saldo = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :nuevo_saldo WHERE id_tarjeta = :id_tarjeta");
+                $stmt_update_saldo->execute([':nuevo_saldo' => $nuevo_saldo, ':id_tarjeta' => $tarjeta['id_tarjeta']]);
+            }
+
+            // Lógica de inventario
+            $stmt_items = $pdo->prepare("
+                SELECT dv.id_producto, dv.cantidad FROM detalle_ventas dv
+                JOIN productos p ON dv.id_producto = p.id_producto
+                WHERE dv.id_venta = :sale_id AND p.usa_inventario = 1
+            ");
+            $stmt_items->execute([':sale_id' => $saleId]);
+            $items_to_update = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt_get_stock = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :id_tienda FOR UPDATE");
+            $stmt_update_stock = $pdo->prepare("UPDATE inventario_tienda SET stock = stock - :quantity WHERE id_producto = :product_id AND id_tienda = :id_tienda");
+            $stmt_log_movement = $pdo->prepare(
+                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda)
+                 VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas, :id_tienda)"
+            );
+
+            foreach ($items_to_update as $item) {
+                $stmt_get_stock->execute([':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
+                $stock_anterior = $stmt_get_stock->fetchColumn();
+                
+                if ($stock_anterior === false) $stock_anterior = 0;
+
+                $quantity_sold = $item['cantidad'];
+                $stock_nuevo = (int)$stock_anterior - $quantity_sold;
+
+                $stmt_update_stock->execute([':quantity' => $quantity_sold, ':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
+                
+                $stmt_log_movement->execute([
+                    ':product_id' => $item['id_producto'], 
+                    ':cantidad' => -$quantity_sold, 
+                    ':stock_anterior' => $stock_anterior, 
+                    ':stock_nuevo' => $stock_nuevo,
+                    ':user_id' => $userId, 
+                    ':notas' => "Venta POS No. {$saleId}",
+                    ':id_tienda' => $id_tienda_de_la_venta
+                ]);
+            }
+            
+            logActivity($pdo, $userId, 'Venta POS Finalizada', "Se finalizó la venta POS No. {$saleId} con un total de $ {$totalAmount}.");
+
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Venta finalizada con éxito.']);
+
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
-        break;
-
-
-
-
-
-
-
-
-
-
-
+    }
+    break;
 
 
 case 'pos_cancel_sale':

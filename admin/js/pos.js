@@ -3,8 +3,8 @@ function initializePOS() {
     let currentSaleId = null;
     let currentClientId = 1;
     let currentClientName = 'Público en General';
-    let cardOwnerId = null; 
-    let activeTicketRowIndex = -1; 
+    let cardOwnerId = null;
+    let activeTicketRowIndex = -1;
     let selectedStoreId = null;
     // Referencias a elementos del DOM (sin cambios)
     const productInput = document.getElementById('pos-product-input');
@@ -60,7 +60,7 @@ function initializePOS() {
 
 
 
-    function setupPOSForRole() {
+    async function setupPOSForRole() {
         if (USER_ROLE === 'administrador_global') {
             const storedStoreId = sessionStorage.getItem('pos_selected_store_id');
             const storedStoreName = sessionStorage.getItem('pos_selected_store_name');
@@ -69,15 +69,19 @@ function initializePOS() {
                 selectedStoreId = storedStoreId;
                 storeIndicator.textContent = `Operando desde: ${storedStoreName}`;
                 enablePOSControls();
-                startOrResumeSale();
+                // Se pasa el ID de la tienda directamente para evitar el error
+                await startOrResumeSale(selectedStoreId);
             } else {
                 storeSelectionModal.style.display = 'block';
             }
         } else {
             enablePOSControls();
-            startOrResumeSale();
+            await startOrResumeSale(); // Los otros roles no necesitan pasar ID
         }
     }
+
+
+
     function enablePOSControls() {
         productInput.disabled = false;
         openSearchModalBtn.disabled = false;
@@ -101,9 +105,8 @@ function initializePOS() {
             storeIndicator.textContent = `Operando desde: ${storeName}`;
             storeSelectionModal.style.display = 'none';
             
-            await setStoreInSession(selectedStoreId);
             enablePOSControls();
-            startOrResumeSale();
+            await startOrResumeSale(selectedStoreId); // Se pasa el ID de la tienda directamente
         });
     }
 
@@ -459,7 +462,12 @@ function closeProductSearchModal() {
         }, 300);
     });
 
+// ================== INICIO DE LA CORRECCIÓN CLAVE ==================
+// Se elimina la llamada final a startOrResumeSale();
+// La única llamada que inicia el POS es setupPOSForRole();
 setupPOSForRole();
+// =================== FIN DE LA CORRECCIÓN CLAVE ====================
+
 
     modalSearchResultsContainer.addEventListener('click', (e) => {
         const item = e.target.closest('.search-result-item');
@@ -519,28 +527,40 @@ setupPOSForRole();
             resultsList.innerHTML = '<div class="search-result-item-empty">No se encontraron productos.</div>';
         }
     }
- async function startOrResumeSale() {
-        try {
-            const response = await fetch(`${API_URL}?resource=pos_start_sale`, { method: 'POST' });
-            const data = await response.json();
-            if (data.success && data.sale_id) {
-                currentSaleId = data.sale_id;
-                if (data.ticket_items && data.ticket_items.length > 0) {
-                    currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
-                } else {
-                    currentTicket = [];
-                }
-                currentClientId = 1;
-                currentClientName = 'Público en General';
-                resetPOS();
-                toggleCardPaymentFields();
+// admin/js/pos.js
+
+// admin/js/pos.js
+
+async function startOrResumeSale(storeId = null) {
+    try {
+        const response = await fetch(`${API_URL}?resource=pos_start_sale`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // Ahora enviamos el ID de la tienda en esta misma petición
+            body: JSON.stringify({ store_id: storeId }) 
+        });
+        const data = await response.json();
+        if (data.success && data.sale_id) {
+            currentSaleId = data.sale_id;
+            if (data.ticket_items && data.ticket_items.length > 0) {
+                currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
             } else {
-                showPOSNotificationModal('Error', data.error || 'Error al iniciar una nueva venta.', 'error');
+                currentTicket = [];
             }
-        } catch (error) {
-            showPOSNotificationModal('Error de Conexión', 'No se pudo iniciar la venta.', 'error');
+            currentClientId = 1;
+            currentClientName = 'Público en General';
+            resetPOS();
+            toggleCardPaymentFields();
+        } else {
+            // Si la API devuelve un error (como que la tienda no se pudo establecer), lo mostramos
+            showPOSNotificationModal('Error', data.error || 'Error al iniciar una nueva venta.', 'error');
         }
+    } catch (error) {
+        showPOSNotificationModal('Error de Conexión', 'No se pudo iniciar la venta.', 'error');
     }
+}
+
+    
     
     function resetPOS() {
         updateTicketTable();
@@ -582,6 +602,7 @@ setupPOSForRole();
 
 
 
+
     const finalClientId = (paymentMethodSelect.value === '2' && cardOwnerId) 
         ? cardOwnerId 
         : currentClientId;
@@ -609,7 +630,7 @@ setupPOSForRole();
         if (result.success) {
             showPOSNotificationModal('Éxito', 'Venta finalizada correctamente.', 'success');
             closeCheckoutModal(); // Cierra el modal de pago
-            await startOrResumeSale();
+            await startOrResumeSale(selectedStoreId);
         } else {
             showPOSNotificationModal('Error', result.error || 'Error al finalizar la venta.', 'error');
             cobrarBtn.disabled = false;
@@ -625,7 +646,7 @@ setupPOSForRole();
 
     cancelSaleBtn.addEventListener('click', async () => {
         if (!currentSaleId || currentTicket.length === 0) {
-            await startOrResumeSale();
+            await startOrResumeSale(selectedStoreId);
             return;
         };
         if (confirm('¿Estás seguro de que quieres cancelar esta venta?')) {
@@ -638,7 +659,7 @@ setupPOSForRole();
                 const result = await response.json();
                 if (result.success) {
                     showPOSNotificationModal('Información', 'Venta cancelada.', 'info');
-                    await startOrResumeSale();
+                    await startOrResumeSale(selectedStoreId);
                 } else {
                     showPOSNotificationModal('Error', result.error || 'No se pudo cancelar la venta.', 'error');
                 }
@@ -968,6 +989,4 @@ async function fetchAndRenderSaleDetails(saleId) {
             // El resto de la función para abrir el modal...
         });
     }
-
-    startOrResumeSale();
 }
