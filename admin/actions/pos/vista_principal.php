@@ -1,15 +1,18 @@
 <?php
 // admin/actions/pos/vista_principal.php
+require_once __DIR__ . '/../../../config/config.php';
+$tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY nombre_tienda")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <div class="pos-container">
     <div class="pos-main-content">
         <div class="pos-header">
             <div class="pos-input-container">
                 <i class="fas fa-barcode"></i>
-                <input type="text" id="pos-product-input" placeholder="Ingresar código de producto o usar atajos de teclado...">
-                <button id="open-search-modal-btn" class="btn btn-primary">Buscar Producto</button>
-                <button id="open-history-modal-btn" class="btn btn-primary">Histiorial Venta</button>
+                <input type="text" id="pos-product-input" placeholder="Ingresar código de producto o usar atajos de teclado..." disabled>
+                <button id="open-search-modal-btn" class="btn btn-primary" disabled>Buscar Producto</button>
+                <button id="open-history-modal-btn" class="btn btn-primary">Historial Venta</button>
             </div>
+            <div id="pos-store-indicator" style="font-weight: bold; font-size: 1.1rem; color: #0C0A4E;"></div>
         </div>
         <div class="pos-ticket">
             <h3>Ticket de Venta</h3>
@@ -175,6 +178,29 @@
                 <div id="sale-detail-footer">
                     </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="store-selection-modal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <h2>Seleccionar Tienda</h2>
+        <p>Como Administrador Global, por favor elige la tienda desde la cual vas a operar en el POS.</p>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="pos-store-select">Tienda:</label>
+                <select id="pos-store-select" class="form-control">
+                    <option value="">-- Elige una tienda --</option>
+                    <?php foreach ($tiendas as $tienda): ?>
+                        <option value="<?php echo htmlspecialchars($tienda['id_tienda']); ?>" data-store-name="<?php echo htmlspecialchars($tienda['nombre_tienda']); ?>">
+                            <?php echo htmlspecialchars($tienda['nombre_tienda']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer" style="justify-content: flex-end;">
+            <button id="confirm-store-selection-btn" class="btn btn-success">Confirmar</button>
         </div>
     </div>
 </div>

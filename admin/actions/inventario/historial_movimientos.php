@@ -12,8 +12,8 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
     <h3>Historial de Movimientos de Inventario</h3>
     <div class="filter-container" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
         
-        <?php // --- INICIO BLOQUE AÑADIDO --- ?>
-        <?php if ($_SESSION['rol'] === 'administrador'): ?>
+        <?php // --- Se muestra el filtro de tienda solo al administrador global --- ?>
+        <?php if ($_SESSION['rol'] === 'administrador_global'): ?>
         <div class="form-group" style="flex-basis: auto;">
             <label for="store-filter" style="text-align: left; flex-basis: auto; padding-right: .5rem;">Tienda:</label>
             <select id="store-filter" class="inventory-history-filter">
@@ -26,7 +26,6 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
             </select>
         </div>
         <?php endif; ?>
-        <?php // --- FIN BLOQUE AÑADIDO --- ?>
 
         <div class="form-group" style="flex-basis: auto;">
             <label for="start-date-filter" style="text-align: left; flex-basis: auto; padding-right: .5rem;">Desde:</label>
@@ -55,11 +54,11 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
             <tr>
                 <th>Fecha</th>
                 <th>Producto</th>
-                <th>Tipo de Movimiento</th>
+                <th>Tipo</th>
                 <th>Cantidad</th>
-                <th>Stock Anterior</th>
+                <th>Stock Ant.</th>
                 <th>Stock Nuevo</th>
-                <th>Usuario</th>
+                <th>Tienda</th> <th>Usuario</th>
                 <th>Notas</th>
             </tr>
         </thead>

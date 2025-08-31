@@ -2749,21 +2749,18 @@ async function populateMovementTypeFilter() {
 
 // EN: admin/js/admin.js
 // REEMPLAZA esta función completa
+// En admin/js/admin.js, reemplaza la función fetchAndRenderInventoryHistory
 async function fetchAndRenderInventoryHistory() {
     const tableBody = document.getElementById('inventory-history-tbody');
     if (!tableBody) return;
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     const searchTerm = document.getElementById('inventory-history-search').value;
     const startDate = document.getElementById('start-date-filter').value;
     const endDate = document.getElementById('end-date-filter').value;
     const movementTypeId = document.getElementById('movement-type-filter').value;
-    
-    // Se obtiene el valor del nuevo filtro de tienda, si existe.
     const storeId = document.getElementById('store-filter')?.value || '';
-    // --- FIN DE LA MODIFICACIÓN ---
 
-    tableBody.innerHTML = '<tr><td colspan="8">Cargando historial...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9">Cargando historial...</td></tr>'; // Aumentado a 9 columnas
 
     try {
         const params = new URLSearchParams({
@@ -2771,7 +2768,7 @@ async function fetchAndRenderInventoryHistory() {
             startDate: startDate,
             endDate: endDate,
             movementTypeId: movementTypeId,
-            storeId: storeId // Se añade el nuevo parámetro para la API
+            storeId: storeId
         });
         
         const response = await fetch(`${API_BASE_URL}?resource=admin/getInventoryHistory&${params.toString()}`);
@@ -2785,6 +2782,7 @@ async function fetchAndRenderInventoryHistory() {
                 if (mov.cantidad > 0) cantidadClass = 'stock-add';
                 if (mov.cantidad < 0) cantidadClass = 'stock-remove';
                 
+                // Se añade la celda para 'nombre_tienda'
                 row.innerHTML = `
                     <td>${new Date(mov.fecha).toLocaleString('es-SV')}</td>
                     <td>${mov.nombre_producto} (${mov.codigo_producto})</td>
@@ -2792,16 +2790,17 @@ async function fetchAndRenderInventoryHistory() {
                     <td class="${cantidadClass}">${mov.cantidad}</td>
                     <td>${mov.stock_anterior}</td>
                     <td>${mov.stock_nuevo}</td>
+                    <td>${mov.nombre_tienda || 'N/A'}</td> 
                     <td>${mov.nombre_usuario || 'Sistema'}</td>
                     <td>${mov.notas || ''}</td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="8">No se encontraron movimientos para los filtros seleccionados.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9">No se encontraron movimientos para los filtros seleccionados.</td></tr>'; // Aumentado a 9
         }
     } catch (error) {
-        tableBody.innerHTML = `<td colspan="8" style="color:red;">Error: ${error.message}</td>`;
+        tableBody.innerHTML = `<td colspan="9" style="color:red;">Error: ${error.message}</td>`; // Aumentado a 9
     }
 }
 

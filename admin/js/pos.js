@@ -5,7 +5,7 @@ function initializePOS() {
     let currentClientName = 'Público en General';
     let cardOwnerId = null; 
     let activeTicketRowIndex = -1; 
-
+    let selectedStoreId = null;
     // Referencias a elementos del DOM (sin cambios)
     const productInput = document.getElementById('pos-product-input');
     const openSearchModalBtn = document.getElementById('open-search-modal-btn');
@@ -45,12 +45,85 @@ function initializePOS() {
     const saleDetailFooter = document.getElementById('sale-detail-footer');
     const ticketHistorySearchInput = document.getElementById('ticket-history-search-input');
 
+
+
+    const storeSelectionModal = document.getElementById('store-selection-modal');
+    const storeSelect = document.getElementById('pos-store-select');
+    const confirmStoreBtn = document.getElementById('confirm-store-selection-btn');
+    const storeIndicator = document.getElementById('pos-store-indicator');
+
+
+
     let debounceTimer;
     const API_URL = '../api/index.php';
 
-    // --- LÓGICA DE PRODUCTOS (addProductToTicket actualizada) ---
+
+
+
+    function setupPOSForRole() {
+        if (USER_ROLE === 'administrador_global') {
+            const storedStoreId = sessionStorage.getItem('pos_selected_store_id');
+            const storedStoreName = sessionStorage.getItem('pos_selected_store_name');
+
+            if (storedStoreId && storedStoreName) {
+                selectedStoreId = storedStoreId;
+                storeIndicator.textContent = `Operando desde: ${storedStoreName}`;
+                enablePOSControls();
+                startOrResumeSale();
+            } else {
+                storeSelectionModal.style.display = 'block';
+            }
+        } else {
+            enablePOSControls();
+            startOrResumeSale();
+        }
+    }
+    function enablePOSControls() {
+        productInput.disabled = false;
+        openSearchModalBtn.disabled = false;
+        productInput.focus();
+    }
+
+    if (confirmStoreBtn) {
+        confirmStoreBtn.addEventListener('click', async () => {
+            const storeId = storeSelect.value;
+            if (!storeId) {
+                alert('Por favor, selecciona una tienda.');
+                return;
+            }
+            selectedStoreId = storeId;
+            const selectedOption = storeSelect.options[storeSelect.selectedIndex];
+            const storeName = selectedOption.dataset.storeName;
+
+            sessionStorage.setItem('pos_selected_store_id', selectedStoreId);
+            sessionStorage.setItem('pos_selected_store_name', storeName);
+
+            storeIndicator.textContent = `Operando desde: ${storeName}`;
+            storeSelectionModal.style.display = 'none';
+            
+            await setStoreInSession(selectedStoreId);
+            enablePOSControls();
+            startOrResumeSale();
+        });
+    }
+
+    async function setStoreInSession(storeId) {
+        try {
+            await fetch(`${API_URL}?resource=pos_set_store`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ store_id: storeId })
+            });
+        } catch (error) {
+            console.error('Error al guardar la tienda en la sesión del servidor:', error);
+        }
+    }
+
+
+
+
     async function addProductToTicket(product) {
-        if (!currentSaleId) { /* ... */ return; }
+        if (!currentSaleId) { return; }
         const existingProduct = currentTicket.find(item => item.id_producto === product.id_producto);
         
         if (existingProduct) {
@@ -60,9 +133,10 @@ function initializePOS() {
             existingProduct.cantidad++;
         } else {
             if (product.usa_inventario == 1 && parseInt(product.stock_actual) <= 0) {
-                showPOSNotificationModal('Sin Existencias', `El producto "${product.nombre_producto}" está agotado.`, 'error');
+                showPOSNotificationModal('Sin Existencias', `El producto "${product.nombre_producto}" está agotado en la tienda seleccionada.`, 'error');
                 return;
             }
+            // CORRECCIÓN: Se restauran las propiedades para guardar el estado inicial del producto
             currentTicket.push({
                 ...product,
                 cantidad: 1,
@@ -75,9 +149,9 @@ function initializePOS() {
         }
         await updateItemInDB(product.id_producto);
         updateTicketTable();
-        // **MEJORA**: Seleccionar la última fila añadida
         setActiveRow(currentTicket.length - 1);
     }
+
 
 
 
@@ -88,7 +162,11 @@ function initializePOS() {
         currentTicket.forEach((item, index) => {
             const subtotal = item.cantidad * item.precio_venta;
             total += subtotal;
-            const stockDisplay = item.usa_inventario ? (item.stock_actual_inicial - item.cantidad) : 'N/A';
+
+            // CORRECCIÓN: Se asegura que el stock_actual_inicial sea un número
+            const stockInicial = parseInt(item.stock_actual_inicial, 10);
+            const stockDisplay = item.usa_inventario == 1 ? (stockInicial - item.cantidad) : 'N/A';
+            
             const row = document.createElement('tr');
             row.dataset.index = index;
             let priceClass = '', priceTitle = '';
@@ -106,11 +184,10 @@ function initializePOS() {
         });
         totalAmountInput.value = total.toFixed(2);
         updateChange();
-                footerTotalAmount.textContent = `$${total.toFixed(2)}`;
-                        openCheckoutModalBtn.disabled = total <= 0;
-
-
+        footerTotalAmount.textContent = `$${total.toFixed(2)}`;
+        openCheckoutModalBtn.disabled = total <= 0;
     }
+
 
         function openCheckoutModal() {
         if (currentTicket.length === 0) return;
@@ -183,20 +260,20 @@ function initializePOS() {
     }
 
     async function changeActiveRowQuantity(change) {
-        if (activeTicketRowIndex === -1) return; // No hacer nada si no hay fila seleccionada
+        if (activeTicketRowIndex === -1) return;
         const item = currentTicket[activeTicketRowIndex];
         const newQuantity = item.cantidad + change;
 
-        if (newQuantity < 1) return; // No permitir cantidad menor a 1
+        if (newQuantity < 1) return; 
 
+        // CORRECCIÓN: Se usa stock_actual_inicial para la comparación
         if (item.usa_inventario == 1 && newQuantity > item.stock_actual_inicial) {
-            return; // Bloqueo silencioso si se excede el stock
+            return; 
         }
         
         item.cantidad = newQuantity;
         await updateItemInDB(item.id_producto);
         updateTicketTable();
-        // Mantenemos la fila activa después de actualizar la tabla
         setActiveRow(activeTicketRowIndex);
     }
 
@@ -360,32 +437,29 @@ function closeProductSearchModal() {
     }
 }
 
-modalSearchInput.addEventListener('input', function() {
-    clearTimeout(debounceTimer);
-    const query = this.value;
-    
+ modalSearchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const query = this.value;
+        const resultsList = document.getElementById('modal-search-results-list');
+        if (!resultsList) return;
 
-
-    const resultsList = document.getElementById('modal-search-results-list');
-    if (!resultsList) return; // Seguridad por si no encuentra el elemento
-
-
-    if (query.length < 2) {
-        resultsList.innerHTML = ''; // Ahora solo se limpia la lista, no toda la estructura.
-        return;
-    }
-    
-    debounceTimer = setTimeout(async () => {
-        try {
-            const response = await fetch(`${API_URL}?resource=pos_search_products&query=${encodeURIComponent(query)}`);
-            const products = await response.json();
-            // La función renderSearchResults ya funciona bien, no necesita cambios.
-            renderSearchResults(products, modalSearchResultsContainer);
-        } catch (error) {
-            console.error('Error buscando productos en modal:', error);
+        if (query.length < 2) {
+            resultsList.innerHTML = '';
+            return;
         }
-    }, 300);
-});
+        
+        debounceTimer = setTimeout(async () => {
+            try {
+                const response = await fetch(`${API_URL}?resource=pos_search_products&query=${encodeURIComponent(query)}&store_id=${selectedStoreId || ''}`);
+                const products = await response.json();
+                renderSearchResults(products);
+            } catch (error) {
+                console.error('Error buscando productos en modal:', error);
+            }
+        }, 300);
+    });
+
+setupPOSForRole();
 
     modalSearchResultsContainer.addEventListener('click', (e) => {
         const item = e.target.closest('.search-result-item');
@@ -396,13 +470,13 @@ modalSearchInput.addEventListener('input', function() {
         }
     });
 
-    productInput.addEventListener('keypress', async function(e) {
+   productInput.addEventListener('keypress', async function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const code = this.value.trim();
             if (code === '') return;
             try {
-                const response = await fetch(`${API_URL}?resource=pos_get_product_by_code&code=${encodeURIComponent(code)}`);
+                const response = await fetch(`${API_URL}?resource=pos_get_product_by_code&code=${encodeURIComponent(code)}&store_id=${selectedStoreId || ''}`);
                 const result = await response.json();
                 if (result.success && result.product) {
                     addProductToTicket(result.product);
@@ -422,49 +496,37 @@ modalSearchInput.addEventListener('input', function() {
 
 // Reemplaza esta función en tu archivo admin/js/pos.js
 
-function renderSearchResults(products, container) {
-    const resultsList = container.querySelector('#modal-search-results-list');
-    if (!resultsList) {
-        console.error("Error: El contenedor de la lista de resultados no fue encontrado.");
-        return;
+  function renderSearchResults(products) {
+        const resultsList = document.getElementById('modal-search-results-list');
+        if (!resultsList) return;
+        resultsList.innerHTML = '';
+        
+        if (products.length > 0) {
+            products.forEach(product => {
+                const stockInfo = product.usa_inventario ? product.stock_actual : 'N/A';
+                const row = document.createElement('div');
+                row.className = 'search-result-item';
+                row.dataset.product = JSON.stringify(product);
+                row.innerHTML = `
+                    <div class="col-product">${product.nombre_producto}</div>
+                    <div class="col-department">${product.nombre_departamento}</div>
+                    <div class="col-price">$${parseFloat(product.precio_venta).toFixed(2)}</div>
+                    <div class="col-stock">${stockInfo}</div>
+                `;
+                resultsList.appendChild(row);
+            });
+        } else {
+            resultsList.innerHTML = '<div class="search-result-item-empty">No se encontraron productos.</div>';
+        }
     }
-    resultsList.innerHTML = '';
-    
-    if (products.length > 0) {
-        products.forEach(product => {
-            // **INICIO DE LA MODIFICACIÓN**
-            // Se define el texto para el stock. Si no usa inventario, se muestra 'N/A'.
-            const stockInfo = product.usa_inventario ? product.stock_actual : 'N/A';
-            // **FIN DE LA MODIFICACIÓN**
-            
-            const row = document.createElement('div');
-            row.className = 'search-result-item';
-            row.dataset.product = JSON.stringify(product);
-            
-            // **INICIO DE LA MODIFICACIÓN**
-            // Se genera el HTML con las 4 columnas.
-            row.innerHTML = `
-                <div class="col-product">${product.nombre_producto}</div>
-                <div class="col-department">${product.nombre_departamento}</div>
-                <div class="col-price">$${parseFloat(product.precio_venta).toFixed(2)}</div>
-                <div class="col-stock">${stockInfo}</div>
-            `;
-            // **FIN DE LA MODIFICACIÓN**
-            
-            resultsList.appendChild(row);
-        });
-    } else {
-        resultsList.innerHTML = '<div class="search-result-item-empty">No se encontraron productos.</div>';
-    }
-}
-    async function startOrResumeSale() {
+ async function startOrResumeSale() {
         try {
             const response = await fetch(`${API_URL}?resource=pos_start_sale`, { method: 'POST' });
             const data = await response.json();
             if (data.success && data.sale_id) {
                 currentSaleId = data.sale_id;
                 if (data.ticket_items && data.ticket_items.length > 0) {
-                    currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual_inicial || item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
+                    currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
                 } else {
                     currentTicket = [];
                 }

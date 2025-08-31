@@ -31,8 +31,19 @@ try {
     switch ($resource) {
 
 
-
-
+case 'pos_set_store':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $store_id = filter_var($data['store_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($store_id) {
+                $_SESSION['pos_store_id'] = $store_id;
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'ID de tienda no válido.']);
+            }
+        }
+        break;
 
 case 'get-session-info':
     if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
@@ -1131,7 +1142,7 @@ case 'pos_get_sales_history':
                     v.id_venta,
                     v.fecha_venta,
                     c.nombre_usuario AS nombre_cliente,
-                    (SELECT COUNT(*) FROM detalle_ventas dv WHERE dv.id_venta = v.id_venta) AS cantidad_items,
+                    (SELECT SUM(dv.cantidad) FROM detalle_ventas dv WHERE dv.id_venta = v.id_venta) AS cantidad_items,
                     v.monto_total,
                     v.estado_id 
                 FROM ventas v
@@ -1139,6 +1150,8 @@ case 'pos_get_sales_history':
                 WHERE DATE(v.fecha_venta) = :filter_date AND v.estado_id IN (29, 16)
                 ORDER BY v.fecha_venta DESC
             ");
+
+
             $stmt->execute([':filter_date' => $filter_date]);
             $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode(['success' => true, 'sales' => $sales]);
@@ -1198,115 +1211,134 @@ case 'pos_get_sale_details':
     }
     break;
 
-case 'pos_reverse_sale':
-    if ($method === 'POST') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $saleId = $data['sale_id'] ?? null;
-        $userId = $_SESSION['id_usuario'] ?? null;
 
-        if (!$saleId || !$userId) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Datos incompletos o sesión no válida.']);
-            break;
-        }
-        
-        $pdo->beginTransaction();
-        try {
-            // 1. Obtener los items y la info de la venta
-            $stmt_items = $pdo->prepare("
-                SELECT dv.id_producto, dv.cantidad, p.usa_inventario, p.stock_actual
-                FROM detalle_ventas dv
-                JOIN productos p ON dv.id_producto = p.id_producto
-                WHERE dv.id_venta = :sale_id
-            ");
-            $stmt_items->execute([':sale_id' => $saleId]);
-            $items_to_reverse = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
 
-            // =================== INICIO DE LA NUEVA LÓGICA ===================
-            // Preparamos la consulta para insertar en el historial de movimientos
-            $stmt_log_movement = $pdo->prepare(
-                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
-                 VALUES (:product_id, 12, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas)" // Usamos el estado 12 = 'Devuelto'
-            );
-            // =================== FIN DE LA NUEVA LÓGICA ===================
 
-            // 2. Revertir el stock para cada producto que usa inventario
-            $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + :quantity WHERE id_producto = :product_id");
-            foreach ($items_to_reverse as $item) {
-                if ($item['usa_inventario']) {
-                    $stock_anterior = $item['stock_actual'];
-                    $stock_nuevo = $stock_anterior + $item['cantidad'];
 
-                    // Actualizamos el stock en la tabla de productos
-                    $stmt_update_stock->execute([
-                        ':quantity' => $item['cantidad'],
-                        ':product_id' => $item['id_producto']
-                    ]);
 
-                    // =================== INICIO DE LA NUEVA LÓGICA ===================
-                    // Insertamos el registro de la devolución en el historial de inventario
+
+
+
+
+
+
+
+
+
+    case 'pos_reverse_sale':
+        if ($method === 'POST') {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $saleId = $data['sale_id'] ?? null;
+            $userId = $_SESSION['id_usuario'] ?? null;
+
+            if (!$saleId || !$userId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Datos incompletos o sesión no válida.']);
+                break;
+            }
+            
+            $pdo->beginTransaction();
+            try {
+                // *** CORRECCIÓN CLAVE 1: OBTENER LA TIENDA DIRECTAMENTE DE LA VENTA ***
+                $stmt_get_tienda = $pdo->prepare("SELECT id_tienda FROM ventas WHERE id_venta = :sale_id");
+                $stmt_get_tienda->execute([':sale_id' => $saleId]);
+                $id_tienda_de_la_venta = $stmt_get_tienda->fetchColumn();
+                
+                if (!$id_tienda_de_la_venta) {
+                    throw new Exception("No se pudo determinar la tienda de origen para revertir el stock.");
+                }
+                
+                // Obtener los items de la venta que usan inventario
+                $stmt_items = $pdo->prepare("
+                    SELECT dv.id_producto, dv.cantidad FROM detalle_ventas dv
+                    JOIN productos p ON dv.id_producto = p.id_producto
+                    WHERE dv.id_venta = :sale_id AND p.usa_inventario = 1
+                ");
+                $stmt_items->execute([':sale_id' => $saleId]);
+                $items_to_reverse = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+                $stmt_get_stock = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :id_tienda FOR UPDATE");
+                $stmt_update_stock = $pdo->prepare("UPDATE inventario_tienda SET stock = stock + :quantity WHERE id_producto = :product_id AND id_tienda = :id_tienda");
+                $stmt_log_movement = $pdo->prepare(
+                    "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda)
+                     VALUES (:product_id, 12, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas, :id_tienda)" // 12 = 'Devuelto'
+                );
+
+                foreach ($items_to_reverse as $item) {
+                     // *** CORRECCIÓN CLAVE 2: USAR EL ID DE TIENDA OBTENIDO DE LA VENTA ***
+                    $stmt_get_stock->execute([':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
+                    $stock_anterior = $stmt_get_stock->fetchColumn();
+                    if ($stock_anterior === false) $stock_anterior = 0;
+
+                    $quantity_returned = $item['cantidad'];
+                    $stock_nuevo = (int)$stock_anterior + $quantity_returned;
+
+                    $stmt_update_stock->execute([':quantity' => $quantity_returned, ':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
+
                     $stmt_log_movement->execute([
                         ':product_id' => $item['id_producto'],
-                        ':cantidad' => $item['cantidad'], // La cantidad es positiva porque es una entrada/devolución
+                        ':cantidad' => $quantity_returned,
                         ':stock_anterior' => $stock_anterior,
                         ':stock_nuevo' => $stock_nuevo,
                         ':user_id' => $userId,
-                        ':notas' => "Reversión por cancelación de Venta POS No. {$saleId}"
+                        ':notas' => "Reversión por cancelación de Venta POS No. {$saleId}",
+                        ':id_tienda' => $id_tienda_de_la_venta
                     ]);
-                    // =================== FIN DE LA NUEVA LÓGICA ===================
                 }
+
+                // Cambiar el estado de la venta a 'Cancelada' (ID 16)
+                $stmt_cancel = $pdo->prepare("UPDATE ventas SET estado_id = 16 WHERE id_venta = :sale_id AND estado_id = 29");
+                $stmt_cancel->execute([':sale_id' => $saleId]);
+
+                logActivity($pdo, $userId, 'Venta POS Cancelada', "Se canceló y revirtió la venta POS No. {$saleId}. El stock fue restaurado.");
+
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Venta cancelada y stock revertido correctamente.']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al cancelar la venta: ' . $e->getMessage()]);
             }
-
-            // 3. Cambiar el estado de la venta a 'Cancelada' (ID 16)
-            $stmt_cancel = $pdo->prepare("UPDATE ventas SET estado_id = 16 WHERE id_venta = :sale_id AND estado_id = 29");
-            $stmt_cancel->execute([':sale_id' => $saleId]);
-
-            // 4. Registrar la acción en el log de actividad principal
-            logActivity($pdo, $userId, 'Venta POS Cancelada', "Se canceló y revirtió la venta POS No. {$saleId}. El stock fue restaurado y registrado en movimientos.");
-
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Venta cancelada y stock revertido correctamente.']);
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Error al cancelar la venta: ' . $e->getMessage()]);
         }
-    }
-    break;
+        break;
 /*************************************************************************************************/
 
-case 'pos_get_product_by_code':
-    // ... (código de seguridad)
-    try {
-        $code = $_GET['code'] ?? '';
-        // ... (código de validación)
+    case 'pos_get_product_by_code':
+        try {
+            $code = $_GET['code'] ?? '';
+            
+            // CORRECCIÓN: Usamos el ID de la tienda guardado en la sesión.
+            $id_tienda_final = $_SESSION['pos_store_id'] ?? $_SESSION['id_tienda'] ?? null;
+            
+            if (empty($code) || empty($id_tienda_final)) {
+                throw new Exception("Falta el código de producto o no se ha seleccionado una tienda.");
+            }
 
-        $rol = $_SESSION['rol'];
-        $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
-        $params = [':code' => $code];
+            // CORRECCIÓN: La subconsulta ahora es la única fuente para el stock.
+            $stock_selection_sql = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = :id_tienda), 0) AS stock_actual";
+            
+            $sql = "SELECT p.*, d.departamento AS nombre_departamento, {$stock_selection_sql} 
+                    FROM productos p 
+                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento 
+                    WHERE p.codigo_producto = :code AND p.estado = 1 
+                    LIMIT 1";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':code' => $code, ':id_tienda' => $id_tienda_final]);
+            $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $stock_selection_sql = "";
-        if ($rol === 'administrador') {
-             // ---- 👇 AQUÍ ESTÁ LA CORRECCIÓN 👇 ----
-            $stock_selection_sql = "COALESCE((SELECT SUM(it.stock) FROM inventario_tienda it WHERE it.id_producto = p.id_producto), 0) AS stock_actual";
-        } else if ($rol === 'empleado' && !empty($id_tienda_usuario)) {
-            $stock_selection_sql = "COALESCE((SELECT it.stock FROM inventario_tienda it WHERE it.id_producto = p.id_producto AND it.id_tienda = :id_tienda_usuario), 0) AS stock_actual";
-            $params[':id_tienda_usuario'] = $id_tienda_usuario;
-        } else {
-            $stock_selection_sql = "0 AS stock_actual";
+            if ($product) {
+                echo json_encode(['success' => true, 'product' => $product]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Producto no encontrado.']);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
+        break;
 
-        // El resto de la lógica de este case permanece igual...
-        $sql = "SELECT p.*, d.departamento AS nombre_departamento, {$stock_selection_sql} FROM productos p LEFT JOIN departamentos d ON p.departamento = d.id_departamento WHERE p.codigo_producto = :code LIMIT 1";
-        $stmt = $pdo->prepare($sql);
-        foreach ($params as $key => &$val) { $stmt->bindParam($key, $val); }
-        $stmt->execute();
-        $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($product) { echo json_encode(['success' => true, 'product' => $product]); }
-        else { echo json_encode(['success' => false, 'error' => 'Producto no encontrado.']); }
-    } catch (Exception $e) { /* ... manejo de error ... */ }
-    break;
 
         case 'admin/check-username':
             // require_admin();
@@ -1836,39 +1868,36 @@ case 'admin/activityLog':
 
 /**************************************************************************************/
 /**************************************************************************************/
+    case 'pos_search_products':
+         try {
+            $query = $_GET['query'] ?? '';
 
-case 'pos_search_products':
-    // ... (código de seguridad)
-    try {
-        $query = $_GET['query'] ?? '';
-        // ... (código de validación)
-        
-        $rol = $_SESSION['rol'];
-        $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
-        $params = [':query' => "%$query%"];
+            // CORRECCIÓN: Usamos el ID de la tienda guardado en la sesión.
+            $id_tienda_final = $_SESSION['pos_store_id'] ?? $_SESSION['id_tienda'] ?? null;
 
-        $stock_selection_sql = "";
-        if ($rol === 'administrador') {
-             // ---- 👇 AQUÍ ESTÁ LA CORRECCIÓN 👇 ----
-            $stock_selection_sql = "COALESCE((SELECT SUM(it.stock) FROM inventario_tienda it WHERE it.id_producto = p.id_producto), 0) AS stock_actual";
-        } else if ($rol === 'empleado' && !empty($id_tienda_usuario)) {
-            $stock_selection_sql = "COALESCE((SELECT it.stock FROM inventario_tienda it WHERE it.id_producto = p.id_producto AND it.id_tienda = :id_tienda_usuario), 0) AS stock_actual";
-            $params[':id_tienda_usuario'] = $id_tienda_usuario;
-        } else {
-            $stock_selection_sql = "0 AS stock_actual";
+            if (empty($query) || empty($id_tienda_final)) {
+                echo json_encode([]);
+                break;
+            }
+
+            $stock_selection_sql = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = :id_tienda), 0) AS stock_actual";
+
+            $sql = "SELECT p.*, d.departamento AS nombre_departamento, {$stock_selection_sql} 
+                    FROM productos p 
+                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento 
+                    WHERE (p.nombre_producto LIKE :query OR p.codigo_producto LIKE :query) AND p.estado = 1 
+                    LIMIT 15";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':query' => "%$query%", ':id_tienda' => $id_tienda_final]);
+            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($products);
+
+        } catch (Exception $e) {
+             http_response_code(500);
+            echo json_encode(['error' => 'Error al buscar productos: ' . $e->getMessage()]);
         }
-
-        // El resto de la lógica de este case permanece igual...
-        $sql = "SELECT p.*, d.departamento AS nombre_departamento, {$stock_selection_sql} FROM productos p LEFT JOIN departamentos d ON p.departamento = d.id_departamento WHERE (p.nombre_producto LIKE :query OR p.codigo_producto LIKE :query) AND p.estado = 1 LIMIT 15";
-        $stmt = $pdo->prepare($sql);
-        foreach ($params as $key => &$val) { $stmt->bindParam($key, $val); }
-        $stmt->execute();
-        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode($products);
-
-    } catch (Exception $e) { /* ... manejo de error ... */ }
-    break;
-
+        break;
 
 
 case 'pos_start_sale':
@@ -1877,6 +1906,13 @@ case 'pos_start_sale':
             http_response_code(403); echo json_encode(['success' => false, 'error' => 'No autorizado.']); break;
         }
         $id_usuario_actual = $_SESSION['id_usuario'];
+        
+        // Obtiene la tienda de la sesión (establecida al iniciar el POS)
+        $id_tienda_final = $_SESSION['pos_store_id'] ?? $_SESSION['id_tienda'] ?? null;
+        if (!$id_tienda_final) {
+            http_response_code(400); echo json_encode(['success' => false, 'error' => 'No se ha seleccionado una tienda para operar.']); break;
+        }
+
         $pdo->beginTransaction();
         try {
             $stmt_find = $pdo->prepare("SELECT id_venta FROM ventas WHERE id_usuario_venta = :id_usuario AND estado_id = 8 LIMIT 1");
@@ -1885,33 +1921,28 @@ case 'pos_start_sale':
             $ticket_items = [];
 
             if ($saleId) {
+                // Si se reanuda una venta, se verifica el stock contra la tienda actual
+                $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = :id_tienda), 0)";
                 $stmt_items = $pdo->prepare("
-              SELECT 
-                    p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, 
-                    p.precio_oferta, p.precio_mayoreo, p.stock_actual, p.usa_inventario, 
-                    dv.cantidad, p.stock_actual as stock_actual_inicial
-                FROM detalle_ventas dv
-                JOIN productos p ON dv.id_producto = p.id_producto
-                WHERE dv.id_venta = :sale_id
-            ");
-                $stmt_items->execute([':sale_id' => $saleId]);
+                    SELECT 
+                        p.id_producto, p.codigo_producto, p.nombre_producto, p.precio_venta, 
+                        p.precio_oferta, p.precio_mayoreo, p.usa_inventario, dv.cantidad, 
+                        {$stock_subquery} as stock_actual
+                    FROM detalle_ventas dv
+                    JOIN productos p ON dv.id_producto = p.id_producto
+                    WHERE dv.id_venta = :sale_id
+                ");
+                $stmt_items->execute([':sale_id' => $saleId, ':id_tienda' => $id_tienda_final]);
                 $ticket_items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
             } else {
+                // Si se crea una nueva venta, se le asigna la tienda
                 $stmt_default_client = $pdo->prepare("SELECT id_cliente FROM clientes WHERE nombre_usuario = 'publico_general' LIMIT 1");
                 $stmt_default_client->execute();
-                $default_client_id = $stmt_default_client->fetchColumn();
+                $default_client_id = $stmt_default_client->fetchColumn() ?: 1;
 
-                if (!$default_client_id) {
-                    $pdo->exec("INSERT INTO clientes (id_cliente, nombre_usuario, nombre, email, telefono, id_tipo_cliente) VALUES (1, 'publico_general', 'Público en General', 'sin@correo.com', '00000000', 1) ON DUPLICATE KEY UPDATE id_cliente=id_cliente");
-                    $default_client_id = 1;
-                }
-
-                $stmt_create = $pdo->prepare("INSERT INTO ventas (id_cliente, id_usuario_venta, id_metodo_pago, monto_total, estado_id) VALUES (:id_cliente, :id_usuario, 1, 0.00, 8)");
-                $stmt_create->execute([':id_cliente' => $default_client_id, ':id_usuario' => $id_usuario_actual]);
+                $stmt_create = $pdo->prepare("INSERT INTO ventas (id_cliente, id_usuario_venta, id_metodo_pago, monto_total, estado_id, id_tienda) VALUES (:id_cliente, :id_usuario, 1, 0.00, 8, :id_tienda)");
+                $stmt_create->execute([':id_cliente' => $default_client_id, ':id_usuario' => $id_usuario_actual, ':id_tienda' => $id_tienda_final]);
                 $saleId = $pdo->lastInsertId();
-                
-                // --- CORRECCIÓN: Se ha eliminado el registro de actividad de esta sección ---
-                // logActivity($pdo, $id_usuario_actual, 'Inicio de Ticket POS', "Se inició el ticket de venta POS No. {$saleId}.");
             }
             
             $pdo->commit();
@@ -1923,6 +1954,7 @@ case 'pos_start_sale':
         }
     }
     break;
+
             
 case 'pos_add_item':
      if ($method === 'POST') {
@@ -1962,90 +1994,97 @@ case 'pos_add_item':
 
 // Reemplaza este case en tu archivo: api/index.php
 
-case 'pos_finalize_sale':
-    if ($method === 'POST' && isset($inputData['sale_id'], $inputData['client_id'], $inputData['payment_method_id'], $inputData['total_amount'])) {
-        
-        $saleId = $inputData['sale_id'];
-        $clientId = $inputData['client_id']; // ID del cliente (puede ser el dueño de la tarjeta)
-        $paymentMethodId = $inputData['payment_method_id'];
-        $totalAmount = $inputData['total_amount'];
-        $cardNumber = $inputData['card_number'] ?? null;
-        $userId = $_SESSION['id_usuario'] ?? 1; 
 
-        $pdo->beginTransaction();
 
-        try {
-            // 1. Actualizar la venta con el ID del cliente correcto (el dueño de la tarjeta si aplica)
-            $stmt = $pdo->prepare("UPDATE ventas SET id_cliente = :id_cliente, id_metodo_pago = :id_metodo_pago, monto_total = :monto_total, estado_id = 29, id_usuario_venta = :id_usuario_venta WHERE id_venta = :id_venta");
-            $stmt->execute([
-                ':id_cliente' => $clientId,
-                ':id_metodo_pago' => $paymentMethodId,
-                ':monto_total' => $totalAmount,
-                ':id_venta' => $saleId,
-                ':id_usuario_venta' => $userId
-            ]);
 
-            // --- Lógica para pago con Tarjeta Interna (MODIFICADA) ---
-            if ($paymentMethodId == 2) { 
-                if (empty($cardNumber)) throw new Exception('El número de tarjeta es obligatorio.');
+
+
+    case 'pos_finalize_sale':
+        if ($method === 'POST' && isset($inputData['sale_id'])) {
+            $saleId = $inputData['sale_id'];
+            $clientId = $inputData['client_id'];
+            $paymentMethodId = $inputData['payment_method_id'];
+            $totalAmount = $inputData['total_amount'];
+            $cardNumber = $inputData['card_number'] ?? null;
+            $userId = $_SESSION['id_usuario'];
+
+            $pdo->beginTransaction();
+
+            try {
+                // *** CORRECCIÓN CLAVE 1: OBTENER LA TIENDA DIRECTAMENTE DE LA VENTA ***
+                // Esto hace que la operación sea segura y no dependa de la sesión del navegador.
+                $stmt_get_tienda = $pdo->prepare("SELECT id_tienda FROM ventas WHERE id_venta = :sale_id");
+                $stmt_get_tienda->execute([':sale_id' => $saleId]);
+                $id_tienda_de_la_venta = $stmt_get_tienda->fetchColumn();
+
+                if (!$id_tienda_de_la_venta) {
+                    throw new Exception("Error Crítico: No se pudo determinar la tienda de origen para esta venta.");
+                }
+
+                // Actualizar la venta principal
+                $stmt_update_venta = $pdo->prepare("UPDATE ventas SET id_cliente = :id_cliente, id_metodo_pago = :id_metodo_pago, monto_total = :monto_total, estado_id = 29, id_usuario_venta = :id_usuario_venta WHERE id_venta = :id_venta");
+                $stmt_update_venta->execute([':id_cliente' => $clientId, ':id_metodo_pago' => $paymentMethodId, ':monto_total' => $totalAmount, ':id_venta' => $saleId, ':id_usuario_venta' => $userId]);
+
+                // Lógica de pago con tarjeta (si aplica)
+                if ($paymentMethodId == 2 && !empty($cardNumber)) {
+                    // ... (tu lógica de tarjeta aquí, no necesita cambios)
+                }
+
+                // Lógica de inventario
+                $stmt_items = $pdo->prepare("
+                    SELECT dv.id_producto, dv.cantidad FROM detalle_ventas dv
+                    JOIN productos p ON dv.id_producto = p.id_producto
+                    WHERE dv.id_venta = :sale_id AND p.usa_inventario = 1
+                ");
+                $stmt_items->execute([':sale_id' => $saleId]);
+                $items_to_update = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+                $stmt_get_stock = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :id_tienda FOR UPDATE");
+                $stmt_update_stock = $pdo->prepare("UPDATE inventario_tienda SET stock = stock - :quantity WHERE id_producto = :product_id AND id_tienda = :id_tienda");
+                $stmt_log_movement = $pdo->prepare(
+                    "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda)
+                     VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas, :id_tienda)"
+                );
+
+                foreach ($items_to_update as $item) {
+                    // *** CORRECCIÓN CLAVE 2: USAR EL ID DE TIENDA OBTENIDO DE LA VENTA ***
+                    $stmt_get_stock->execute([':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
+                    $stock_anterior = $stmt_get_stock->fetchColumn();
+                    
+                    if ($stock_anterior === false) $stock_anterior = 0; // Si no hay registro, asumimos 0
+
+                    $quantity_sold = $item['cantidad'];
+                    $stock_nuevo = (int)$stock_anterior - $quantity_sold;
+
+                    $stmt_update_stock->execute([':quantity' => $quantity_sold, ':product_id' => $item['id_producto'], ':id_tienda' => $id_tienda_de_la_venta]);
+                    
+                    $stmt_log_movement->execute([
+                        ':product_id' => $item['id_producto'], 
+                        ':cantidad' => -$quantity_sold, 
+                        ':stock_anterior' => $stock_anterior, 
+                        ':stock_nuevo' => $stock_nuevo,
+                        ':user_id' => $userId, 
+                        ':notas' => "Venta POS No. {$saleId}",
+                        ':id_tienda' => $id_tienda_de_la_venta
+                    ]);
+                }
                 
-                $stmtCard = $pdo->prepare("SELECT id_tarjeta, saldo, id_cliente FROM tarjetas_recargables WHERE numero_tarjeta = :numero_tarjeta FOR UPDATE");
-                $stmtCard->execute([':numero_tarjeta' => $cardNumber]);
-                $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
+                logActivity($pdo, $userId, 'Venta POS Finalizada', "Se finalizó la venta POS No. {$saleId} con un total de $ {$totalAmount}.");
 
-                if (!$card) throw new Exception('La tarjeta proporcionada no existe.');
-                // SE ELIMINA LA VALIDACIÓN DE PERTENENCIA. Ahora cualquier tarjeta con saldo puede pagar.
-                if ($card['saldo'] < $totalAmount) throw new Exception('Saldo insuficiente en la tarjeta.');
-                
-                $newBalance = $card['saldo'] - $totalAmount;
-                $stmtUpdate = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :saldo WHERE id_tarjeta = :id_tarjeta");
-                $stmtUpdate->execute([':saldo' => $newBalance, ':id_tarjeta' => $card['id_tarjeta']]);
-                
-                $stmtVenta = $pdo->prepare("UPDATE ventas SET id_tarjeta_recargable = :id_tarjeta WHERE id_venta = :id_venta");
-                $stmtVenta->execute([':id_tarjeta' => $card['id_tarjeta'], ':id_venta' => $saleId]);
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Venta finalizada con éxito.']);
+
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
-
-            // --- Lógica de inventario y logging (sin cambios) ---
-            $stmt_items = $pdo->prepare("
-                SELECT dv.id_producto, dv.cantidad, p.stock_actual, p.usa_inventario
-                FROM detalle_ventas dv
-                JOIN productos p ON dv.id_producto = p.id_producto
-                WHERE dv.id_venta = :sale_id AND p.usa_inventario = 1
-            ");
-            $stmt_items->execute([':sale_id' => $saleId]);
-            $items_to_update = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
-
-            $stmt_update_stock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - :quantity WHERE id_producto = :product_id");
-            $stmt_log_movement = $pdo->prepare(
-                "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas)
-                 VALUES (:product_id, (SELECT id_estado FROM estados WHERE nombre_estado = 'Salida'), :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas)"
-            );
-
-            foreach ($items_to_update as $item) {
-                $quantity_sold = $item['cantidad'];
-                $stock_anterior = $item['stock_actual'];
-                $stock_nuevo = $stock_anterior - $quantity_sold;
-                $stmt_update_stock->execute([':quantity' => $quantity_sold, ':product_id' => $item['id_producto']]);
-                $stmt_log_movement->execute([
-                    ':product_id' => $item['id_producto'], ':cantidad' => -$quantity_sold, 
-                    ':stock_anterior' => $stock_anterior, ':stock_nuevo' => $stock_nuevo,
-                    ':user_id' => $userId, ':notas' => "Venta POS No. {$saleId}"
-                ]);
-            }
-            
-            logActivity($pdo, $userId, 'Venta POS Finalizada', "Se finalizó la venta POS No. {$saleId} con un total de $ {$totalAmount}.");
-
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Venta finalizada con éxito.']);
-
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Datos incompletos para finalizar la venta.']);
-    }
-    break;
+        break;
+
+
+
+
 
 
 
@@ -3085,6 +3124,7 @@ case 'admin/updateProduct':
     break;
 
 // Reemplaza este case completo en tu /api/index.php
+
 case 'admin/getInventoryHistory':
     if (!isset($_SESSION['loggedin'])) {
         http_response_code(403);
@@ -3100,7 +3140,7 @@ case 'admin/getInventoryHistory':
         $startDate = $_GET['startDate'] ?? '';
         $endDate = $_GET['endDate'] ?? '';
         $movementTypeId = $_GET['movementTypeId'] ?? '';
-        $storeId_filter = $_GET['storeId'] ?? ''; // Filtro para el admin
+        $storeId_filter = $_GET['storeId'] ?? ''; 
 
         $params = [];
         $where_clauses = [];
@@ -3115,14 +3155,16 @@ case 'admin/getInventoryHistory':
                 mi.stock_anterior, 
                 mi.stock_nuevo, 
                 u.nombre_usuario, 
-                mi.notas 
+                mi.notas,
+                t.nombre_tienda  -- <--- COLUMNA AÑADIDA
             FROM movimientos_inventario mi
             JOIN productos p ON mi.id_producto = p.id_producto
             LEFT JOIN usuarios u ON mi.id_usuario = u.id_usuario
             LEFT JOIN estados e ON mi.id_estado = e.id_estado
+            LEFT JOIN tiendas t ON mi.id_tienda = t.id_tienda -- <--- JOIN AÑADIDO
         ";
 
-        // Filtros generales que aplican a todos
+        // Filtros generales
         if (!empty($searchTerm)) {
             $where_clauses[] = "(p.nombre_producto LIKE :search OR p.codigo_producto LIKE :search)";
             $params[':search'] = "%$searchTerm%";
@@ -3140,31 +3182,27 @@ case 'admin/getInventoryHistory':
             $params[':movementTypeId'] = $movementTypeId;
         }
 
-        // --- INICIO DE LA CORRECCIÓN CLAVE ---
-        if ($rol === 'administrador') {
-            // Si el admin selecciona una tienda específica en el filtro, se aplica.
+        // --- CORRECCIÓN CLAVE ---
+        // Se cambió 'administrador' a 'administrador_global'
+        if ($rol === 'administrador_global') {
             if (!empty($storeId_filter)) {
                 $where_clauses[] = "mi.id_tienda = :storeId";
                 $params[':storeId'] = $storeId_filter;
             }
-            // Si no selecciona ninguna, ve los movimientos de todas las tiendas.
         } else {
-            // Si es empleado, se le fuerza a ver solo los movimientos de su tienda asignada.
             if (!empty($id_tienda_usuario)) {
                 $where_clauses[] = "mi.id_tienda = :id_tienda_usuario";
                 $params[':id_tienda_usuario'] = $id_tienda_usuario;
             } else {
-                // Si por alguna razón un empleado no tiene tienda, no verá nada.
-                $where_clauses[] = "1 = 0"; // Condición para no devolver resultados.
+                $where_clauses[] = "1 = 0"; 
             }
         }
-        // --- FIN DE LA CORRECCIÓN CLAVE ---
-
+        
         if (!empty($where_clauses)) {
             $sql .= " WHERE " . implode(' AND ', $where_clauses);
         }
 
-        $sql .= " ORDER BY mi.fecha DESC LIMIT 50";
+        $sql .= " ORDER BY mi.fecha DESC LIMIT 100"; // Aumentado a 100 para más visibilidad
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -3177,6 +3215,15 @@ case 'admin/getInventoryHistory':
         echo json_encode(['success' => false, 'error' => 'Error en la base de datos: ' . $e->getMessage()]);
     }
     break;
+
+
+
+
+
+
+
+
+
 
 case 'admin/deleteProduct':
     // require_admin();
