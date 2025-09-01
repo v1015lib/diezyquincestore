@@ -1,24 +1,27 @@
 <?php
-// admin/logout.php
-// Inicia la sesión para poder acceder a las variables de sesión.
+// api/logout.php
 session_start();
 
-// Elimina todas las variables de la sesión.
-$_SESSION = array();
-
-// Si se está usando una cookie de sesión, se recomienda eliminarla también.
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
-    );
+// --- INICIO DE LA MODIFICACIÓN ---
+// Limpiar tickets de POS "En Proceso" antes de cerrar sesión
+if (isset($_SESSION['id_usuario'])) {
+    require_once __DIR__ . '/../config/config.php';
+    try {
+        $stmt = $pdo->prepare(
+            "DELETE FROM ventas WHERE id_usuario_venta = :user_id AND estado_id = 8"
+        );
+        $stmt->execute([':user_id' => $_SESSION['id_usuario']]);
+    } catch (Exception $e) {
+        // Si hay un error, lo registramos pero no detenemos el logout
+        error_log("Error al limpiar tickets de POS durante el logout: " . $e->getMessage());
+    }
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
-// Finalmente, destruye la sesión.
+session_unset();
 session_destroy();
 
-// Redirige al usuario a la página de inicio de sesión.
+// Redirige al formulario de login que está en la carpeta 'admin'
 header("Location: ../login-form.php");
-exit;
+exit();
 ?>

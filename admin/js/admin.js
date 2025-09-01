@@ -3095,6 +3095,10 @@ async function fetchAndRenderProductStats(storeId = null) {
 
 // En: admin/js/admin.js
 
+// admin/js/admin.js
+
+// ... (otras funciones del archivo)
+
 function renderSalesChart(dailySalesByStore) {
     const ctx = document.getElementById('salesChart').getContext('2d');
     if (!ctx) return;
@@ -3103,9 +3107,13 @@ function renderSalesChart(dailySalesByStore) {
         window.mySalesChart.destroy();
     }
 
-    if (!Array.isArray(dailySalesByStore) || dailySalesByStore.length === 0) {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Si no hay datos para graficar, se limpia el área y se detiene la función para evitar errores.
+    if (!Array.isArray(dailySalesByStore) || dailySalesByStore.length === 0 || !dailySalesByStore[0].data || dailySalesByStore[0].data.length === 0) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); 
         return;
     }
+    // --- FIN DE LA CORRECCIÓN ---
 
     const chartColors = [
         'rgba(12, 10, 78, 1)',    
@@ -3116,10 +3124,7 @@ function renderSalesChart(dailySalesByStore) {
         'rgba(52, 152, 219, 1)'   
     ];
 
-    // --- CORRECCIÓN CLAVE ---
-    // Se ajusta la forma de leer la fecha para evitar problemas con la zona horaria.
     const labels = dailySalesByStore[0].data.map(sale => {
-        // Al añadir 'T00:00:00', le indicamos a JS que interprete la fecha en la zona horaria local.
         return new Date(sale.fecha + 'T00:00:00').toLocaleDateString('es-SV', { 
             month: 'short', 
             day: 'numeric' 
@@ -3152,10 +3157,90 @@ function renderSalesChart(dailySalesByStore) {
                 }
             },
             responsive: true,
+            // --- CORRECCIÓN CLAVE ---
+            // Se establece en 'false' para que el gráfico se ajuste mejor a su contenedor.
             maintainAspectRatio: true
         }
     });
 }
+
+
+async function loadStatisticsWidgets() {
+    const endDateInput = document.getElementById('end-date');
+    const startDateInput = document.getElementById('start-date');
+    const storeFilter = document.getElementById('stats-store-filter');
+
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 1);
+
+    startDateInput.value = formatDate(startDate);
+    endDateInput.value = formatDate(endDate);
+    
+    const initialStoreId = storeFilter ? storeFilter.value : null;
+
+    await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value, initialStoreId);
+    // --- CORRECCIÓN: Se envían las fechas a ambas funciones para consistencia ---
+    await fetchAndRenderProductStats(startDateInput.value, endDateInput.value, initialStoreId);
+}
+
+
+async function fetchAndRenderProductStats(startDate, endDate, storeId = null) {
+    const topProductsWidget = document.getElementById('top-products-widget');
+    const lowStockWidget = document.getElementById('low-stock-widget');
+    if (!topProductsWidget || !lowStockWidget) return;
+
+    topProductsWidget.innerHTML = `<p>Cargando...</p>`;
+    lowStockWidget.innerHTML = `<p>Cargando...</p>`;
+
+    try {
+        // --- CORRECCIÓN: Se añaden los filtros de fecha a la consulta ---
+        const params = new URLSearchParams({ startDate, endDate });
+        if (storeId) {
+            params.append('storeId', storeId);
+        }
+
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getProductStats&${params.toString()}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const stats = result.stats;
+            topProductsWidget.innerHTML = `
+                <ol style="padding-left: 1.5rem;">
+                    ${stats.top_products.map(p => `
+                        <li style="margin-bottom: 0.5rem;">
+                            ${p.nombre_producto} - <strong>$${parseFloat(p.total_sold).toFixed(2)}</strong>
+                        </li>
+                    `).join('') || '<li>No hay datos.</li>'}
+                </ol>
+            `;
+            lowStockWidget.innerHTML = `
+                <ul style="list-style: none; padding: 0;">
+                    ${stats.low_stock_products.map(p => `
+                         <li style="display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding: 0.3rem 0;">
+                            <span>${p.nombre_producto}</span>
+                            <strong style="color: #c0392b;">Stock: ${p.stock_actual} (Mín: ${p.stock_minimo})</strong>
+                        </li>
+                    `).join('') || '<li>No hay productos con bajo stock.</li>'}
+                </ul>
+            `;
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        topProductsWidget.innerHTML = `<p style="color:red;">Error al cargar productos.</p>`;
+        lowStockWidget.innerHTML = `<p style="color:red;">Error al cargar stock.</p>`;
+    }
+}
+
+// ... (resto de las funciones del archivo)
 
 
 

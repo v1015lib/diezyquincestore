@@ -2243,7 +2243,6 @@ case 'admin/getProductStats':
 
 
 
-// En: api/index.php
 
 //... otros case ...
 
@@ -2258,19 +2257,26 @@ case 'admin/getSalesStats':
         $endDateObj->modify('+1 day');
 
         $params = [':startDate' => $startDateStr, ':endDate' => $endDateStr];
-        $from_and_joins = "FROM ventas v";
-        $where_clauses = ["v.estado_id = 29", "DATE(v.fecha_venta) BETWEEN :startDate AND :endDate"];
+        // --- INICIO DE LA CORRECCIÓN CLAVE ---
+        // Se añade un LEFT JOIN a usuarios para poder obtener la tienda del usuario si falta en la venta
+        $from_and_joins = "FROM ventas v LEFT JOIN usuarios u ON v.id_usuario_venta = u.id_usuario";
+        $store_id_field = "COALESCE(v.id_tienda, u.id_tienda)"; // Usa la tienda de la venta, o como respaldo, la del usuario
+        // --- FIN DE LA CORRECCIÓN CLAVE ---
 
-        // --- CORRECCIÓN CLAVE 1: Lógica de filtrado ---
-        // Se mantiene la lógica para filtrar por una tienda específica si se selecciona.
-        if ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
-            $where_clauses[] = "v.id_tienda = :storeId";
+        $where_clauses = ["v.estado_id = 29", "DATE(v.fecha_venta) BETWEEN :startDate AND :endDate"];
+        
+        $groupByStore = true; 
+
+        if ($storeId_filter === 'sum') {
+            $groupByStore = false;
+        } elseif ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
+            // Se usa el campo COALESCE también en el filtro
+            $where_clauses[] = "{$store_id_field} = :storeId";
             $params[':storeId'] = $storeId_filter;
         }
 
         $where_sql = " WHERE " . implode(" AND ", $where_clauses);
 
-        // (El cálculo de ingresos totales y por método de pago sigue siendo el mismo)
         $sql_revenue = "SELECT COALESCE(SUM(v.monto_total), 0) " . $from_and_joins . $where_sql;
         $stmt_revenue = $pdo->prepare($sql_revenue);
         $stmt_revenue->execute($params);
@@ -2284,52 +2290,54 @@ case 'admin/getSalesStats':
         $totalSalesCount = array_sum(array_column($salesByPayment, 'count'));
         $average_sale = ($totalSalesCount > 0) ? number_format($totalRevenue / $totalSalesCount, 2) : '0.00';
 
-        // --- CORRECCIÓN CLAVE 2: Preparar datos para el gráfico multilínea ---
-        // Obtenemos todas las tiendas para construir la estructura de datos.
-        $stmt_stores = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY id_tienda");
-        $allStores = $stmt_stores->fetchAll(PDO::FETCH_ASSOC);
-        
-        // La consulta ahora también agrupa por tienda para separar los totales.
-        $sql_daily = "SELECT DATE(v.fecha_venta) as fecha, v.id_tienda, SUM(v.monto_total) as daily_total " . $from_and_joins . $where_sql . " GROUP BY DATE(v.fecha_venta), v.id_tienda ORDER BY fecha ASC";
-        $stmt_daily_raw = $pdo->prepare($sql_daily);
-        $stmt_daily_raw->execute($params);
-        $salesData = $stmt_daily_raw->fetchAll(PDO::FETCH_ASSOC);
-
-        // Procesamos los resultados en un array fácil de consultar: [id_tienda][fecha] => total
-        $salesByStoreAndDate = [];
-        foreach ($salesData as $row) {
-            $salesByStoreAndDate[$row['id_tienda']][$row['fecha']] = $row['daily_total'];
-        }
-
-        $period = new DatePeriod(new DateTime($startDateStr), new DateInterval('P1D'), $endDateObj);
         $daily_sales_by_store = [];
-
-        // Construimos el set de datos final para cada tienda
-        foreach ($allStores as $store) {
-            // Si estamos filtrando por una tienda específica y no es la actual, la saltamos.
-            if (is_numeric($storeId_filter) && $store['id_tienda'] != $storeId_filter) {
-                continue;
-            }
+        $period = new DatePeriod(new DateTime($startDateStr), new DateInterval('P1D'), $endDateObj);
+        
+        if ($groupByStore) {
+            $stmt_stores = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY id_tienda");
+            $allStores = $stmt_stores->fetchAll(PDO::FETCH_ASSOC);
             
-            $storeData = [];
+            // La consulta ahora usa el campo COALESCE para agrupar
+            $sql_daily = "SELECT DATE(v.fecha_venta) as fecha, {$store_id_field} as id_tienda, SUM(v.monto_total) as daily_total " . $from_and_joins . $where_sql . " GROUP BY DATE(v.fecha_venta), {$store_id_field} ORDER BY fecha ASC";
+            $stmt_daily_raw = $pdo->prepare($sql_daily);
+            $stmt_daily_raw->execute($params);
+            $salesData = $stmt_daily_raw->fetchAll(PDO::FETCH_ASSOC);
+
+            $salesByStoreAndDate = [];
+            foreach ($salesData as $row) {
+                if ($row['id_tienda']) { // Solo procesar si hay una tienda asociada
+                    $salesByStoreAndDate[$row['id_tienda']][$row['fecha']] = $row['daily_total'];
+                }
+            }
+
+            foreach ($allStores as $store) {
+                if (is_numeric($storeId_filter) && $store['id_tienda'] != $storeId_filter) continue;
+                
+                $storeData = [];
+                foreach ($period as $date) {
+                    $dateString = $date->format('Y-m-d');
+                    $storeData[] = ['fecha' => $dateString, 'daily_total' => $salesByStoreAndDate[$store['id_tienda']][$dateString] ?? '0.00'];
+                }
+                $daily_sales_by_store[] = ['store_name' => $store['nombre_tienda'], 'data' => $storeData];
+            }
+        } else { 
+            $sql_daily_sum = "SELECT DATE(v.fecha_venta) as fecha, SUM(v.monto_total) as daily_total " . $from_and_joins . $where_sql . " GROUP BY DATE(v.fecha_venta) ORDER BY fecha ASC";
+            $stmt_daily_sum = $pdo->prepare($sql_daily_sum);
+            $stmt_daily_sum->execute($params);
+            $salesDataSum = $stmt_daily_sum->fetchAll(PDO::FETCH_KEY_PAIR);
+            
+            $sumData = [];
             foreach ($period as $date) {
                 $dateString = $date->format('Y-m-d');
-                $storeData[] = [
-                    'fecha' => $dateString,
-                    'daily_total' => $salesByStoreAndDate[$store['id_tienda']][$dateString] ?? '0.00'
-                ];
+                $sumData[] = ['fecha' => $dateString, 'daily_total' => $salesDataSum[$dateString] ?? '0.00'];
             }
-            
-            $daily_sales_by_store[] = [
-                'store_name' => $store['nombre_tienda'],
-                'data' => $storeData
-            ];
+            $daily_sales_by_store[] = ['store_name' => 'Ventas Globales', 'data' => $sumData];
         }
 
         $stats = [
             'total_revenue' => number_format($totalRevenue, 2),
             'sales_by_payment' => $salesByPayment,
-            'daily_sales_by_store' => $daily_sales_by_store, // <-- DATO MODIFICADO
+            'daily_sales_by_store' => $daily_sales_by_store,
             'average_sale' => $average_sale
         ];
 
@@ -2342,6 +2350,22 @@ case 'admin/getSalesStats':
     break;
 
 //... otros case ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   
 //Backup de base de datos
 case 'admin/createBackup':

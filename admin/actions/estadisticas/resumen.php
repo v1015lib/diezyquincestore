@@ -21,6 +21,7 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
             <label for="stats-store-filter" style="text-align: left; flex-basis: auto; padding-right: .5rem;">Tienda:</label>
             <select id="stats-store-filter" class="form-control">
                 <option value="global">Global (Todas)</option>
+                <option value="sum">Global (Sumatoria)</option>
                 <?php foreach ($tiendas as $tienda): ?>
                     <option value="<?php echo htmlspecialchars($tienda['id_tienda']); ?>">
                         <?php echo htmlspecialchars($tienda['nombre_tienda']); ?>
