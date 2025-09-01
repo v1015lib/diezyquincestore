@@ -3719,8 +3719,18 @@ function initializeShoppingListManagement() {
 
     if (!dateFilter || !listsTbody) return;
 
-    dateFilter.valueAsDate = new Date();
-    fetchAndRenderShoppingLists(dateFilter.value);
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se crea la fecha de hoy manualmente para evitar problemas de zona horaria
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayString = `${year}-${month}-${day}`;
+
+    dateFilter.value = todayString;
+    fetchAndRenderShoppingLists(todayString);
+    // --- FIN DE LA CORRECCIÓN ---
+    
     dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
 
     listsTbody.addEventListener('click', e => {
@@ -3732,7 +3742,43 @@ function initializeShoppingListManagement() {
             loadAndRenderListView(listId);
         } else if (target.classList.contains('copy-list-btn')) {
             copyShoppingList(listId);
-        } else if (target.classList.contains('delete-list-btn')) { // <-- NUEVA LÓGICA
+        } else if (target.classList.contains('delete-list-btn')) {
+            deleteShoppingList(listId, target.closest('tr'));
+        }
+    });
+
+}
+
+function initializeShoppingListManagement() {
+    const dateFilter = document.getElementById('list-date-filter');
+    const listsTbody = document.getElementById('shopping-lists-tbody');
+
+    if (!dateFilter || !listsTbody) return;
+
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se crea la fecha de hoy manualmente para evitar problemas de zona horaria
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayString = `${year}-${month}-${day}`;
+
+    dateFilter.value = todayString;
+    fetchAndRenderShoppingLists(todayString);
+    // --- FIN DE LA CORRECCIÓN ---
+    
+    dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
+
+    listsTbody.addEventListener('click', e => {
+        const target = e.target;
+        const listId = target.closest('tr')?.dataset.listId;
+        if (!listId) return;
+
+        if (target.classList.contains('view-list-btn')) {
+            loadAndRenderListView(listId);
+        } else if (target.classList.contains('copy-list-btn')) {
+            copyShoppingList(listId);
+        } else if (target.classList.contains('delete-list-btn')) {
             deleteShoppingList(listId, target.closest('tr'));
         }
     });

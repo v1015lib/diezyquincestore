@@ -604,12 +604,35 @@ case 'admin/getShoppingListDetails':
         $listId = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
         if (!$listId) throw new Exception('ID de lista no válido.');
 
+        // Obtenemos el rol y la tienda del usuario de la sesión
+        $user_role = $_SESSION['rol'] ?? 'empleado';
+        $user_store_id = $_SESSION['id_tienda'] ?? null;
+
         $stmt_list = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
         $stmt_list->execute([':id' => $listId]);
         $listName = $stmt_list->fetchColumn();
 
+        // --- LÓGICA DE STOCK MULTITIENDA ---
+        $stock_sql_subquery = "";
+        if ($user_role === 'administrador_global') {
+            // Para el admin global, sumamos el stock de todas las tiendas
+            $stock_sql_subquery = "(SELECT SUM(stock) FROM inventario_tienda it WHERE it.id_producto = p.id_producto)";
+        } else if ($user_store_id) {
+            // Para usuarios de tienda, obtenemos el stock de su tienda asignada
+            $stock_sql_subquery = "(SELECT stock FROM inventario_tienda it WHERE it.id_producto = p.id_producto AND it.id_tienda = " . intval($user_store_id) . ")";
+        }
+
+        // Si hay una subconsulta de stock, la usamos, si no, devolvemos 0.
+        $stock_selection = !empty($stock_sql_subquery) ? "COALESCE({$stock_sql_subquery}, 0)" : "0";
+        
         $stmt_items = $pdo->prepare("
-            SELECT lci.id_item_lista, p.nombre_producto, lci.precio_compra, lci.cantidad, lci.usar_stock_actual, p.stock_actual
+            SELECT 
+                lci.id_item_lista, 
+                p.nombre_producto, 
+                lci.precio_compra, 
+                lci.cantidad, 
+                lci.usar_stock_actual, 
+                {$stock_selection} AS stock_actual
             FROM listas_compras_items lci
             JOIN productos p ON lci.id_producto = p.id_producto
             WHERE lci.id_lista = :id
