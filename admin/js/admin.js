@@ -2500,6 +2500,12 @@ function initializeBackupControls() {
 
 
 
+// EN: admin/js/admin.js
+// REEMPLAZA la función 'initializeInventoryForm' con esta versión:
+
+// EN: admin/js/admin.js
+// REEMPLAZA esta función completa para añadir la validación que faltaba.
+
 function initializeInventoryForm(type) {
     const searchForm = document.getElementById(`product-search-form-${type}`);
     if (!searchForm) return;
@@ -2522,9 +2528,15 @@ function initializeInventoryForm(type) {
             const result = await response.json();
 
             if (result.success) {
-                if (result.product.usa_inventario != 1) {
-                    throw new Error('Este producto no tiene activada la gestión de inventario.');
+                // --- INICIO DE LA CORRECCIÓN CLAVE ---
+                // Se añade una validación específica para el tipo 'adjust'.
+                if (type === 'adjust' && result.product.usa_inventario != 1) {
+                    // Si se intenta ajustar un producto sin inventario, se lanza el error aquí.
+                    throw new Error('Este producto no tiene el inventario habilitado. Debes agregar stock primero.');
                 }
+                // Si el tipo es 'stock' o si el producto sí usa inventario, el código continúa.
+                // --- FIN DE LA CORRECCIÓN CLAVE ---
+                
                 feedbackDiv.textContent = '';
                 renderInventoryActionForm(result.product, type);
             } else {
@@ -2946,23 +2958,32 @@ async function loadStatisticsWidgets() {
 }
 
 async function loadStatisticsWidgets() {
+    const endDateInput = document.getElementById('end-date');
+    const startDateInput = document.getElementById('start-date');
+
+    // Función para formatear fechas sin conversión a UTC
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const endDate = new Date();
-    const startDate = new Date(endDate.getFullYear(), 0);
-    startDate.setFullYear(startDate.getFullYear() - 0); // Rango por defecto:  año actual 0
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 1); // Rango por defecto: 1 año
 
-    const formatDate = (date) => date.toISOString().split('T')[0];
-
-    document.getElementById('start-date').value = formatDate(startDate);
-    document.getElementById('end-date').value = formatDate(endDate);
+    startDateInput.value = formatDate(startDate);
+    endDateInput.value = formatDate(endDate);
     
     // Carga inicial de datos
-    await fetchAndRenderSalesSummary(formatDate(startDate), formatDate(endDate));
-    await fetchAndRenderProductStats(); // Este no depende de la fecha por ahora
+    await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value);
+    await fetchAndRenderProductStats();
 
     // Listener para el botón de filtrar
     document.getElementById('filter-stats-btn').addEventListener('click', () => {
-        const start = document.getElementById('start-date').value;
-        const end = document.getElementById('end-date').value;
+        const start = startDateInput.value;
+        const end = endDateInput.value;
         if (start && end) {
             fetchAndRenderSalesSummary(start, end);
         } else {
@@ -3114,15 +3135,19 @@ async function fetchAndRenderUserSales() {
     }
 }
 
-    async function fetchAndRenderActivityLog() {
-        const tableBody = document.getElementById('activity-log-tbody');
-        const dateFilter = document.getElementById('activity-date-filter');
-        if (!tableBody || !dateFilter) return;
+async function fetchAndRenderActivityLog() {
+    const tableBody = document.getElementById('activity-log-tbody');
+    const dateFilter = document.getElementById('activity-date-filter');
+    if (!tableBody || !dateFilter) return;
 
-        // Si el campo de fecha está vacío, establece la fecha de hoy.
-        if (!dateFilter.value) {
-            dateFilter.valueAsDate = new Date();
-        }
+    // Si el campo de fecha está vacío, establece la fecha de hoy.
+    if (!dateFilter.value) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0'); // Los meses son base 0
+        const day = String(today.getDate()).padStart(2, '0');
+        dateFilter.value = `${year}-${month}-${day}`;
+    }
         
         const selectedDate = dateFilter.value;
         tableBody.innerHTML = '<tr><td colspan="4">Cargando registro de actividad...</td></tr>';

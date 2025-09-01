@@ -1,4 +1,6 @@
 <?php
+date_default_timezone_set('America/El_Salvador');
+
 session_start();
 
 ini_set('display_errors', 1);
@@ -2826,178 +2828,211 @@ case 'admin/deleteDepartment':
 
 
 
+// EN: api/index.php
+// REEMPLAZA el 'case' 'admin/adjustInventory' con este bloque para asegurar la validación correcta:
+
 case 'admin/adjustInventory':
-    if (!isset($_SESSION['loggedin'])) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'error' => 'Método no permitido.']);
         break;
     }
-    
+
+    $data = json_decode(file_get_contents('php://input'), true);
     $pdo->beginTransaction();
+
     try {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $product_id = $data['product_id'] ?? null;
-        $adjustment_value = $data['adjustment_value'] ?? 0;
-        $notes = $data['notes'] ?? '';
-        $id_usuario = $_SESSION['id_usuario'];
-        $rol = $_SESSION['rol'];
-        
-        $id_tienda_destino = null;
-        if ($rol === 'administrador_global') {
-            $id_tienda_destino = filter_var($data['id_tienda'] ?? null, FILTER_VALIDATE_INT);
-            if (!$id_tienda_destino) {
-                throw new Exception("Como administrador, debes seleccionar una tienda para realizar el ajuste.");
-            }
+        $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
+        $adjustmentValue = filter_var($data['adjustment_value'] ?? 0, FILTER_VALIDATE_INT);
+        $notes = trim($data['notes'] ?? '');
+        $userId = filter_var($_SESSION['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
+
+        // Determinar la tienda de destino
+        $storeId = 0;
+        if ($_SESSION['rol'] === 'administrador_global') {
+            $storeId = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
         } else {
-            $id_tienda_destino = $_SESSION['id_tienda'] ?? null;
-            if (!$id_tienda_destino) {
-                throw new Exception("Tu usuario no tiene una tienda asignada para esta operación.");
-            }
+            $storeId = filter_var($_SESSION['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
         }
 
-        if (!$product_id || !is_numeric($adjustment_value)) {
-            throw new Exception("Datos inválidos para ajustar el stock.");
+        if (!$productId || !$userId || !$storeId || $adjustmentValue === 0) {
+            throw new Exception("Datos inválidos. El valor del ajuste no puede ser cero.");
         }
 
-        $stmt_check = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :id_tienda FOR UPDATE");
-        $stmt_check->execute(['product_id' => $product_id, 'id_tienda' => $id_tienda_destino]);
-        $inventario_existente = $stmt_check->fetch(PDO::FETCH_ASSOC);
+        // --- VALIDACIÓN CLAVE ---
+        // 1. Primero, verificamos si el producto está configurado para usar inventario.
+        $stmt_prod = $pdo->prepare("SELECT nombre_producto, usa_inventario FROM productos WHERE id_producto = :id");
+        $stmt_prod->execute([':id' => $productId]);
+        $product = $stmt_prod->fetch(PDO::FETCH_ASSOC);
 
-        $stock_anterior = 0;
-        if ($inventario_existente === false) {
-             $stmt_insert = $pdo->prepare("INSERT INTO inventario_tienda (id_producto, id_tienda, stock) VALUES (:product_id, :id_tienda, 0)");
-             $stmt_insert->execute(['product_id' => $product_id, 'id_tienda' => $id_tienda_destino]);
-        } else {
-            $stock_anterior = (int)$inventario_existente['stock'];
+        if (!$product || (int)$product['usa_inventario'] === 0) {
+            throw new Exception("Acción no permitida. Este producto no tiene el inventario habilitado. Debes agregar stock por primera vez desde el módulo 'Agregar Stock'.");
+        }
+        // --- FIN DE LA VALIDACIÓN ---
+
+        // 2. Si el inventario está habilitado, procedemos a ajustar.
+        $stmt_current_stock = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :store_id");
+        $stmt_current_stock->execute([':product_id' => $productId, ':store_id' => $storeId]);
+        $stock_anterior = $stmt_current_stock->fetchColumn();
+
+        // Si no hay registro de stock para esa tienda específica, no se puede ajustar.
+        if ($stock_anterior === false) {
+            throw new Exception("Este producto no tiene stock registrado en la tienda seleccionada. No se puede ajustar.");
         }
         
-        $stock_nuevo = $stock_anterior + $adjustment_value;
+        $stock_nuevo = $stock_anterior + $adjustmentValue;
 
-        $stmt_update = $pdo->prepare(
-            "UPDATE inventario_tienda SET stock = :stock_nuevo WHERE id_producto = :product_id AND id_tienda = :id_tienda"
-        );
-        $stmt_update->execute([
-            'stock_nuevo' => $stock_nuevo,
-            'product_id' => $product_id,
-            'id_tienda' => $id_tienda_destino
-        ]);
+        if ($stock_nuevo < 0) {
+            throw new Exception("El ajuste resultaría en un stock negativo ({$stock_nuevo}). Operación cancelada.");
+        }
+
+        $stmt_update = $pdo->prepare("UPDATE inventario_tienda SET stock = :stock WHERE id_producto = :product_id AND id_tienda = :store_id");
+        $stmt_update->execute([':stock' => $stock_nuevo, ':product_id' => $productId, ':store_id' => $storeId]);
+
+        // 3. Registrar el movimiento
+        $stmt_estado_ajuste = $pdo->query("SELECT id_estado FROM estados WHERE nombre_estado = 'Ajuste' LIMIT 1");
+        $id_estado_ajuste = $stmt_estado_ajuste->fetchColumn();
+        
+        $final_notes = empty($notes) ? "Ajuste manual de inventario." : $notes;
 
         $stmt_log = $pdo->prepare(
-            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda) 
-             VALUES (:product_id, 27, :quantity, :stock_anterior, :stock_nuevo, :id_usuario, :notes, :id_tienda)"
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda)
+             VALUES (:product_id, :id_estado, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas, :store_id)"
         );
         $stmt_log->execute([
-            'product_id' => $product_id,
-            'quantity' => $adjustment_value,
-            'stock_anterior' => $stock_anterior,
-            'stock_nuevo' => $stock_nuevo,
-            'id_usuario' => $id_usuario,
-            'notes' => $notes,
-            'id_tienda' => $id_tienda_destino
+            ':product_id' => $productId, ':id_estado' => $id_estado_ajuste, ':cantidad' => $adjustmentValue,
+            ':stock_anterior' => $stock_anterior, ':stock_nuevo' => $stock_nuevo,
+            ':user_id' => $userId, ':notas' => $final_notes, ':store_id' => $storeId
         ]);
 
+        logActivity($pdo, $userId, 'Ajuste de Inventario', "Ajuste de $adjustmentValue para el producto '{$product['nombre_producto']}'. Stock nuevo: $stock_nuevo.");
+        
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Inventario ajustado correctamente.']);
 
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) { $pdo->rollBack(); }
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-    break;  
-
-
-
-
-
-case 'admin/addStock':
-    if (!isset($_SESSION['loggedin'])) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
-        break;
-    }
-
-    $pdo->beginTransaction();
-    try {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $product_id = $data['product_id'] ?? null;
-        $quantity = $data['quantity'] ?? 0;
-        $notes = $data['notes'] ?? '';
-        $id_usuario = $_SESSION['id_usuario'];
-        $rol = $_SESSION['rol'];
-        
-        $id_tienda_destino = null;
-        if ($rol === 'administrador_global') {
-            $id_tienda_destino = filter_var($data['id_tienda'] ?? null, FILTER_VALIDATE_INT);
-            if (!$id_tienda_destino) {
-                throw new Exception("Como administrador, debes seleccionar una tienda para agregar el stock.");
-            }
-        } else {
-            $id_tienda_destino = $_SESSION['id_tienda'] ?? null;
-            if (!$id_tienda_destino) {
-                throw new Exception("Tu usuario no tiene una tienda asignada para esta operación.");
-            }
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
         }
-
-        if (!$product_id || !is_numeric($quantity) || $quantity <= 0) {
-            throw new Exception("Datos inválidos para agregar stock.");
-        }
-
-        $stmt_check = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :id_tienda FOR UPDATE");
-        $stmt_check->execute(['product_id' => $product_id, 'id_tienda' => $id_tienda_destino]);
-        $inventario_existente = $stmt_check->fetch(PDO::FETCH_ASSOC);
-        
-        $stock_anterior = 0;
-        $final_notes = $notes;
-
-        if ($inventario_existente === false) {
-            $stock_anterior = 0;
-            if (empty($notes)) {
-                $final_notes = 'Inicio de uso de Inventario';
-            }
-            $stmt_insert = $pdo->prepare("INSERT INTO inventario_tienda (id_producto, id_tienda, stock) VALUES (:product_id, :id_tienda, 0)");
-            $stmt_insert->execute(['product_id' => $product_id, 'id_tienda' => $id_tienda_destino]);
-        } else {
-            $stock_anterior = (int)$inventario_existente['stock'];
-        }
-        
-        $stock_nuevo = $stock_anterior + $quantity;
-
-        $stmt_update = $pdo->prepare(
-            "UPDATE inventario_tienda SET stock = :stock_nuevo WHERE id_producto = :product_id AND id_tienda = :id_tienda"
-        );
-        $stmt_update->execute([
-            'stock_nuevo' => $stock_nuevo,
-            'product_id' => $product_id,
-            'id_tienda' => $id_tienda_destino
-        ]);
-
-        $stmt_log = $pdo->prepare(
-            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda) 
-             VALUES (:product_id, 25, :quantity, :stock_anterior, :stock_nuevo, :id_usuario, :notes, :id_tienda)"
-        );
-        $stmt_log->execute([
-            'product_id' => $product_id,
-            'quantity' => $quantity,
-            'stock_anterior' => $stock_anterior,
-            'stock_nuevo' => $stock_nuevo,
-            'id_usuario' => $id_usuario,
-            'notes' => $final_notes,
-            'id_tienda' => $id_tienda_destino
-        ]);
-        
-        $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'Stock agregado correctamente.']);
-
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) { $pdo->rollBack(); }
-        http_response_code(500);
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
 
 
 
+
+
+// EN: api/index.php
+// REEMPLAZA el 'case' 'admin/addStock' con este bloque mejorado:
+
+case 'admin/addStock':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'error' => 'Método no permitido.']);
+        break;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $pdo->beginTransaction();
+
+    try {
+        $productId = filter_var($data['product_id'] ?? 0, FILTER_VALIDATE_INT);
+        $quantity = filter_var($data['quantity'] ?? 0, FILTER_VALIDATE_INT);
+        $notes = trim($data['notes'] ?? '');
+        $userId = filter_var($_SESSION['id_usuario'] ?? 0, FILTER_VALIDATE_INT);
+
+        // Determinar la tienda de destino
+        $storeId = 0;
+        if ($_SESSION['rol'] === 'administrador_global') {
+            $storeId = filter_var($data['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+        } else {
+            $storeId = filter_var($_SESSION['id_tienda'] ?? 0, FILTER_VALIDATE_INT);
+        }
+
+        if (!$productId || !$quantity || !$userId || !$storeId || $quantity <= 0) {
+            throw new Exception("Datos inválidos. Asegúrate de que la cantidad y la tienda sean correctas.");
+        }
+
+        // 1. Verificar el estado actual del producto
+        $stmt_prod = $pdo->prepare("SELECT nombre_producto, usa_inventario FROM productos WHERE id_producto = :id");
+        $stmt_prod->execute([':id' => $productId]);
+        $product = $stmt_prod->fetch(PDO::FETCH_ASSOC);
+
+        if (!$product) {
+            throw new Exception("Producto no encontrado.");
+        }
+
+        // 2. Lógica de habilitación automática de inventario
+        if ((int)$product['usa_inventario'] === 0) {
+            // Es la primera entrada de stock. Habilitamos el inventario para el producto.
+            $stmt_enable_inv = $pdo->prepare("UPDATE productos SET usa_inventario = 1 WHERE id_producto = :id");
+            $stmt_enable_inv->execute([':id' => $productId]);
+            
+            // Creamos el registro de inventario inicial para la tienda
+            $stock_anterior = 0;
+            $stock_nuevo = $quantity;
+            $stmt_insert_stock = $pdo->prepare(
+                "INSERT INTO inventario_tienda (id_producto, id_tienda, stock) VALUES (:product_id, :store_id, :stock)"
+            );
+            $stmt_insert_stock->execute([':product_id' => $productId, ':store_id' => $storeId, ':stock' => $stock_nuevo]);
+
+            $final_notes = empty($notes) ? "Habilitación de inventario y stock inicial." : $notes;
+
+        } else {
+            // El producto ya usa inventario. Procedemos a agregar stock normal.
+            $stmt_current_stock = $pdo->prepare("SELECT stock FROM inventario_tienda WHERE id_producto = :product_id AND id_tienda = :store_id");
+            $stmt_current_stock->execute([':product_id' => $productId, ':store_id' => $storeId]);
+            $stock_anterior = $stmt_current_stock->fetchColumn();
+
+            if ($stock_anterior === false) { // No existe registro para esta tienda, lo creamos.
+                $stock_anterior = 0;
+                $stock_nuevo = $quantity;
+                $stmt_upsert = $pdo->prepare(
+                    "INSERT INTO inventario_tienda (id_producto, id_tienda, stock) VALUES (:product_id, :store_id, :stock)"
+                );
+            } else { // Ya existe, actualizamos.
+                $stock_nuevo = $stock_anterior + $quantity;
+                $stmt_upsert = $pdo->prepare(
+                    "UPDATE inventario_tienda SET stock = :stock WHERE id_producto = :product_id AND id_tienda = :store_id"
+                );
+            }
+            $stmt_upsert->execute([':stock' => $stock_nuevo, ':product_id' => $productId, ':store_id' => $storeId]);
+            $final_notes = $notes;
+        }
+
+        // 3. Registrar el movimiento
+        $stmt_estado_entrada = $pdo->query("SELECT id_estado FROM estados WHERE nombre_estado = 'Entrada' LIMIT 1");
+        $id_estado_entrada = $stmt_estado_entrada->fetchColumn();
+
+        $stmt_log = $pdo->prepare(
+            "INSERT INTO movimientos_inventario (id_producto, id_estado, cantidad, stock_anterior, stock_nuevo, id_usuario, notas, id_tienda)
+             VALUES (:product_id, :id_estado, :cantidad, :stock_anterior, :stock_nuevo, :user_id, :notas, :store_id)"
+        );
+        $stmt_log->execute([
+            ':product_id' => $productId,
+            ':id_estado' => $id_estado_entrada,
+            ':cantidad' => $quantity,
+            ':stock_anterior' => $stock_anterior,
+            ':stock_nuevo' => $stock_nuevo,
+            ':user_id' => $userId,
+            ':notas' => $final_notes,
+            ':store_id' => $storeId
+        ]);
+        
+        logActivity($pdo, $userId, 'Entrada de Stock', "Se agregaron $quantity unidad(es) al producto '{$product['nombre_producto']}'. Stock nuevo: $stock_nuevo.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Stock agregado correctamente.']);
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
 
 
 
@@ -5483,6 +5518,12 @@ function handleClearCartRequest(PDO $pdo) {
     }
 }
 function logActivity(PDO $pdo, int $userId, string $actionType, string $description) {
+    // Si el ID de usuario es 0 o nulo, no se puede registrar la actividad.
+    if (empty($userId)) {
+        error_log("Intento de registrar actividad con ID de usuario nulo o inválido. Acción: $actionType");
+        return;
+    }
+    
     try {
         $stmt = $pdo->prepare(
             "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
@@ -5495,11 +5536,9 @@ function logActivity(PDO $pdo, int $userId, string $actionType, string $descript
             ':descripcion'  => $description
         ]);
     } catch (Exception $e) {
-        // En un entorno de producción, podrías registrar este error en un archivo en lugar de detener el script.
-        // Por ahora, lo dejamos así para no interrumpir el flujo principal en caso de que falle el log.
-        error_log("Fallo al registrar actividad: " . $e->getMessage());
+        // En lugar de fallar silenciosamente, ahora registra el error real en el log del servidor.
+        error_log("Error en la función logActivity: " . $e->getMessage());
     }
 }
-
 
 ?>
