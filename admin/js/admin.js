@@ -1358,8 +1358,6 @@ function initializeEditProductFormSubmit(form) {
 // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
-
-
     if (target.id === 'filter-stats-btn') {
         const startDateInput = document.getElementById('start-date');
         const endDateInput = document.getElementById('end-date');
@@ -1370,14 +1368,14 @@ mainContent.addEventListener('click', async (event) => {
         const storeId = storeFilter ? storeFilter.value : null;
 
         if (start && end) {
+            // Llama a las funciones para actualizar los widgets con los filtros seleccionados
             await fetchAndRenderSalesSummary(start, end, storeId);
-            await fetchAndRenderProductStats(storeId);
+            await fetchAndRenderProductStats(start, end, storeId); // Pasamos también las fechas
         } else {
             alert('Por favor, selecciona un rango de fechas válido.');
         }
-        return; // Añade un return para finalizar la ejecución aquí
+        return; 
     }
-
 
 
 
@@ -2937,6 +2935,7 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
     chartTitle.textContent = `Gráfico de Ventas (cargando...)`;
 
     try {
+        // Se construye la URL con todos los parámetros de filtro.
         const params = new URLSearchParams({ startDate, endDate });
         if (storeId) {
             params.append('storeId', storeId);
@@ -2985,6 +2984,7 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
 
 
 
+
 async function loadStatisticsWidgets() {
     const endDateInput = document.getElementById('end-date');
     const startDateInput = document.getElementById('start-date');
@@ -3004,13 +3004,12 @@ async function loadStatisticsWidgets() {
     startDateInput.value = formatDate(startDate);
     endDateInput.value = formatDate(endDate);
     
+    // Se obtiene el valor inicial del filtro de tienda al cargar.
     const initialStoreId = storeFilter ? storeFilter.value : null;
 
+    // Se cargan los datos iniciales con el rango de fechas y la tienda por defecto.
     await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value, initialStoreId);
     await fetchAndRenderProductStats(initialStoreId);
-
-
-
 }
 
 
@@ -3025,6 +3024,7 @@ async function fetchAndRenderProductStats(storeId = null) {
     lowStockWidget.innerHTML = `<p>Cargando...</p>`;
 
     try {
+        // Se añade el filtro de tienda a la consulta.
         const params = new URLSearchParams();
         if (storeId) {
             params.append('storeId', storeId);
@@ -3062,7 +3062,6 @@ async function fetchAndRenderProductStats(storeId = null) {
         lowStockWidget.innerHTML = `<p style="color:red;">Error al cargar stock.</p>`;
     }
 }
-
 
 
 

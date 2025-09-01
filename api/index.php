@@ -2171,16 +2171,18 @@ case 'pos_search_clients':
 //Estadistica
 
 
+
+
 case 'admin/getProductStats':
     try {
-        $rol = $_SESSION['rol'];
         $storeId_filter = $_GET['storeId'] ?? ($_SESSION['rol'] === 'administrador_global' ? 'global' : $_SESSION['id_tienda']);
+        $startDate = $_GET['startDate'] ?? date('Y-m-d', strtotime('-1 month'));
+        $endDate = $_GET['endDate'] ?? date('Y-m-d');
 
-        // --- LÓGICA DE FILTRADO CORREGIDA ---
-        $where_clauses = ["v.estado_id = 29"];
-        $params = [];
+        // --- CORRECCIÓN: Se añaden los filtros de fecha y tienda a la consulta ---
+        $params = [':startDate' => $startDate, ':endDate' => $endDate];
+        $where_clauses = ["v.estado_id = 29", "DATE(v.fecha_venta) BETWEEN :startDate AND :endDate"];
 
-        // El filtro ahora se aplica directamente a la tabla ventas (v)
         if ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
             $where_clauses[] = "v.id_tienda = :storeId";
             $params[':storeId'] = $storeId_filter;
@@ -2188,7 +2190,7 @@ case 'admin/getProductStats':
 
         $where_sql = " WHERE " . implode(" AND ", $where_clauses);
 
-        // Consulta para los productos más vendidos
+        // Consulta para los productos más vendidos (AHORA FILTRADA)
         $stmt_top_products = $pdo->prepare("
             SELECT
                 p.nombre_producto,
@@ -2204,7 +2206,7 @@ case 'admin/getProductStats':
         $stmt_top_products->execute($params);
         $top_products = $stmt_top_products->fetchAll(PDO::FETCH_ASSOC);
 
-        // Consulta para productos con bajo stock
+        // Consulta para productos con bajo stock (AHORA FILTRADA POR TIENDA)
         $low_stock_query = "
             SELECT p.nombre_producto, it.stock as stock_actual, p.stock_minimo
             FROM inventario_tienda it
@@ -2236,24 +2238,27 @@ case 'admin/getProductStats':
     break;
 
 
+
+
+
+
+
 case 'admin/getSalesStats':
     header('Content-Type: application/json');
     try {
-        // Recopila los filtros de la URL
         $startDateStr = $_GET['startDate'] ?? date('Y-m-d', strtotime('-1 month'));
         $endDateStr = $_GET['endDate'] ?? date('Y-m-d');
         $storeId_filter = $_GET['storeId'] ?? ($_SESSION['rol'] === 'administrador_global' ? 'global' : $_SESSION['id_tienda']);
 
-        $startDate = new DateTime($startDateStr);
-        $endDate = new DateTime($endDateStr);
-        $endDate->modify('+1 day');
+        // --- CORRECCIÓN: Se asegura que el rango de fechas sea inclusivo ---
+        $endDateObj = new DateTime($endDateStr);
+        $endDateObj->modify('+1 day'); // Para que el BETWEEN incluya el último día completo
 
-        // --- LÓGICA DE FILTRADO CORREGIDA ---
-        $params = [':startDate' => $startDateStr, ':endDate' => $endDateStr . ' 23:59:59'];
+        $params = [':startDate' => $startDateStr, ':endDate' => $endDateStr];
         $from_and_joins = "FROM ventas v";
-        $where_clauses = ["v.estado_id = 29", "v.fecha_venta BETWEEN :startDate AND :endDate"];
+        $where_clauses = ["v.estado_id = 29", "DATE(v.fecha_venta) BETWEEN :startDate AND :endDate"];
 
-        // El filtro ahora se aplica directamente a la columna id_tienda de la tabla ventas (v)
+        // --- CORRECCIÓN: Se aplica el filtro de tienda a la consulta ---
         if ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
             $where_clauses[] = "v.id_tienda = :storeId";
             $params[':storeId'] = $storeId_filter;
@@ -2286,7 +2291,8 @@ case 'admin/getSalesStats':
         foreach ($salesData as $row) {
             $salesByDate[$row['fecha']] = $row['daily_total'];
         }
-        $period = new DatePeriod(new DateTime($startDateStr), new DateInterval('P1D'), $endDate);
+        
+        $period = new DatePeriod(new DateTime($startDateStr), new DateInterval('P1D'), $endDateObj);
         $fullDailySales = [];
         foreach ($period as $date) {
             $dateString = $date->format('Y-m-d');
@@ -2307,7 +2313,7 @@ case 'admin/getSalesStats':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
+    
 //Backup de base de datos
 case 'admin/createBackup':
     // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
