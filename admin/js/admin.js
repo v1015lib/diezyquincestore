@@ -937,71 +937,86 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
         if (feedbackDiv) feedbackDiv.textContent = '';
     }
 
-    function initializeAddProductForm() {
-        const form = document.getElementById('add-product-form');
-        if (!form) return;
-        const codeInput = form.querySelector('#codigo_producto');
-        const submitButton = form.querySelector('.form-submit-btn');
-        let typingTimer;
-        codeInput.addEventListener('keyup', () => {
-            clearTimeout(typingTimer);
-            let feedbackDiv = codeInput.closest('.form-group').querySelector('.validation-feedback');
-            if (!feedbackDiv) {
-                feedbackDiv = document.createElement('div');
-                feedbackDiv.className = 'validation-feedback';
-                codeInput.closest('.form-group').appendChild(feedbackDiv);
-            }
-            feedbackDiv.textContent = 'Verificando...';
-            typingTimer = setTimeout(async () => {
-                const code = codeInput.value.trim();
-                if (code.length < 3) {
-                    feedbackDiv.textContent = '';
-                    submitButton.disabled = false;
-                    return;
-                }
-                try {
-                    const response = await fetch(`${API_BASE_URL}?resource=admin/checkProductCode&code=${encodeURIComponent(code)}`);
-                    const result = await response.json();
-                    feedbackDiv.textContent = result.message;
-                    feedbackDiv.style.color = result.is_available ? 'green' : 'red';
-                    submitButton.disabled = !result.is_available;
-                } catch (error) {
-                    feedbackDiv.textContent = 'Error al verificar.';
-                    feedbackDiv.style.color = 'red';
-                }
-            }, 500);
-        });
-        const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox');
-        const inventoryFields = form.querySelector('#inventoryFields');
-        usaInventarioCheckbox.addEventListener('change', () => {
-            inventoryFields.classList.toggle('hidden', !usaInventarioCheckbox.checked);
-        });
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const messagesDiv = form.querySelector('#form-messages');
-            const formData = new FormData(form);
-            submitButton.disabled = true;
-            submitButton.textContent = 'Guardando...';
-            messagesDiv.innerHTML = '';
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/createProduct`, { method: 'POST', body: formData });
-                const result = await response.json();
-                if (result.success) {
-                    messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-                    resetProductForm(form);
-                    setTimeout(() => { messagesDiv.innerHTML = ''; }, 3000);
-                } else {
-                    throw new Error(result.error || 'Ocurrió un error desconocido.');
-                }
-            } catch (error) {
-                messagesDiv.innerHTML = `<div class="message error">${error.message}</div>`;
-            } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Ingresar Producto';
-            }
-        });
-    }
+
+
+
+
+
+// admin/js/admin.js
+
+function initializeAddProductForm() {
+    const form = document.getElementById('add-product-form');
+    if (!form) return;
+    const codeInput = form.querySelector('#codigo_producto');
+    const submitButton = form.querySelector('.form-submit-btn');
+    let typingTimer;
     
+    codeInput.addEventListener('keyup', () => {
+        clearTimeout(typingTimer);
+        let feedbackDiv = codeInput.closest('.form-group').querySelector('.validation-feedback');
+        if (!feedbackDiv) {
+            feedbackDiv = document.createElement('div');
+            feedbackDiv.className = 'validation-feedback';
+            codeInput.closest('.form-group').appendChild(feedbackDiv);
+        }
+        feedbackDiv.textContent = 'Verificando...';
+        typingTimer = setTimeout(async () => {
+            const code = codeInput.value.trim();
+            if (code.length < 3) {
+                feedbackDiv.textContent = '';
+                submitButton.disabled = false;
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/checkProductCode&code=${encodeURIComponent(code)}`);
+                const result = await response.json();
+                feedbackDiv.textContent = result.message;
+                feedbackDiv.style.color = result.is_available ? 'green' : 'red';
+                submitButton.disabled = !result.is_available;
+            } catch (error) {
+                feedbackDiv.textContent = 'Error al verificar.';
+                feedbackDiv.style.color = 'red';
+            }
+        }, 500);
+    });
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const messagesDiv = form.querySelector('#form-messages');
+        const formData = new FormData(form);
+        submitButton.disabled = true;
+        submitButton.textContent = 'Guardando...';
+        messagesDiv.innerHTML = '';
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/createProduct`, { method: 'POST', body: formData });
+            const result = await response.json();
+            if (result.success) {
+                messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                resetProductForm(form);
+                setTimeout(() => { messagesDiv.innerHTML = ''; }, 3000);
+            } else {
+                throw new Error(result.error || 'Ocurrió un error desconocido.');
+            }
+        } catch (error) {
+            messagesDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Ingresar Producto';
+        }
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
     function initializeProductSearchForEdit() {
         const searchForm = document.getElementById('product-search-form');
         if (!searchForm) return;
@@ -1031,162 +1046,141 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
 
         // REEMPLAZA ESTA FUNCIÓN COMPLETA EN admin/js/admin.js
 
-async function renderEditForm(product) {
+
+
+
+
+
+
+
+
+    async function renderEditForm(product) {
     const container = document.getElementById('edit-product-container');
     const searchContainer = document.getElementById('product-search-container');
     if (!container || !searchContainer) return;
 
+    // Oculta la búsqueda y muestra el contenedor del formulario.
     searchContainer.classList.add('hidden');
     container.classList.remove('hidden');
 
+    // Carga el HTML del formulario de "agregar producto" para reutilizarlo.
     const formResponse = await fetch('actions/productos/agregar_producto.php');
     const formHtml = await formResponse.text();
     container.innerHTML = formHtml;
 
+    // Adapta el formulario para la edición.
     const form = container.querySelector('#add-product-form');
-    form.id = 'edit-product-form';
+    form.id = 'edit-product-form'; // Cambia el ID para evitar conflictos.
     form.querySelector('.form-submit-btn').textContent = 'Actualizar Producto';
 
+    // --- CORRECCIÓN CLAVE ---
+    // Crea y añade un campo oculto con el ID del producto DENTRO del formulario.
     const idInput = document.createElement('input');
     idInput.type = 'hidden';
-    idInput.name = 'id_producto';
+    idInput.name = 'id_producto'; // El nombre que el PHP espera en $_POST.
     idInput.value = product.id_producto;
-    form.prepend(idInput);
+    form.appendChild(idInput); // Se añade al final del formulario.
+
+    // Rellena todos los campos del formulario con los datos del producto.
+    const fields = [
+        'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
+        'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
+        'proveedor', 'stock_minimo', 'stock_maximo', 'url_imagen'
+    ];
     
-    const codeInput = form.querySelector('#codigo_producto');
-    const originalCode = product.codigo_producto;
-    codeInput.value = originalCode;
-    form.querySelector('#nombre_producto').value = product.nombre_producto;
-    form.querySelector('#departamento').value = product.departamento;
-    form.querySelector('#precio_compra').value = product.precio_compra;
-    form.querySelector('#precio_venta').value = product.precio_venta;
-    form.querySelector('#precio_mayoreo').value = product.precio_mayoreo;
-    form.querySelector('#tipo_de_venta').value = product.tipo_de_venta;
-    form.querySelector('#estado').value = product.estado;
-    form.querySelector('#proveedor').value = product.proveedor;
-    codeInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault(); 
+    fields.forEach(field => {
+        const input = form.querySelector(`#${field}`);
+        if (input) {
+            // Renombramos 'url_imagen' a 'selected-image-url' para que coincida con el ID del input oculto de la imagen.
+            const inputId = (field === 'url_imagen') ? 'selected-image-url' : field;
+            const formInput = form.querySelector(`#${inputId}`);
+            if (formInput) {
+                formInput.value = product[field] || '';
+            }
         }
     });
+
+    // Muestra la previsualización de la imagen si existe.
     if (product.url_imagen) {
-        form.querySelector('#selected-image-url').value = product.url_imagen;
         form.querySelector('#image-preview').src = product.url_imagen;
         form.querySelector('#image-preview').classList.remove('hidden');
         form.querySelector('#no-image-text').classList.add('hidden');
     }
 
+    // Deshabilita la edición de campos de inventario si ya se está usando.
+    const usaInventario = parseInt(product.usa_inventario, 10) === 1;
+    const stockInput = form.querySelector('#stock_actual');
     const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox');
-    const inventoryFields = form.querySelector('#inventoryFields');
-    const stockActualInput = form.querySelector('#stock_actual'); // Referencia al input de stock
+    if (stockInput) stockInput.disabled = usaInventario;
+    if (usaInventarioCheckbox) usaInventarioCheckbox.disabled = usaInventario;
 
-    if (product.usa_inventario == 1) {
-        usaInventarioCheckbox.checked = true;
-        inventoryFields.classList.remove('hidden');
-        stockActualInput.value = product.stock_actual;
-        form.querySelector('#stock_minimo').value = product.stock_minimo;
-        form.querySelector('#stock_maximo').value = product.stock_maximo;
-        
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        // Deshabilitar el input de stock y añadir nota
-        stockActualInput.disabled = true;
-        const helpText = document.createElement('small');
-        helpText.textContent = 'Usa los módulos de "Agregar Stock" o "Ajuste de Inventario" para cambiar esta cantidad.';
-        helpText.style.marginLeft = '1rem'; // Estilo para separar un poco
-        stockActualInput.closest('.form-group').appendChild(helpText);
-        // --- FIN DE LA LÓGICA CORREGIDA ---
-
-        if (parseInt(product.stock_actual) > 0) {
-            usaInventarioCheckbox.disabled = true;
-            const helpTextCheckbox = document.createElement('small');
-            helpTextCheckbox.textContent = 'El stock debe ser 0 para desactivar esta opción.';
-            usaInventarioCheckbox.closest('.form-group').appendChild(helpTextCheckbox);
-        }
-    }
-    
-    usaInventarioCheckbox.addEventListener('change', () => {
-        inventoryFields.classList.toggle('hidden', !usaInventarioCheckbox.checked);
-    });
-    
-    const submitButton = form.querySelector('.form-submit-btn');
-    let typingTimer;
-    codeInput.addEventListener('keyup', () => {
-        clearTimeout(typingTimer);
-        let feedbackDiv = codeInput.closest('.form-group').querySelector('.validation-feedback');
-         if (!feedbackDiv) {
-            feedbackDiv = document.createElement('div');
-            feedbackDiv.className = 'validation-feedback';
-            codeInput.closest('.form-group').appendChild(feedbackDiv);
-        }
-        const newCode = codeInput.value.trim();
-        if (newCode === originalCode) {
-            feedbackDiv.textContent = '';
-            submitButton.disabled = false;
-            return;
-        }
-        feedbackDiv.textContent = 'Verificando...';
-        typingTimer = setTimeout(async () => {
-            if (newCode.length < 3) {
-                feedbackDiv.textContent = '';
-                submitButton.disabled = false;
-                return;
-            }
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/checkProductCode&code=${encodeURIComponent(newCode)}&current_id=${product.id_producto}`);
-                const result = await response.json();
-                feedbackDiv.textContent = result.message;
-                feedbackDiv.style.color = result.is_available ? 'green' : 'red';
-                submitButton.disabled = !result.is_available;
-            } catch (error) {
-                feedbackDiv.textContent = 'Error al verificar.';
-                feedbackDiv.style.color = 'red';
-            }
-        }, 500);
-    });
-    initializeEditProductFormSubmit();
+    // Adjunta el evento de envío al formulario ya modificado.
+    initializeEditProductFormSubmit(form);
 }
 
-    
-    function initializeEditProductFormSubmit() {
-        const form = document.getElementById('edit-product-form');
-        if (!form) return;
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const submitButton = form.querySelector('.form-submit-btn');
-            const messagesDiv = form.querySelector('#form-messages');
-            const formData = new FormData(form);
-            submitButton.disabled = true;
-            submitButton.textContent = 'Actualizando...';
-            messagesDiv.innerHTML = '';
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/updateProduct`, { method: 'POST', body: formData });
-                const result = await response.json();
-                if (result.success) {
-                    messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-                    setTimeout(() => {
-                        const container = document.getElementById('edit-product-container');
-                        const searchContainer = document.getElementById('product-search-container');
-                        if (container && searchContainer) {
-                            container.innerHTML = '';
-                            container.classList.add('hidden');
-                            searchContainer.classList.remove('hidden');
-                            document.getElementById('product-search-to-edit').value = '';
-                            messagesDiv.innerHTML = '';
-                        }
-                    }, 1500);
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                messagesDiv.innerHTML = `<div class="message error">${error.message}</div>`;
-            } finally {
-                if (!messagesDiv.querySelector('.success')) {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Actualizar Producto';
-                }
+
+
+
+
+// EN: admin/js/admin.js
+// REEMPLAZA esta función para añadir el código de depuración.
+
+function initializeEditProductFormSubmit(form) {
+    if (!form) return;
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = form.querySelector('.form-submit-btn');
+        const messagesDiv = form.querySelector('#form-messages');
+        const formData = new FormData(form);
+
+        // --- INICIO DEL CÓDIGO DE DEPURACIÓN ---
+        console.log("--- Depuración: Datos que se enviarán al servidor ---");
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+        console.log("--------------------------------------------------");
+        // --- FIN DEL CÓDIGO DE DEPURACIÓN ---
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Actualizando...';
+        messagesDiv.innerHTML = '';
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/updateProduct`, { method: 'POST', body: formData });
+            
+            // --- INICIO DE DEPURACIÓN DE RESPUESTA ---
+            const responseText = await response.text();
+            console.log("Respuesta del servidor (texto plano):", responseText);
+            // --- FIN DE DEPURACIÓN DE RESPUESTA ---
+
+            const result = JSON.parse(responseText); // Intentamos convertir el texto a JSON
+            
+            if (result.success) {
+                messagesDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                setTimeout(() => {
+                    document.querySelector('.action-btn[data-action="productos/todos_los_productos"]').click();
+                }, 1500);
+            } else {
+                throw new Error(result.error);
             }
-        });
-    }
+        } catch (error) {
+            messagesDiv.innerHTML = `<div class="message error">Error al procesar la respuesta: ${error.message}. Revisa la consola para más detalles.</div>`;
+        } finally {
+            if (!messagesDiv.querySelector('.success')) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Actualizar Producto';
+            }
+        }
+    });
+}
+
+
+
+
+
+
+
+
+
 // --- LÓGICA PARA ELIMINAR PRODUCTO (RESTAURADA) ---
     function initializeProductSearchForDelete() {
         const searchForm = document.getElementById('product-search-form-delete');
@@ -2545,38 +2539,42 @@ function initializeInventoryForm(type) {
 
 
 
-
-// REEMPLAZA esta función completa en tu archivo admin/js/admin.js
-
 async function renderInventoryActionForm(product, type) {
     const container = document.getElementById(`${type}-form-container`);
     container.classList.remove('hidden');
 
     let title, label, inputName, buttonText, placeholder, minVal;
-
-    switch(type) {
-        case 'stock':
-            title = 'Agregar Stock';
-            label = 'Cantidad a Agregar';
-            inputName = 'quantity';
-            buttonText = 'Agregar';
-            placeholder = 'Ej: 50';
-            minVal = '1';
-            break;
-        case 'adjust':
-            title = 'Ajustar Inventario';
-            label = 'Valor del Ajuste (+/-)';
-            inputName = 'adjustment_value';
-            buttonText = 'Ajustar';
-            placeholder = 'Ej: 10 (sumar) o -10 (restar)';
-            minVal = ''; // Permite negativos
-            break;
+    if (type === 'stock') {
+        title = 'Agregar Stock';
+        label = 'Cantidad a Agregar';
+        inputName = 'quantity';
+        buttonText = 'Agregar';
+        placeholder = 'Ej: 50';
+        minVal = '1';
+    } else { // type === 'adjust'
+        title = 'Ajustar Inventario';
+        label = 'Valor del Ajuste (+/-)';
+        inputName = 'adjustment_value';
+        buttonText = 'Ajustar';
+        placeholder = 'Ej: 10 (sumar) o -10 (restar)';
+        minVal = '';
     }
 
-    // --- INICIO DE LA LÓGICA INTELIGENTE ---
+    // --- INICIO DE LA LÓGICA DE VISUALIZACIÓN MEJORADA ---
     let tiendaInputHtml = '';
-    if (USER_ROLE === 'admin_tienda') {
-        // Si es admin, crea el menú desplegable para seleccionar la tienda
+    let stockDetailsHtml = `<p><strong>Stock Actual:</strong> <span style="font-weight:bold; color:green;">${product.stock_actual}</span></p>`;
+
+    if (USER_ROLE === 'administrador_global') {
+        // Mostrar desglose de stock por tienda si existe
+        if (product.stock_por_tienda && product.stock_por_tienda.length > 0) {
+            stockDetailsHtml += '<ul>';
+            product.stock_por_tienda.forEach(tienda => {
+                stockDetailsHtml += `<li>${tienda.nombre_tienda}: ${tienda.stock}</li>`;
+            });
+            stockDetailsHtml += '</ul>';
+        }
+
+        // Crear el selector de tiendas para el admin
         tiendaInputHtml = `
             <div class="form-group">
                 <label for="id_tienda">Aplicar a Tienda:</label>
@@ -2586,16 +2584,13 @@ async function renderInventoryActionForm(product, type) {
             </div>
         `;
     } 
-    // Si es empleado, no se genera HTML, por lo que no verá el selector.
-    // --- FIN DE LA LÓGICA INTELIGENTE ---
+    // --- FIN DE LA LÓGICA DE VISUALIZACIÓN MEJORADA ---
 
     container.innerHTML = `
         <h4>${title}: ${product.nombre_producto}</h4>
         <p><strong>Código:</strong> ${product.codigo_producto}</p>
-        <p><strong>Stock Actual (Total):</strong> <span style="font-weight:bold; color:green;">${product.stock_actual}</span></p>
-        
-        <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #dee2e6;">
-            <p><strong>Precio Venta (Actual):</strong> $${parseFloat(product.precio_venta).toFixed(2)}</p>
+        <div id="stock-details">
+            ${stockDetailsHtml}
         </div>
         
         <form id="${type}-action-form">
@@ -2604,14 +2599,6 @@ async function renderInventoryActionForm(product, type) {
             <div class="form-group">
                 <label for="${inputName}">${label}</label>
                 <input type="number" id="${inputName}" name="${inputName}" ${minVal ? `min="${minVal}"` : ''} required placeholder="${placeholder}">
-            </div>        
-            <div class="form-group">
-                <label for="precio_compra">Nuevo Precio Compra (Costo)</label>
-                <input type="number" id="precio_compra" name="precio_compra" value="${parseFloat(product.precio_compra).toFixed(2)}" step="0.01" min="0" required>
-            </div>
-            <div class="form-group">
-                <label for="precio_mayoreo">Nuevo Precio Mayoreo</label>
-                <input type="number" id="precio_mayoreo" name="precio_mayoreo" value="${parseFloat(product.precio_mayoreo).toFixed(2)}" step="0.01" min="0" required>
             </div>
             <div class="form-group">
                 <label for="notes">Notas (Opcional)</label>
@@ -2623,7 +2610,7 @@ async function renderInventoryActionForm(product, type) {
     `;
 
     // Si es admin, poblamos el selector de tiendas
-    if (USER_ROLE === 'admin_tienda') {
+    if (USER_ROLE === 'administrador_global') {
         const tiendaSelect = document.getElementById('id_tienda');
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/getTiendas`);
@@ -2645,7 +2632,7 @@ async function renderInventoryActionForm(product, type) {
     document.getElementById(`${type}-action-form`).addEventListener('submit', handleInventoryActionSubmit);
 }
 
-
+/*************************************************************************/
 
 async function handleInventoryActionSubmit(event) {
     event.preventDefault();

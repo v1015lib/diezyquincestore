@@ -1,7 +1,5 @@
 <?php
 // Lógica para obtener los datos para los selectores (dropdowns)
-// Esto asume que el config.php ya fue incluido una vez por el api/index.php, 
-// pero es más seguro incluirlo aquí por si se accede a este archivo de otra forma.
 require_once __DIR__ . '/../../../config/config.php';
 
 $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departamentos ORDER BY departamento")->fetchAll(PDO::FETCH_ASSOC);
@@ -49,18 +47,17 @@ $unidades_medida = $pdo->query("SELECT id_unidad_medida, nombre_unidad FROM unid
             <input type="number" id="precio_mayoreo" name="precio_mayoreo" step="0.01" min="0" placeholder="0.00">
         </div>
 
-        
         <div class="form-group">
-    <label>Imagen del Producto</label>
-    <div class="image-picker-container">
-        <div id="image-preview-container">
-            <img src="" id="image-preview" class="hidden" alt="Previsualización">
-            <span id="no-image-text">Ninguna imagen seleccionada</span>
+            <label>Imagen del Producto</label>
+            <div class="image-picker-container">
+                <div id="image-preview-container">
+                    <img src="" id="image-preview" class="hidden" alt="Previsualización">
+                    <span id="no-image-text">Ninguna imagen seleccionada</span>
+                </div>
+                <input type="hidden" id="selected-image-url" name="url_imagen">
+                <button type="button" id="open-gallery-btn" class="modal-btn modal-btn-secondary">Elegir Imagen</button>
+            </div>
         </div>
-        <input type="hidden" id="selected-image-url" name="url_imagen">
-        <button type="button" id="open-gallery-btn" class="modal-btn modal-btn-secondary">Elegir Imagen</button>
-    </div>
-</div>
 
         <div class="form-group">
             <label for="tipo_de_venta">Unidad de Medida</label>
@@ -91,24 +88,14 @@ $unidades_medida = $pdo->query("SELECT id_unidad_medida, nombre_unidad FROM unid
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="form-group inventory-toggle">
-            <label for="usa_inventario_checkbox">Gestionar Inventario</label>
-            <input type="checkbox" id="usa_inventario_checkbox" name="usa_inventario_checkbox" value="1">
+        
+        <div class="form-group">
+            <label for="stock_minimo">Stock Mínimo</label>
+            <input type="number" id="stock_minimo" name="stock_minimo" min="0" value="0">
         </div>
-
-        <div id="inventoryFields" class="inventory-fields hidden">
-            <div class="form-group">
-                <label for="stock_actual">Stock Actual</label>
-                <input type="number" id="stock_actual" name="stock_actual" min="0" value="0">
-            </div>
-            <div class="form-group">
-                <label for="stock_minimo">Stock Mínimo</label>
-                <input type="number" id="stock_minimo" name="stock_minimo" min="0" value="0">
-            </div>
-            <div class="form-group">
-                <label for="stock_maximo">Stock Máximo</label>
-                <input type="number" id="stock_maximo" name="stock_maximo" min="0" value="0">
-            </div>
+        <div class="form-group">
+            <label for="stock_maximo">Stock Máximo</label>
+            <input type="number" id="stock_maximo" name="stock_maximo" min="0" value="0">
         </div>
 
         <button type="submit" class="action-btn form-submit-btn">Ingresar Producto</button>
