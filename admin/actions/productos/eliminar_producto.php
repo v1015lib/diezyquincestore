@@ -25,3 +25,5 @@ if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador_global'): ?>
 
 </div>        
 <?php endif; ?>
+
+

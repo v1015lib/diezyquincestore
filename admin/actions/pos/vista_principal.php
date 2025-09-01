@@ -5,15 +5,18 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
 ?>
 <div class="pos-container">
     <div class="pos-main-content">
-        <div class="pos-header">
-            <div class="pos-input-container">
-                <i class="fas fa-barcode"></i>
-                <input type="text" id="pos-product-input" placeholder="Ingresar código de producto o usar atajos de teclado..." disabled>
-                <button id="open-search-modal-btn" class="btn btn-primary" disabled>Buscar Producto</button>
-                <button id="open-history-modal-btn" class="btn btn-primary">Historial Venta</button>
-            </div>
-            <div id="pos-store-indicator" style="font-weight: bold; font-size: 1.1rem; color: #0C0A4E;"></div>
-        </div>
+<div class="pos-header">
+    <div class="pos-input-container">
+        <i class="fas fa-barcode"></i>
+        <input type="text" id="pos-product-input" placeholder="Ingresar código de producto o usar atajos de teclado..." disabled>
+        <button id="open-search-modal-btn" class="btn btn-primary" disabled>Buscar Producto</button>
+        <button id="open-history-modal-btn" class="btn btn-primary">Historial Venta</button>
+    </div>
+    <div id="pos-store-indicator" style="font-weight: bold; font-size: 1.1rem; color: #0C0A4E; display: flex; align-items: center; gap: 10px;">
+        <span id="store-name-display"></span>
+        <button id="change-store-btn" class="btn btn-sm btn-primary" style="display: none;">Cambiar Tienda</button>
+    </div>
+</div> 
         <div class="pos-ticket">
             <h3>Ticket de Venta</h3>
             <div class="ticket-table-container">

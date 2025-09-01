@@ -35,7 +35,6 @@ function initializePOS() {
     const checkoutModal = document.getElementById('checkout-modal');
     const checkoutTicketList = document.getElementById('checkout-ticket-list');
     const footerTotalAmount = document.getElementById('footer-total-amount');
-    // --- LÓGICA DEL HISTORIAL DE VENTAS ---
     const openHistoryModalBtn = document.getElementById('open-history-modal-btn');
     const salesHistoryModal = document.getElementById('sales-history-modal');
     const salesHistoryDateInput = document.getElementById('sales-history-date');
@@ -45,38 +44,49 @@ function initializePOS() {
     const saleDetailFooter = document.getElementById('sale-detail-footer');
     const ticketHistorySearchInput = document.getElementById('ticket-history-search-input');
 
-
-
     const storeSelectionModal = document.getElementById('store-selection-modal');
     const storeSelect = document.getElementById('pos-store-select');
     const confirmStoreBtn = document.getElementById('confirm-store-selection-btn');
     const storeIndicator = document.getElementById('pos-store-indicator');
+    const storeNameDisplay = document.getElementById('store-name-display');
+    const changeStoreBtn = document.getElementById('change-store-btn');
 
 
 
     let debounceTimer;
     const API_URL = '../api/index.php';
 
-
+if (storeSelectionModal) {
+    storeSelectionModal.addEventListener('click', (e) => {
+        // Cierra el modal si se hace clic en el fondo, en la '×' o en el botón "Cancelar"
+        if (e.target.id === 'store-selection-modal' || e.target.classList.contains('close-button') || e.target.id === 'cancel-store-selection-btn') {
+            storeSelectionModal.style.display = 'none';
+        }
+    });
+}
 
 
     async function setupPOSForRole() {
         if (USER_ROLE === 'administrador_global') {
+            changeStoreBtn.style.display = 'inline-block'; // Muestra el botón de "Cambiar Tienda"
             const storedStoreId = sessionStorage.getItem('pos_selected_store_id');
             const storedStoreName = sessionStorage.getItem('pos_selected_store_name');
 
             if (storedStoreId && storedStoreName) {
                 selectedStoreId = storedStoreId;
-                storeIndicator.textContent = `Operando desde: ${storedStoreName}`;
+                storeNameDisplay.textContent = `Operando desde: ${storedStoreName}`;
                 enablePOSControls();
-                // Se pasa el ID de la tienda directamente para evitar el error
                 await startOrResumeSale(selectedStoreId);
             } else {
-                storeSelectionModal.style.display = 'block';
+                // Si no hay tienda seleccionada, el POS carga pero no está operativo
+                storeNameDisplay.textContent = 'Seleccione una tienda para operar';
+                storeSelectionModal.style.display = 'block'; // Sugiere al usuario elegir una tienda
             }
         } else {
+            // Para otros roles, la tienda es fija
+            changeStoreBtn.style.display = 'none';
             enablePOSControls();
-            await startOrResumeSale(); // Los otros roles no necesitan pasar ID
+            await startOrResumeSale();
         }
     }
 
@@ -88,13 +98,28 @@ function initializePOS() {
         productInput.focus();
     }
 
-    if (confirmStoreBtn) {
+        if (changeStoreBtn) {
+        changeStoreBtn.addEventListener('click', () => {
+            storeSelectionModal.style.display = 'block';
+        });
+    }
+
+  if (confirmStoreBtn) {
         confirmStoreBtn.addEventListener('click', async () => {
             const storeId = storeSelect.value;
             if (!storeId) {
                 alert('Por favor, selecciona una tienda.');
                 return;
             }
+            
+            // Si hay una venta en progreso y se está cambiando de tienda, pide confirmación
+            if (currentTicket.length > 0 && selectedStoreId !== storeId) {
+                if (!confirm('Al cambiar de tienda, se cancelará la venta actual. ¿Deseas continuar?')) {
+                    storeSelectionModal.style.display = 'none';
+                    return;
+                }
+            }
+
             selectedStoreId = storeId;
             const selectedOption = storeSelect.options[storeSelect.selectedIndex];
             const storeName = selectedOption.dataset.storeName;
@@ -102,11 +127,12 @@ function initializePOS() {
             sessionStorage.setItem('pos_selected_store_id', selectedStoreId);
             sessionStorage.setItem('pos_selected_store_name', storeName);
 
-            storeIndicator.textContent = `Operando desde: ${storeName}`;
+            storeNameDisplay.textContent = `Operando desde: ${storeName}`;
             storeSelectionModal.style.display = 'none';
             
             enablePOSControls();
-            await startOrResumeSale(selectedStoreId); // Se pasa el ID de la tienda directamente
+            // Inicia una nueva venta para la tienda seleccionada
+            await startOrResumeSale(selectedStoreId); 
         });
     }
 
@@ -226,19 +252,18 @@ function initializePOS() {
 
     // Atajo de teclado para abrir el modal
     document.addEventListener('keydown', (e) => {
+
         // ... (otros atajos) ...
         if (e.key === 'F12') {
             e.preventDefault();
             openCheckoutModal();
         }
         if (e.key === 'Escape') {
-            if (checkoutModal.style.display === 'block') {
-                closeCheckoutModal();
-            } else if (productSearchModal.style.display === 'block') {
-                closeProductSearchModal();
-            } else {
-                 cancelSaleBtn.click();
-            }
+        // --- INICIO DE LA MODIFICACIÓN ---
+            if (storeSelectionModal.style.display === 'block') {
+                storeSelectionModal.style.display = 'none';
+
+            } 
         }
     });
 
@@ -931,8 +956,18 @@ async function fetchAndRenderSaleDetails(saleId) {
     if(openHistoryModalBtn) {
         openHistoryModalBtn.addEventListener('click', () => {
             salesHistoryModal.style.display = 'block';
-            salesHistoryDateInput.value = formatDate(new Date());
-            fetchAndRenderSalesHistory(salesHistoryDateInput.value);
+
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Se crea la fecha de hoy manualmente para evitar problemas de zona horaria
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const todayString = `${year}-${month}-${day}`;
+
+            salesHistoryDateInput.value = todayString;
+            fetchAndRenderSalesHistory(todayString);
+            // --- FIN DE LA CORRECCIÓN ---
         });
     }
     
