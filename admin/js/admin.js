@@ -2926,6 +2926,7 @@ function updateProcessorButtons() {
 
 
 
+
 async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
     const salesWidget = document.getElementById('sales-summary-widget');
     const chartTitle = document.getElementById('sales-chart-title');
@@ -2935,7 +2936,6 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
     chartTitle.textContent = `Gráfico de Ventas (cargando...)`;
 
     try {
-        // Se construye la URL con todos los parámetros de filtro.
         const params = new URLSearchParams({ startDate, endDate });
         if (storeId) {
             params.append('storeId', storeId);
@@ -2967,7 +2967,11 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
             `;
             
             chartTitle.textContent = `Historial de Ventas (${formattedStartDate} - ${formattedEndDate})`;
-            renderSalesChart(stats.daily_sales);
+
+            // --- CORRECCIÓN CLAVE ---
+            // Se usa la nueva propiedad 'daily_sales_by_store' que envía la API.
+            renderSalesChart(stats.daily_sales_by_store);
+            
         } else {
             throw new Error(result.error);
         }
@@ -2976,6 +2980,7 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
         chartTitle.textContent = 'Error al cargar gráfico';
     }
 }
+
 
 
 
@@ -3085,69 +3090,72 @@ async function fetchAndRenderProductStats(storeId = null) {
 
 // En tu archivo: admin/js/admin.js
 
-function renderSalesChart(dailySales) {
+
+
+
+// En: admin/js/admin.js
+
+function renderSalesChart(dailySalesByStore) {
     const ctx = document.getElementById('salesChart').getContext('2d');
     if (!ctx) return;
-
-    // Medida de seguridad: Si dailySales no es un array, lo convierte en uno vacío.
-    const safeDailySales = Array.isArray(dailySales) ? dailySales : [];
-
-    const labels = safeDailySales.map(sale => new Date(sale.fecha).toLocaleDateString('es-SV', { month: 'short', day: 'numeric' }));
-    const data = safeDailySales.map(sale => sale.daily_total);
 
     if (window.mySalesChart instanceof Chart) {
         window.mySalesChart.destroy();
     }
 
- window.mySalesChart = new Chart(ctx, {
-
-    type: 'line',
-
-    data: {
-
-      labels: labels,
-
-      datasets: [{
-
-        label: 'Ventas por Día',
-
-        data: data,
-
-        backgroundColor: '#0C0A4E)',
-
-        borderColor: 'rgba(12, 10, 78, 1)',
-
-        borderWidth: .5,
-
-        tension: 0
-
-      }]
-
-    },
-
-    options: {
-
-      scales: {
-
-       
-
-        y: {
-
-          beginAtZero: true
-
-        }
-
-      },
-
-      responsive: true,
-
-      maintainAspectRatio: true
-
+    if (!Array.isArray(dailySalesByStore) || dailySalesByStore.length === 0) {
+        return;
     }
 
-  });
-}
+    const chartColors = [
+        'rgba(12, 10, 78, 1)',    
+        'rgba(231, 76, 60, 1)',   
+        'rgba(46, 204, 113, 1)',  
+        'rgba(241, 196, 15, 1)',  
+        'rgba(155, 89, 182, 1)',  
+        'rgba(52, 152, 219, 1)'   
+    ];
 
+    // --- CORRECCIÓN CLAVE ---
+    // Se ajusta la forma de leer la fecha para evitar problemas con la zona horaria.
+    const labels = dailySalesByStore[0].data.map(sale => {
+        // Al añadir 'T00:00:00', le indicamos a JS que interprete la fecha en la zona horaria local.
+        return new Date(sale.fecha + 'T00:00:00').toLocaleDateString('es-SV', { 
+            month: 'short', 
+            day: 'numeric' 
+        });
+    });
+
+    const datasets = dailySalesByStore.map((storeData, index) => {
+        const color = chartColors[index % chartColors.length];
+        return {
+            label: storeData.store_name,
+            data: storeData.data.map(sale => sale.daily_total),
+            borderColor: color,
+            backgroundColor: color.replace('1)', '0.1)'),
+            borderWidth: 2,
+            tension: 0.1,
+            fill: true
+        };
+    });
+
+    window.mySalesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets 
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: true
+        }
+    });
+}
 
 
 
