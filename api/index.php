@@ -2036,6 +2036,7 @@ case 'pos_add_item':
 
 // api/index.php
 
+
 case 'pos_finalize_sale':
     if ($method === 'POST' && isset($inputData['sale_id'])) {
         $saleId = $inputData['sale_id'];
@@ -2049,12 +2050,16 @@ case 'pos_finalize_sale':
 
         try {
             // ================== INICIO DE LA CORRECCIÓN CLAVE ==================
-            // Se utiliza la tienda guardada en la sesión del POS, que es la
-            // que el administrador seleccionó al iniciar. Es la fuente más fiable.
-            if (!isset($_SESSION['pos_store_id'])) {
-                 throw new Exception("Error Crítico: La sesión del POS no tiene una tienda seleccionada.");
+            // Se obtiene el ID de la tienda directamente desde el registro de la venta
+            // para asegurar que el inventario se descuente de la tienda correcta,
+            // evitando inconsistencias de sesión.
+            $stmt_get_store = $pdo->prepare("SELECT id_tienda FROM ventas WHERE id_venta = :sale_id");
+            $stmt_get_store->execute([':sale_id' => $saleId]);
+            $id_tienda_de_la_venta = $stmt_get_store->fetchColumn();
+
+            if (!$id_tienda_de_la_venta) {
+                throw new Exception("Error Crítico: No se pudo determinar la tienda de origen de la venta para finalizarla.");
             }
-            $id_tienda_de_la_venta = $_SESSION['pos_store_id'];
             // =================== FIN DE LA CORRECCIÓN CLAVE ====================
 
             // Actualizar la venta principal
@@ -2135,8 +2140,6 @@ case 'pos_finalize_sale':
 
 
 
-
-
 case 'pos_cancel_sale':
     if ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true); $sale_id = $data['sale_id'];
@@ -2167,132 +2170,56 @@ case 'pos_search_clients':
 
 //Estadistica
 
-case 'admin/getSalesStats':
-    header('Content-Type: application/json');
-
-    try {
-        $startDateStr = $_GET['startDate'] ?? date('Y-m-d', strtotime('-1 month'));
-        $endDateStr = $_GET['endDate'] ?? date('Y-m-d');
-        
-        $startDate = new DateTime($startDateStr);
-        $endDate = new DateTime($endDateStr);
-        $endDate->modify('+1 day');
-        $endDateTimeForQuery = $endDateStr . ' 23:59:59';
-
-        $stats = [
-            'total_revenue' => '0.00',
-            'sales_by_payment' => [],
-            'daily_sales' => [],
-            'average_sale' => '0.00'
-        ];
-        
-        // =================== INICIO DE LA CORRECCIÓN ===================
-        // Se añade "v.estado_id = 29" para asegurar que solo las ventas finalizadas (no las canceladas) se incluyan en el cálculo.
-        $unifiedSalesQuery = "
-            SELECT v.fecha_venta AS fecha_transaccion, v.monto_total AS monto_transaccion, v.id_metodo_pago AS id_metodo_pago_transaccion
-            FROM ventas v
-            WHERE v.estado_id = 29 AND v.fecha_venta BETWEEN :startDate AND :endDateTimeForQuery
-            UNION ALL
-            SELECT cc.fecha_creacion AS fecha_transaccion, SUM(dc.cantidad * dc.precio_unitario) AS monto_transaccion, cc.id_metodo_pago AS id_metodo_pago_transaccion
-            FROM carritos_compra cc
-            JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
-            WHERE cc.estado_id = 23 AND cc.fecha_creacion BETWEEN :startDate AND :endDateTimeForQuery
-            GROUP BY cc.id_carrito
-        ";
-        // =================== FIN DE LA CORRECCIÓN ===================
-
-        $stmt_revenue = $pdo->prepare("SELECT COALESCE(SUM(monto_transaccion), 0) FROM ({$unifiedSalesQuery}) AS combined_sales");
-        $stmt_revenue->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
-        $totalRevenue = $stmt_revenue->fetchColumn();
-        $stats['total_revenue'] = number_format($totalRevenue, 2);
-        
-        $stmt_payment = $pdo->prepare("SELECT m.nombre_metodo, COUNT(*) as count FROM ({$unifiedSalesQuery}) AS combined_sales JOIN metodos_pago m ON combined_sales.id_metodo_pago_transaccion = m.id_metodo_pago GROUP BY m.nombre_metodo");
-        $stmt_payment->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
-        $salesByPayment = $stmt_payment->fetchAll(PDO::FETCH_ASSOC);
-        $stats['sales_by_payment'] = $salesByPayment;
-
-        $totalSalesCount = 0;
-        foreach ($salesByPayment as $paymentMethod) {
-            $totalSalesCount += $paymentMethod['count'];
-        }
-
-        if ($totalSalesCount > 0) {
-            $average = $totalRevenue / $totalSalesCount;
-            $stats['average_sale'] = number_format($average, 2);
-        }
-
-        $stmt_daily_raw = $pdo->prepare("SELECT DATE(fecha_transaccion) as fecha, SUM(monto_transaccion) as daily_total FROM ({$unifiedSalesQuery}) AS combined_sales GROUP BY DATE(fecha_transaccion) ORDER BY fecha ASC");
-        $stmt_daily_raw->execute([':startDate' => $startDateStr, ':endDateTimeForQuery' => $endDateTimeForQuery]);
-        $salesData = $stmt_daily_raw->fetchAll(PDO::FETCH_ASSOC);
-        
-        $salesByDate = [];
-        foreach ($salesData as $row) {
-            $salesByDate[$row['fecha']] = $row['daily_total'];
-        }
-
-        $period = new DatePeriod($startDate, new DateInterval('P1D'), $endDate);
-        $fullDailySales = [];
-        foreach ($period as $date) {
-            $dateString = $date->format('Y-m-d');
-            $fullDailySales[] = ['fecha' => $dateString, 'daily_total' => $salesByDate[$dateString] ?? '0.00'];
-        }
-        $stats['daily_sales'] = $fullDailySales;
-        
-        $response = ['success' => true, 'stats' => $stats];
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        $response = ['success' => false, 'error' => $e->getMessage()];
-    }
-
-    echo json_encode($response);
-    break;
 
 case 'admin/getProductStats':
-    // require_admin();
     try {
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        // Top 5 productos más vendidos, combinando TPV (detalle_ventas) y Web (detalle_carrito)
-        $stmt_top_products = $pdo->query("
+        $rol = $_SESSION['rol'];
+        $storeId_filter = $_GET['storeId'] ?? ($_SESSION['rol'] === 'administrador_global' ? 'global' : $_SESSION['id_tienda']);
+
+        // --- LÓGICA DE FILTRADO CORREGIDA ---
+        $where_clauses = ["v.estado_id = 29"];
+        $params = [];
+
+        // El filtro ahora se aplica directamente a la tabla ventas (v)
+        if ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
+            $where_clauses[] = "v.id_tienda = :storeId";
+            $params[':storeId'] = $storeId_filter;
+        }
+
+        $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+
+        // Consulta para los productos más vendidos
+        $stmt_top_products = $pdo->prepare("
             SELECT
                 p.nombre_producto,
-                SUM(combined_sales.total_sold) as total_sold
-            FROM (
-                -- Parte 1: Ventas del TPV (esto ya era correcto)
-                SELECT
-                    id_producto,
-                    subtotal AS total_sold
-                FROM detalle_ventas
-
-                UNION ALL
-
-                -- LA CORRECCIÓN CLAVE ESTÁ AQUÍ:
-                -- Ya no agrupamos ni sumamos dentro de esta parte.
-                -- Simplemente calculamos el subtotal de CADA LÍNEA de producto.
-                SELECT
-                    dc.id_producto,
-                    (dc.cantidad * dc.precio_unitario) AS total_sold
-                FROM detalle_carrito dc
-                JOIN carritos_compra cc ON dc.id_carrito = cc.id_carrito
-                WHERE cc.estado_id = 23 -- Solo carritos con estado 'Pedido Enviado'
-
-            ) AS combined_sales
-            JOIN productos p ON combined_sales.id_producto = p.id_producto
+                SUM(dv.subtotal) as total_sold
+            FROM detalle_ventas dv
+            JOIN ventas v ON dv.id_venta = v.id_venta 
+            JOIN productos p ON dv.id_producto = p.id_producto
+            {$where_sql}
             GROUP BY p.id_producto, p.nombre_producto
             ORDER BY total_sold DESC
             LIMIT 5
         ");
+        $stmt_top_products->execute($params);
         $top_products = $stmt_top_products->fetchAll(PDO::FETCH_ASSOC);
-        // --- FIN DE LA LÓGICA CORREGIDA ---
 
-        // Productos con bajo stock (esta parte no necesita cambios)
-        $stmt_low_stock = $pdo->query("
-            SELECT nombre_producto, stock_actual, stock_minimo
-            FROM productos
-            WHERE usa_inventario = 1 AND stock_actual <= stock_minimo AND estado = 1
-            ORDER BY (stock_actual - stock_minimo) ASC
-            LIMIT 10
-        ");
+        // Consulta para productos con bajo stock
+        $low_stock_query = "
+            SELECT p.nombre_producto, it.stock as stock_actual, p.stock_minimo
+            FROM inventario_tienda it
+            JOIN productos p ON it.id_producto = p.id_producto
+            WHERE p.usa_inventario = 1 AND it.stock <= p.stock_minimo AND p.estado = 1
+        ";
+        $low_stock_params = [];
+        if ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
+            $low_stock_query .= " AND it.id_tienda = :storeId";
+            $low_stock_params[':storeId'] = $storeId_filter;
+        }
+        $low_stock_query .= " ORDER BY (it.stock - p.stock_minimo) ASC LIMIT 10";
+
+        $stmt_low_stock = $pdo->prepare($low_stock_query);
+        $stmt_low_stock->execute($low_stock_params);
         $low_stock_products = $stmt_low_stock->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
@@ -2302,6 +2229,79 @@ case 'admin/getProductStats':
                 'low_stock_products' => $low_stock_products
             ]
         ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+case 'admin/getSalesStats':
+    header('Content-Type: application/json');
+    try {
+        // Recopila los filtros de la URL
+        $startDateStr = $_GET['startDate'] ?? date('Y-m-d', strtotime('-1 month'));
+        $endDateStr = $_GET['endDate'] ?? date('Y-m-d');
+        $storeId_filter = $_GET['storeId'] ?? ($_SESSION['rol'] === 'administrador_global' ? 'global' : $_SESSION['id_tienda']);
+
+        $startDate = new DateTime($startDateStr);
+        $endDate = new DateTime($endDateStr);
+        $endDate->modify('+1 day');
+
+        // --- LÓGICA DE FILTRADO CORREGIDA ---
+        $params = [':startDate' => $startDateStr, ':endDate' => $endDateStr . ' 23:59:59'];
+        $from_and_joins = "FROM ventas v";
+        $where_clauses = ["v.estado_id = 29", "v.fecha_venta BETWEEN :startDate AND :endDate"];
+
+        // El filtro ahora se aplica directamente a la columna id_tienda de la tabla ventas (v)
+        if ($storeId_filter !== 'global' && is_numeric($storeId_filter)) {
+            $where_clauses[] = "v.id_tienda = :storeId";
+            $params[':storeId'] = $storeId_filter;
+        }
+
+        $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+
+        // 1. Calcula el total de ingresos
+        $sql_revenue = "SELECT COALESCE(SUM(v.monto_total), 0) " . $from_and_joins . $where_sql;
+        $stmt_revenue = $pdo->prepare($sql_revenue);
+        $stmt_revenue->execute($params);
+        $totalRevenue = $stmt_revenue->fetchColumn();
+
+        // 2. Calcula las ventas por método de pago
+        $sql_payment = "SELECT m.nombre_metodo, COUNT(*) as count " . $from_and_joins . " JOIN metodos_pago m ON v.id_metodo_pago = m.id_metodo_pago " . $where_sql . " GROUP BY m.nombre_metodo";
+        $stmt_payment = $pdo->prepare($sql_payment);
+        $stmt_payment->execute($params);
+        $salesByPayment = $stmt_payment->fetchAll(PDO::FETCH_ASSOC);
+
+        $totalSalesCount = array_sum(array_column($salesByPayment, 'count'));
+        $average_sale = ($totalSalesCount > 0) ? number_format($totalRevenue / $totalSalesCount, 2) : '0.00';
+
+        // 3. Calcula las ventas diarias para el gráfico
+        $sql_daily = "SELECT DATE(v.fecha_venta) as fecha, SUM(v.monto_total) as daily_total " . $from_and_joins . $where_sql . " GROUP BY DATE(v.fecha_venta) ORDER BY fecha ASC";
+        $stmt_daily_raw = $pdo->prepare($sql_daily);
+        $stmt_daily_raw->execute($params);
+        $salesData = $stmt_daily_raw->fetchAll(PDO::FETCH_ASSOC);
+
+        $salesByDate = [];
+        foreach ($salesData as $row) {
+            $salesByDate[$row['fecha']] = $row['daily_total'];
+        }
+        $period = new DatePeriod(new DateTime($startDateStr), new DateInterval('P1D'), $endDate);
+        $fullDailySales = [];
+        foreach ($period as $date) {
+            $dateString = $date->format('Y-m-d');
+            $fullDailySales[] = ['fecha' => $dateString, 'daily_total' => $salesByDate[$dateString] ?? '0.00'];
+        }
+
+        $stats = [
+            'total_revenue' => number_format($totalRevenue, 2),
+            'sales_by_payment' => $salesByPayment,
+            'daily_sales' => $fullDailySales,
+            'average_sale' => $average_sale
+        ];
+
+        echo json_encode(['success' => true, 'stats' => $stats]);
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);

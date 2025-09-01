@@ -1359,6 +1359,29 @@ function initializeEditProductFormSubmit(form) {
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
 
+
+    if (target.id === 'filter-stats-btn') {
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const storeFilter = document.getElementById('stats-store-filter');
+
+        const start = startDateInput.value;
+        const end = endDateInput.value;
+        const storeId = storeFilter ? storeFilter.value : null;
+
+        if (start && end) {
+            await fetchAndRenderSalesSummary(start, end, storeId);
+            await fetchAndRenderProductStats(storeId);
+        } else {
+            alert('Por favor, selecciona un rango de fechas válido.');
+        }
+        return; // Añade un return para finalizar la ejecución aquí
+    }
+
+
+
+
+
     if (target.classList.contains('edit-user-btn')) {
         const row = target.closest('tr');
         const userId = row.dataset.userId;
@@ -2900,7 +2923,12 @@ function updateProcessorButtons() {
     loadModule('dashboard');
     updateHeaderUserInfo();
 
-async function fetchAndRenderSalesSummary(startDate, endDate) {
+
+
+
+
+
+async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
     const salesWidget = document.getElementById('sales-summary-widget');
     const chartTitle = document.getElementById('sales-chart-title');
     if (!salesWidget || !chartTitle) return;
@@ -2910,6 +2938,10 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
 
     try {
         const params = new URLSearchParams({ startDate, endDate });
+        if (storeId) {
+            params.append('storeId', storeId);
+        }
+        
         const response = await fetch(`${API_BASE_URL}?resource=admin/getSalesStats&${params.toString()}`);
         const result = await response.json();
 
@@ -2917,11 +2949,10 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
             const stats = result.stats;
             const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('es-SV');
             const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('es-SV');
-
-            // SE MODIFICA ESTE BLOQUE PARA AÑADIR LA LÍNEA DEL PROMEDIO
+            
             salesWidget.innerHTML = `
                 <p style="font-size: 2rem; font-weight: 400; color: #0C0A4E; margin-bottom: 5px;">$${stats.total_revenue}</p>
-                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: red;">
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #6c757d;">
                     ${stats.sales_by_payment.map(item => `
                         <li style="display: flex; justify-content: space-between; padding: 0.2rem 0;">
                             <span>${item.nombre_metodo}:</span>
@@ -2936,7 +2967,7 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
                 </ul>
             `;
             
-            chartTitle.textContent = `Historial de Ventas (POS y WEB) (${formattedStartDate} - ${formattedEndDate})`;
+            chartTitle.textContent = `Historial de Ventas (${formattedStartDate} - ${formattedEndDate})`;
             renderSalesChart(stats.daily_sales);
         } else {
             throw new Error(result.error);
@@ -2947,21 +2978,18 @@ async function fetchAndRenderSalesSummary(startDate, endDate) {
     }
 }
 
-// --- LÓGICA DEL MÓDULO DE ESTADÍSTICAS ---
 
-async function loadStatisticsWidgets() {
-    // Llama a las funciones para cargar los datos en paralelo
-    await Promise.all([
-        fetchAndRenderSalesSummary(),
-        fetchAndRenderProductStats()
-    ]);
-}
+
+
+
+
+
 
 async function loadStatisticsWidgets() {
     const endDateInput = document.getElementById('end-date');
     const startDateInput = document.getElementById('start-date');
+    const storeFilter = document.getElementById('stats-store-filter');
 
-    // Función para formatear fechas sin conversión a UTC
     const formatDate = (date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -2971,49 +2999,51 @@ async function loadStatisticsWidgets() {
 
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setFullYear(startDate.getFullYear() - 1); // Rango por defecto: 1 año
+    startDate.setMonth(startDate.getMonth() - 1);
 
     startDateInput.value = formatDate(startDate);
     endDateInput.value = formatDate(endDate);
     
-    // Carga inicial de datos
-    await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value);
-    await fetchAndRenderProductStats();
+    const initialStoreId = storeFilter ? storeFilter.value : null;
 
-    // Listener para el botón de filtrar
-    document.getElementById('filter-stats-btn').addEventListener('click', () => {
-        const start = startDateInput.value;
-        const end = endDateInput.value;
-        if (start && end) {
-            fetchAndRenderSalesSummary(start, end);
-        } else {
-            alert('Por favor, selecciona un rango de fechas válido.');
-        }
-    });
+    await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value, initialStoreId);
+    await fetchAndRenderProductStats(initialStoreId);
+
+
+
 }
 
-async function fetchAndRenderProductStats() {
+
+
+
+async function fetchAndRenderProductStats(storeId = null) {
     const topProductsWidget = document.getElementById('top-products-widget');
     const lowStockWidget = document.getElementById('low-stock-widget');
     if (!topProductsWidget || !lowStockWidget) return;
 
+    topProductsWidget.innerHTML = `<p>Cargando...</p>`;
+    lowStockWidget.innerHTML = `<p>Cargando...</p>`;
+
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getProductStats`);
+        const params = new URLSearchParams();
+        if (storeId) {
+            params.append('storeId', storeId);
+        }
+
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getProductStats&${params.toString()}`);
         const result = await response.json();
 
         if (result.success) {
             const stats = result.stats;
-            // Renderiza el top 5 de productos
             topProductsWidget.innerHTML = `
                 <ol style="padding-left: 1.5rem;">
                     ${stats.top_products.map(p => `
                         <li style="margin-bottom: 0.5rem;">
                             ${p.nombre_producto} - <strong>$${parseFloat(p.total_sold).toFixed(2)}</strong>
                         </li>
-                    `).join('')}
+                    `).join('') || '<li>No hay datos.</li>'}
                 </ol>
             `;
-            // Renderiza los productos con bajo stock
             lowStockWidget.innerHTML = `
                 <ul style="list-style: none; padding: 0;">
                     ${stats.low_stock_products.map(p => `
@@ -3021,7 +3051,7 @@ async function fetchAndRenderProductStats() {
                             <span>${p.nombre_producto}</span>
                             <strong style="color: #c0392b;">Stock: ${p.stock_actual} (Mín: ${p.stock_minimo})</strong>
                         </li>
-                    `).join('')}
+                    `).join('') || '<li>No hay productos con bajo stock.</li>'}
                 </ul>
             `;
         } else {
@@ -3032,6 +3062,25 @@ async function fetchAndRenderProductStats() {
         lowStockWidget.innerHTML = `<p style="color:red;">Error al cargar stock.</p>`;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // En tu archivo: admin/js/admin.js
 
