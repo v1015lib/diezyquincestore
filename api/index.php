@@ -4910,7 +4910,14 @@ case 'layout-settings':
             break;
         case 'login':
             if ($method === 'POST') handleLoginRequest($pdo);
-            break;
+        break;
+        case 'admin/login':
+            if ($method === 'POST') {
+                // El formulario del admin envía los datos vía POST, no como JSON
+                $response = handleAdminLoginRequest($pdo, $_POST);
+                echo json_encode($response);
+            }
+        break;
         case 'check-username':
             handleCheckUsernameRequest($pdo);
             break;
@@ -5346,7 +5353,65 @@ function handleLoginRequest(PDO $pdo) {
         throw new Exception("Nombre de usuario o contraseña incorrectos.");
     }
 }
+/**
+ * Maneja la lógica de autenticación para administradores y personal.
+ * Verifica credenciales contra la tabla 'usuarios' y establece la sesión.
+ * @param PDO $pdo Conexión a la base de datos.
+ * @param array $postData Datos del formulario ($_POST).
+ * @return array Resultado de la operación.
+ * @throws Exception Si la validación falla.
+ */
+function handleAdminLoginRequest(PDO $pdo, array $postData) {
+    $username = $postData['username'] ?? '';
+    $password = $postData['password'] ?? '';
 
+    if (empty($username) || empty($password)) {
+        http_response_code(400); // Bad Request
+        throw new Exception('Por favor, ingresa tu usuario y contraseña.');
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT u.id_usuario, u.nombre_usuario, u.cod_acceso, u.rol, u.id_tienda, u.estado, t.nombre_tienda 
+        FROM usuarios u
+        LEFT JOIN tiendas t ON u.id_tienda = t.id_tienda
+        WHERE u.nombre_usuario = :username
+    ");
+    $stmt->execute(['username' => $username]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user && password_verify($password, $user['cod_acceso'])) {
+        if ($user['estado'] === 'inactivo') {
+            http_response_code(403); // Forbidden
+            throw new Exception('Acceso bloqueado. Contacta a un administrador.');
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['loggedin'] = true;
+        $_SESSION['id_usuario'] = $user['id_usuario'];
+        $_SESSION['nombre_usuario'] = $user['nombre_usuario'];
+        $_SESSION['rol'] = $user['rol'];
+        $_SESSION['id_tienda'] = $user['id_tienda'];
+        $_SESSION['nombre_tienda'] = $user['nombre_tienda'];
+
+        if ($user['rol'] === 'administrador_global') {
+            $_SESSION['permisos'] = json_encode([]);
+        } else {
+            $stmt_roles = $pdo->prepare("SELECT permisos FROM roles WHERE nombre_rol = :rol");
+            $stmt_roles->execute([':rol' => $user['rol']]);
+            $rol_data = $stmt_roles->fetch(PDO::FETCH_ASSOC);
+            if ($rol_data) {
+                $_SESSION['permisos'] = $rol_data['permisos'] ?? json_encode([]);
+            } else {
+                http_response_code(403);
+                throw new Exception('Tu rol de usuario no tiene un acceso definido en el sistema.');
+            }
+        }
+        return ['success' => true];
+    } else {
+        http_response_code(401); // Unauthorized
+        throw new Exception("Usuario o contraseña incorrectos.");
+    }
+}
 
 
 function handleRegisterRequest(PDO $pdo, array $data) {
