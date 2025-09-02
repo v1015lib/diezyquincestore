@@ -1222,6 +1222,37 @@ button {
   color: white;
 }
 
+@-webkit-keyframes highlight-fade-strong {
+  0% {
+    background-color: #0C0A4E;
+    color: white;
+  }
+  100% {
+    background-color: #ffffff;
+    color: #343a40;
+  }
+}
+
+@keyframes highlight-fade-strong {
+  0% {
+    background-color: #0C0A4E;
+    color: white;
+  }
+  100% {
+    background-color: #ffffff;
+    color: #343a40;
+  }
+}
+.product-table tbody tr.new-item-highlight {
+  -webkit-animation: highlight-fade-strong 0.5s ease-out forwards;
+          animation: highlight-fade-strong 0.5s ease-out forwards;
+}
+.product-table tbody tr.new-item-highlight > * {
+  color: inherit;
+  -webkit-transition: color 0.5s ease-out;
+  transition: color 0.5s ease-out;
+}
+
 @media (max-width: 991px) {
   .dashboard-sidemenu {
     position: fixed;

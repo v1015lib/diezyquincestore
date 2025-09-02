@@ -1,5 +1,8 @@
 <div id="view-list-container">
-    <h3 id="list-name-header"></h3>
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+        <h3 id="list-name-header"></h3>
+        <button id="refresh-list-btn" class="action-btn btn-sm">Actualizar Lista</button>
+    </div>
 
     <fieldset class="form-fieldset">
         <legend class="form-section-header">Añadir Producto Existente</legend>

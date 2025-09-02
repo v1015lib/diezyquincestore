@@ -2423,6 +2423,7 @@ async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
 // EN admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN COMPLETA)
 
 mainContent.addEventListener('focusout', (event) => {
+    // Verifica si el elemento que perdió el foco es un input dentro de una celda editable
     if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
         const input = event.target;
         const cell = input.parentElement;
@@ -2430,35 +2431,37 @@ mainContent.addEventListener('focusout', (event) => {
         const newValue = input.value.trim();
         const row = cell.closest('tr');
 
+        // Si el valor no cambió o está vacío, simplemente revierte al texto original
         if (newValue === originalValue || newValue === '') {
-            cell.innerHTML = originalValue;
-             if (cell.dataset.field === 'precio_venta' || cell.dataset.field === 'precio_compra') {
-                cell.textContent = `$${parseFloat(originalValue.replace('$', '')).toFixed(cell.dataset.field === 'precio_compra' ? 3 : 2)}`;
+            cell.textContent = originalValue;
+            // Si era un precio, añade el símbolo de dólar de nuevo
+            if (cell.dataset.field === 'precio_venta') {
+                cell.textContent = `$${parseFloat(originalValue).toFixed(2)}`;
             }
             return;
         }
 
+        // Determina qué tipo de fila es (producto, departamento o tienda)
         const productId = row.dataset.productId;
         const departmentId = row.dataset.departmentId;
-        const tiendaId = row.dataset.tiendaId;
-        const proveedorId = row.dataset.proveedorId;
-        const itemId = row.dataset.itemId; // Para listas de compras
+        const tiendaId = row.dataset.tiendaId; // Se define la variable que faltaba
+        const proveedorId = row.dataset.proveedorId; // <-- AÑADIDO
         
         const field = cell.dataset.field;
 
+        // Llama a la función de guardado correspondiente
         if (productId) {
             saveFieldUpdate(productId, field, newValue, cell);
         } else if (departmentId) {
             saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
         } else if (tiendaId) {
             saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
-        } else if (proveedorId) {
+        }else if (proveedorId) { // <-- AÑADIDO
             saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
-        } else if (itemId) { // Añadido para listas de compras
-            saveListItemUpdate(itemId, field, newValue, cell);
         }
     }
 });
+
 
 
 function initializeBackupControls() {
@@ -3983,19 +3986,18 @@ async function initializeCreateShoppingListForm() {
     form.addEventListener('submit', async e => {
         e.preventDefault();
         const listName = document.getElementById('nombre_lista').value;
-        const providerId = providerSelect.value;
+        const providerId = providerSelect.value; // Capturar el valor del proveedor
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/createShoppingList`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     nombre_lista: listName,
-                    id_proveedor: providerId
+                    id_proveedor: providerId // Enviar el ID del proveedor
                 })
             });
             const result = await response.json();
             if (result.success) {
-                // Esta línea es la que llama a la vista que daba el error en la API
                 loadAndRenderListView(result.newListId);
             } else {
                 throw new Error(result.error);
@@ -4007,16 +4009,32 @@ async function initializeCreateShoppingListForm() {
 }
 async function loadAndRenderListView(listId) {
     const actionContent = document.getElementById('action-content');
+    const itemsTbody = actionContent.querySelector('#list-items-tbody');
+    
+    // Antes de recargar, guardamos los IDs de los items que ya están visibles
+    const existingItemIds = new Set();
+    if (itemsTbody) {
+        itemsTbody.querySelectorAll('tr').forEach(row => {
+            if (row.dataset.itemId) {
+                existingItemIds.add(row.dataset.itemId);
+            }
+        });
+    }
+
     try {
-        const response = await fetch(`actions/listas_compras/ver_lista.php`);
-        actionContent.innerHTML = await response.text();
+        // Si la vista no está cargada, la carga primero
+        if (!actionContent.querySelector('#view-list-container')) {
+            const response = await fetch(`actions/listas_compras/ver_lista.php`);
+            actionContent.innerHTML = await response.text();
+        }
 
         const detailsResponse = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
         const detailsResult = await detailsResponse.json();
 
         if (detailsResult.success) {
             document.getElementById('list-name-header').textContent = `Editando Lista: ${detailsResult.listName}`;
-            renderListItems(detailsResult.items);
+            // Pasamos los IDs existentes a la función que renderiza
+            renderListItems(detailsResult.items, existingItemIds);
             initializeListViewInteractions(listId);
         } else {
             throw new Error(detailsResult.error);
@@ -4027,13 +4045,17 @@ async function loadAndRenderListView(listId) {
 }
 
 
-// Reemplaza la función renderListItems con esta
-function renderListItems(items) {
+function renderListItems(items, existingItemIds = new Set()) {
     const itemsTbody = document.getElementById('list-items-tbody');
     itemsTbody.innerHTML = '';
     items.forEach(item => {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
+        
+        // Si el ID del item no estaba antes, es nuevo. Le añadimos la clase para la animación.
+        if (!existingItemIds.has(item.id_item_lista.toString())) {
+            row.classList.add('new-item-highlight');
+        }
         
         const isManualItem = item.id_producto === null;
         
@@ -4060,14 +4082,22 @@ function renderListItems(items) {
     });
 }
 
-// Reemplaza la función initializeListViewInteractions con esta
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
     const searchResultsContainer = document.getElementById('product-search-results-list');
     const itemsTbody = document.getElementById('list-items-tbody');
     const manualForm = document.getElementById('manual-add-product-form');
+    const refreshBtn = document.getElementById('refresh-list-btn'); // <-- Se obtiene el nuevo botón
     let searchTimer;
 
+    // NUEVO: Event listener para el botón de actualizar
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            loadAndRenderListView(listId);
+        });
+    }
+
+    // Búsqueda de productos existentes
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const query = searchInput.value.trim();
@@ -4096,6 +4126,7 @@ function initializeListViewInteractions(listId) {
         }, 300);
     });
     
+    // Manejador para el formulario de adición manual
     if(manualForm) {
         manualForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -4124,6 +4155,7 @@ function initializeListViewInteractions(listId) {
         });
     }
 
+    // Interacciones con la tabla (cantidad, stock, eliminar)
     itemsTbody.addEventListener('change', async (e) => {
         const target = e.target;
         const row = target.closest('tr');
@@ -4151,74 +4183,6 @@ function initializeListViewInteractions(listId) {
         }
     });
 }
-
-// Añade esta NUEVA función a tu archivo admin.js
-async function saveListItemUpdate(itemId, field, value, cell) {
-    const originalText = cell.innerHTML;
-    cell.textContent = 'Guardando...';
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/updateListItem`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_item_lista: itemId, field: field, value: value })
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.error);
-        
-        if (field === 'precio_compra') {
-            cell.textContent = `$${parseFloat(value).toFixed(3)}`;
-        } else {
-            cell.textContent = value;
-        }
-    } catch (error) {
-        console.error('Error al guardar:', error);
-        cell.innerHTML = originalText;
-        alert("Error al guardar el cambio.");
-    }
-}
-
-
-// REEMPLAZA el listener de 'focusout' en mainContent con este
-mainContent.addEventListener('focusout', (event) => {
-    if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
-        const input = event.target;
-        const cell = input.parentElement;
-        const originalValue = input.dataset.originalValue;
-        const newValue = input.value.trim();
-        const row = cell.closest('tr');
-
-        if (newValue === originalValue || newValue === '') {
-            cell.innerHTML = originalValue;
-             if (cell.dataset.field === 'precio_venta' || cell.dataset.field === 'precio_compra') {
-                cell.textContent = `$${parseFloat(originalValue.replace('$', '')).toFixed(cell.dataset.field === 'precio_compra' ? 3 : 2)}`;
-            }
-            return;
-        }
-
-        const productId = row.dataset.productId;
-        const departmentId = row.dataset.departmentId;
-        const tiendaId = row.dataset.tiendaId;
-        const proveedorId = row.dataset.proveedorId;
-        const itemId = row.dataset.itemId;
-        
-        const field = cell.dataset.field;
-
-        if (productId) {
-            saveFieldUpdate(productId, field, newValue, cell);
-        } else if (departmentId) {
-            saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
-        } else if (tiendaId) {
-            saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
-        } else if (proveedorId) {
-            saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
-        } else if (itemId) {
-            saveListItemUpdate(itemId, field, newValue, cell);
-        }
-    }
-});
-
-
-
 
 async function addProductToList(listId, productId) {
     await fetch(`${API_BASE_URL}?resource=admin/addProductToList`, {

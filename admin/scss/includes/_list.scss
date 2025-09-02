@@ -22,3 +22,39 @@
 		color: white;
 	}		
 }
+
+// --- INICIO: Animación para resaltar nuevos items en la lista ---
+
+// Define la animación de desvanecimiento
+
+
+
+
+// --- FIN: Animación ---
+// --- INICIO: Animación para resaltar nuevos items en la lista (Versión Mejorada) ---
+
+// Define la animación de desvanecimiento para fondo y texto
+@keyframes highlight-fade-strong {
+  0% {
+    background-color: #0C0A4E; // Tu $primary-color
+    color: white;
+  }
+  100% {
+    background-color: #ffffff; // Fondo blanco
+    color: #343a40; // Texto negro/gris oscuro
+  }
+}
+
+// Clase que se aplicará a las nuevas filas
+.product-table tbody tr.new-item-highlight {
+  // Se aplica la animación a la fila completa
+  animation: highlight-fade-strong .5s ease-out forwards;
+  
+  // Forzamos a que los elementos internos (como los <td>) hereden el color
+  & > * {
+      color: inherit;
+      transition: color .5s ease-out; // Transición suave también para el color del texto
+  }
+}
+
+// --- FIN: Animación ---

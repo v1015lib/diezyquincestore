@@ -598,6 +598,100 @@ case 'admin/createShoppingList':
 /*************************************************************************************//*************************************************************************************/
 
 
+// Añade estos DOS nuevos bloques 'case' dentro del switch principal en tu api/index.php
+
+case 'admin/addProductToList':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $productId = filter_var($data['id_producto'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$listId || !$productId || !$userId) {
+            throw new Exception('Datos incompletos para añadir el producto.');
+        }
+
+        // 1. Obtener el precio de compra del producto
+        $stmt_price = $pdo->prepare("SELECT precio_compra, nombre_producto FROM productos WHERE id_producto = :pid");
+        $stmt_price->execute([':pid' => $productId]);
+        $product_data = $stmt_price->fetch(PDO::FETCH_ASSOC);
+        $purchasePrice = $product_data['precio_compra'] ?? 0.0;
+        $productName = $product_data['nombre_producto'] ?? 'Producto no encontrado';
+
+        // 2. Insertar el item en la lista o actualizar la cantidad si ya existe
+        $stmt = $pdo->prepare(
+            "INSERT INTO listas_compras_items (id_lista, id_producto, precio_compra, cantidad, usar_stock_actual) 
+             VALUES (:list_id, :product_id, :price, 1, FALSE)
+             ON DUPLICATE KEY UPDATE cantidad = cantidad + 1"
+        );
+        $stmt->execute([
+            ':list_id' => $listId,
+            ':product_id' => $productId,
+            ':price' => $purchasePrice
+        ]);
+
+        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$productName}' a la lista ID {$listId}.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/addManualProductToList':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $productName = trim($data['nombre_producto'] ?? '');
+        $purchasePrice = filter_var($data['precio_compra'] ?? 0.0, FILTER_VALIDATE_FLOAT);
+        $quantity = filter_var($data['cantidad'] ?? 1, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$listId || empty($productName) || $purchasePrice < 0 || $quantity <= 0 || !$userId) {
+            throw new Exception('Datos incompletos o no válidos para añadir el producto.');
+        }
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad, usar_stock_actual) 
+             VALUES (:list_id, NULL, :name, :price, :qty, FALSE)"
+        );
+        $stmt->execute([
+            ':list_id' => $listId,
+            ':name' => $productName,
+            ':price' => $purchasePrice,
+            ':qty' => $quantity
+        ]);
+
+        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió el producto manual '{$productName}' a la lista ID {$listId}.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Producto manual añadido.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Reemplaza el case 'admin/getShoppingListDetails' existente con este bloque
 case 'admin/getShoppingListDetails':
     try {
