@@ -1244,13 +1244,39 @@ button {
   }
 }
 .product-table tbody tr.new-item-highlight {
-  -webkit-animation: highlight-fade-strong 0.5s ease-out forwards;
-          animation: highlight-fade-strong 0.5s ease-out forwards;
+  -webkit-animation: highlight-fade-strong 0.3s ease-out forwards;
+          animation: highlight-fade-strong 0.3s ease-out forwards;
 }
 .product-table tbody tr.new-item-highlight > * {
   color: inherit;
-  -webkit-transition: color 0.5s ease-out;
-  transition: color 0.5s ease-out;
+  -webkit-transition: color 0.3s ease-out;
+  transition: color 0.3s ease-out;
+}
+
+.product-table tbody tr {
+  cursor: pointer;
+  -webkit-transition: opacity 0.3s ease, background-color 0.3s ease;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.product-table tbody tr.item-marked {
+  text-decoration: line-through;
+  opacity: 0.5;
+  background-color: #f8f9fa;
+}
+.product-table tbody tr.item-marked:hover {
+  opacity: 0.8;
+}
+
+.product-table .mark-item-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.product-table tbody tr {
+  cursor: default;
 }
 
 @media (max-width: 991px) {

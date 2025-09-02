@@ -683,7 +683,30 @@ case 'admin/addManualProductToList':
 
 
 
+// Añade este NUEVO case en tu switch principal
+case 'admin/toggleListItemMark':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $itemId = filter_var($data['id_item_lista'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$itemId) {
+            throw new Exception('ID de item no válido.');
+        }
 
+        // Invierte el valor actual del campo 'marcado'
+        $stmt = $pdo->prepare("UPDATE listas_compras_items SET marcado = NOT marcado WHERE id_item_lista = :id");
+        $stmt->execute([':id' => $itemId]);
+        
+        // Obtiene el nuevo estado para devolverlo
+        $stmt_new_status = $pdo->prepare("SELECT marcado FROM listas_compras_items WHERE id_item_lista = :id");
+        $stmt_new_status->execute([':id' => $itemId]);
+        $newState = $stmt_new_status->fetchColumn();
+
+        echo json_encode(['success' => true, 'newState' => $newState]);
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
 
 
 
@@ -713,7 +736,7 @@ case 'admin/getShoppingListDetails':
         }
         $stock_selection = !empty($stock_sql_subquery) ? "COALESCE({$stock_sql_subquery}, 0)" : "0";
         
-        // Consulta corregida: Ahora que la columna existe, esta consulta funcionará.
+        // CORRECCIÓN: Se añade lci.marcado a la consulta
         $stmt_items = $pdo->prepare("
             SELECT 
                 lci.id_item_lista, 
@@ -722,11 +745,12 @@ case 'admin/getShoppingListDetails':
                 lci.precio_compra, 
                 lci.cantidad, 
                 lci.usar_stock_actual, 
+                lci.marcado,
                 {$stock_selection} AS stock_actual
             FROM listas_compras_items lci
             LEFT JOIN productos p ON lci.id_producto = p.id_producto
             WHERE lci.id_lista = :id
-            ORDER BY COALESCE(p.nombre_producto, lci.nombre_producto) ASC
+            ORDER BY lci.marcado ASC, COALESCE(p.nombre_producto, lci.nombre_producto) ASC
         ");
         $stmt_items->execute([':id' => $listId]);
         $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
@@ -737,6 +761,7 @@ case 'admin/getShoppingListDetails':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
 
 // Reemplaza el case 'admin/updateListItem' existente con este bloque
 case 'admin/updateListItem':

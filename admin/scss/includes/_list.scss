@@ -48,13 +48,43 @@
 // Clase que se aplicará a las nuevas filas
 .product-table tbody tr.new-item-highlight {
   // Se aplica la animación a la fila completa
-  animation: highlight-fade-strong .5s ease-out forwards;
+  animation: highlight-fade-strong .3s ease-out forwards;
   
   // Forzamos a que los elementos internos (como los <td>) hereden el color
   & > * {
       color: inherit;
-      transition: color .5s ease-out; // Transición suave también para el color del texto
+      transition: color .3s ease-out; // Transición suave también para el color del texto
   }
 }
 
 // --- FIN: Animación ---
+
+.product-table tbody tr {
+  cursor: pointer; // Indica que las filas son clickables
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.product-table tbody tr.item-marked {
+  text-decoration: line-through; // Tacha el texto
+  opacity: 0.5; // Lo hace semitransparente
+  background-color: #f8f9fa; // Un fondo gris claro
+
+  &:hover {
+    opacity: 0.8; // Aumenta un poco la opacidad al pasar el mouse
+  }
+}
+// --- INICIO: Estilos para el checkbox de marcar item ---
+
+.product-table .mark-item-checkbox {
+  width: 20px;       // Aumenta el tamaño del checkbox
+  height: 20px;
+  cursor: pointer;
+  vertical-align: middle; // Centra verticalmente en la celda
+}
+
+// Se quita el cursor de puntero para toda la fila
+.product-table tbody tr {
+  cursor: default; 
+}
+
+// --- FIN: Estilos ---

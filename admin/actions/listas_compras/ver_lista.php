@@ -35,18 +35,19 @@
     </fieldset>
 
     <div class="product-list-container" style="margin-top: 2rem;">
-        <table class="product-table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Precio de Compra</th>
-                    <th>Cantidad</th>
-                    <th>Usar Stock Actual</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody id="list-items-tbody">
-                </tbody>
-        </table>
+    <table class="product-table">
+    <thead>
+        <tr>
+            <th>Marcar</th> <th>Producto</th>
+            <th>Precio de Compra</th>
+            <th>Cantidad</th>
+            <th>Usar Stock Actual</th>
+            <th>Acción</th>
+        </tr>
+    </thead>
+    <tbody id="list-items-tbody">
+        </tbody>
+</table>
+
     </div>
 </div>
