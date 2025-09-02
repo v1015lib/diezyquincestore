@@ -2423,7 +2423,6 @@ async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
 // EN admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN COMPLETA)
 
 mainContent.addEventListener('focusout', (event) => {
-    // Verifica si el elemento que perdió el foco es un input dentro de una celda editable
     if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
         const input = event.target;
         const cell = input.parentElement;
@@ -2431,37 +2430,35 @@ mainContent.addEventListener('focusout', (event) => {
         const newValue = input.value.trim();
         const row = cell.closest('tr');
 
-        // Si el valor no cambió o está vacío, simplemente revierte al texto original
         if (newValue === originalValue || newValue === '') {
-            cell.textContent = originalValue;
-            // Si era un precio, añade el símbolo de dólar de nuevo
-            if (cell.dataset.field === 'precio_venta') {
-                cell.textContent = `$${parseFloat(originalValue).toFixed(2)}`;
+            cell.innerHTML = originalValue;
+             if (cell.dataset.field === 'precio_venta' || cell.dataset.field === 'precio_compra') {
+                cell.textContent = `$${parseFloat(originalValue.replace('$', '')).toFixed(cell.dataset.field === 'precio_compra' ? 3 : 2)}`;
             }
             return;
         }
 
-        // Determina qué tipo de fila es (producto, departamento o tienda)
         const productId = row.dataset.productId;
         const departmentId = row.dataset.departmentId;
-        const tiendaId = row.dataset.tiendaId; // Se define la variable que faltaba
-        const proveedorId = row.dataset.proveedorId; // <-- AÑADIDO
+        const tiendaId = row.dataset.tiendaId;
+        const proveedorId = row.dataset.proveedorId;
+        const itemId = row.dataset.itemId; // Para listas de compras
         
         const field = cell.dataset.field;
 
-        // Llama a la función de guardado correspondiente
         if (productId) {
             saveFieldUpdate(productId, field, newValue, cell);
         } else if (departmentId) {
             saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
         } else if (tiendaId) {
             saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
-        }else if (proveedorId) { // <-- AÑADIDO
+        } else if (proveedorId) {
             saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
+        } else if (itemId) { // Añadido para listas de compras
+            saveListItemUpdate(itemId, field, newValue, cell);
         }
     }
 });
-
 
 
 function initializeBackupControls() {
@@ -3986,18 +3983,19 @@ async function initializeCreateShoppingListForm() {
     form.addEventListener('submit', async e => {
         e.preventDefault();
         const listName = document.getElementById('nombre_lista').value;
-        const providerId = providerSelect.value; // Capturar el valor del proveedor
+        const providerId = providerSelect.value;
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/createShoppingList`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     nombre_lista: listName,
-                    id_proveedor: providerId // Enviar el ID del proveedor
+                    id_proveedor: providerId
                 })
             });
             const result = await response.json();
             if (result.success) {
+                // Esta línea es la que llama a la vista que daba el error en la API
                 loadAndRenderListView(result.newListId);
             } else {
                 throw new Error(result.error);
@@ -4028,26 +4026,31 @@ async function loadAndRenderListView(listId) {
     }
 }
 
+
+// Reemplaza la función renderListItems con esta
 function renderListItems(items) {
     const itemsTbody = document.getElementById('list-items-tbody');
     itemsTbody.innerHTML = '';
     items.forEach(item => {
         const row = document.createElement('tr');
-        // Guardamos el stock actual como un data-attribute para usarlo después
         row.dataset.itemId = item.id_item_lista;
-        row.dataset.stockActual = item.stock_actual;
-
-        // Decidimos qué cantidad mostrar en el input
-        const displayQuantity = item.usar_stock_actual ? item.stock_actual : item.cantidad;
-
+        
+        const isManualItem = item.id_producto === null;
+        
+        if (!isManualItem) {
+            row.dataset.stockActual = item.stock_actual;
+        }
+        
+        const displayQuantity = (item.usar_stock_actual && !isManualItem) ? item.stock_actual : item.cantidad;
+        
         row.innerHTML = `
-            <td>${item.nombre_producto}</td>
-            <td>$${parseFloat(item.precio_compra).toFixed(3)}</td>
+            <td ${isManualItem ? 'class="editable" data-field="nombre_producto"' : ''}>${item.nombre_producto}</td>
+            <td ${isManualItem ? 'class="editable" data-field="precio_compra"' : ''}>$${parseFloat(item.precio_compra).toFixed(3)}</td>
             <td>
                 <input type="number" class="quantity-input" value="${displayQuantity}" min="0" ${item.usar_stock_actual ? 'disabled' : ''}>
             </td>
             <td>
-                <input type="checkbox" class="use-stock-checkbox" ${item.usar_stock_actual ? 'checked' : ''}>
+                <input type="checkbox" class="use-stock-checkbox" ${item.usar_stock_actual ? 'checked' : ''} ${isManualItem ? 'disabled' : ''}>
             </td>
             <td>
                 <button class="action-btn btn-sm btn-danger remove-item-btn">Quitar</button>
@@ -4057,10 +4060,12 @@ function renderListItems(items) {
     });
 }
 
+// Reemplaza la función initializeListViewInteractions con esta
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
     const searchResultsContainer = document.getElementById('product-search-results-list');
     const itemsTbody = document.getElementById('list-items-tbody');
+    const manualForm = document.getElementById('manual-add-product-form');
     let searchTimer;
 
     searchInput.addEventListener('input', () => {
@@ -4090,10 +4095,39 @@ function initializeListViewInteractions(listId) {
             }
         }, 300);
     });
+    
+    if(manualForm) {
+        manualForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const feedbackDiv = document.getElementById('manual-add-feedback');
+            const data = {
+                id_lista: listId,
+                nombre_producto: document.getElementById('manual_product_name').value,
+                precio_compra: document.getElementById('manual_purchase_price').value,
+                cantidad: document.getElementById('manual_quantity').value
+            };
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if(!result.success) throw new Error(result.error);
+                manualForm.reset();
+                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                loadAndRenderListView(listId);
+                setTimeout(() => feedbackDiv.innerHTML = '', 2000);
+            } catch (error) {
+                feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+            }
+        });
+    }
 
     itemsTbody.addEventListener('change', async (e) => {
         const target = e.target;
         const row = target.closest('tr');
+        if (!row) return;
         const itemId = row.dataset.itemId;
         const quantityInput = row.querySelector('.quantity-input');
 
@@ -4104,14 +4138,9 @@ function initializeListViewInteractions(listId) {
             await updateListItem(itemId, 'usar_stock_actual', useStock);
             quantityInput.disabled = useStock;
             
-            // --- INICIO DE LA CORRECCIÓN CLAVE ---
             if (useStock) {
-                // Si se marca, toma el valor del stock guardado en la fila
                 quantityInput.value = row.dataset.stockActual;
             }
-            // Si se desmarca, el input se habilita pero no cambiamos el valor,
-            // permitiendo al usuario poner una cantidad manual.
-            // --- FIN DE LA CORRECCIÓN CLAVE ---
         }
     });
 
@@ -4122,6 +4151,74 @@ function initializeListViewInteractions(listId) {
         }
     });
 }
+
+// Añade esta NUEVA función a tu archivo admin.js
+async function saveListItemUpdate(itemId, field, value, cell) {
+    const originalText = cell.innerHTML;
+    cell.textContent = 'Guardando...';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateListItem`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_item_lista: itemId, field: field, value: value })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        
+        if (field === 'precio_compra') {
+            cell.textContent = `$${parseFloat(value).toFixed(3)}`;
+        } else {
+            cell.textContent = value;
+        }
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.innerHTML = originalText;
+        alert("Error al guardar el cambio.");
+    }
+}
+
+
+// REEMPLAZA el listener de 'focusout' en mainContent con este
+mainContent.addEventListener('focusout', (event) => {
+    if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
+        const input = event.target;
+        const cell = input.parentElement;
+        const originalValue = input.dataset.originalValue;
+        const newValue = input.value.trim();
+        const row = cell.closest('tr');
+
+        if (newValue === originalValue || newValue === '') {
+            cell.innerHTML = originalValue;
+             if (cell.dataset.field === 'precio_venta' || cell.dataset.field === 'precio_compra') {
+                cell.textContent = `$${parseFloat(originalValue.replace('$', '')).toFixed(cell.dataset.field === 'precio_compra' ? 3 : 2)}`;
+            }
+            return;
+        }
+
+        const productId = row.dataset.productId;
+        const departmentId = row.dataset.departmentId;
+        const tiendaId = row.dataset.tiendaId;
+        const proveedorId = row.dataset.proveedorId;
+        const itemId = row.dataset.itemId;
+        
+        const field = cell.dataset.field;
+
+        if (productId) {
+            saveFieldUpdate(productId, field, newValue, cell);
+        } else if (departmentId) {
+            saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
+        } else if (tiendaId) {
+            saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
+        } else if (proveedorId) {
+            saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
+        } else if (itemId) {
+            saveListItemUpdate(itemId, field, newValue, cell);
+        }
+    }
+});
+
+
+
 
 async function addProductToList(listId, productId) {
     await fetch(`${API_BASE_URL}?resource=admin/addProductToList`, {

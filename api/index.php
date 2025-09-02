@@ -598,13 +598,12 @@ case 'admin/createShoppingList':
 /*************************************************************************************//*************************************************************************************/
 
 
-
+// Reemplaza el case 'admin/getShoppingListDetails' existente con este bloque
 case 'admin/getShoppingListDetails':
     try {
         $listId = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
         if (!$listId) throw new Exception('ID de lista no válido.');
 
-        // Obtenemos el rol y la tienda del usuario de la sesión
         $user_role = $_SESSION['rol'] ?? 'empleado';
         $user_store_id = $_SESSION['id_tienda'] ?? null;
 
@@ -612,31 +611,28 @@ case 'admin/getShoppingListDetails':
         $stmt_list->execute([':id' => $listId]);
         $listName = $stmt_list->fetchColumn();
 
-        // --- LÓGICA DE STOCK MULTITIENDA ---
         $stock_sql_subquery = "";
         if ($user_role === 'administrador_global') {
-            // Para el admin global, sumamos el stock de todas las tiendas
             $stock_sql_subquery = "(SELECT SUM(stock) FROM inventario_tienda it WHERE it.id_producto = p.id_producto)";
         } else if ($user_store_id) {
-            // Para usuarios de tienda, obtenemos el stock de su tienda asignada
             $stock_sql_subquery = "(SELECT stock FROM inventario_tienda it WHERE it.id_producto = p.id_producto AND it.id_tienda = " . intval($user_store_id) . ")";
         }
-
-        // Si hay una subconsulta de stock, la usamos, si no, devolvemos 0.
         $stock_selection = !empty($stock_sql_subquery) ? "COALESCE({$stock_sql_subquery}, 0)" : "0";
         
+        // Consulta corregida: Ahora que la columna existe, esta consulta funcionará.
         $stmt_items = $pdo->prepare("
             SELECT 
                 lci.id_item_lista, 
-                p.nombre_producto, 
+                lci.id_producto,
+                COALESCE(p.nombre_producto, lci.nombre_producto) AS nombre_producto,
                 lci.precio_compra, 
                 lci.cantidad, 
                 lci.usar_stock_actual, 
                 {$stock_selection} AS stock_actual
             FROM listas_compras_items lci
-            JOIN productos p ON lci.id_producto = p.id_producto
+            LEFT JOIN productos p ON lci.id_producto = p.id_producto
             WHERE lci.id_lista = :id
-            ORDER BY p.nombre_producto ASC
+            ORDER BY COALESCE(p.nombre_producto, lci.nombre_producto) ASC
         ");
         $stmt_items->execute([':id' => $listId]);
         $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
@@ -648,54 +644,27 @@ case 'admin/getShoppingListDetails':
     }
     break;
 
-case 'admin/addProductToList':
-    try {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
-        $productId = filter_var($data['id_producto'] ?? 0, FILTER_VALIDATE_INT);
-        $userId = $_SESSION['id_usuario'] ?? null;
-
-        if (!$listId || !$productId || !$userId) throw new Exception('Datos incompletos.');
-
-        $stmt_prod = $pdo->prepare("SELECT precio_compra FROM productos WHERE id_producto = :id");
-        $stmt_prod->execute([':id' => $productId]);
-        $precio_compra = $stmt_prod->fetchColumn();
-
-        $stmt = $pdo->prepare(
-            "INSERT INTO listas_compras_items (id_lista, id_producto, precio_compra, cantidad, usar_stock_actual) 
-             VALUES (:list_id, :product_id, :price, 1, FALSE)"
-        );
-        $stmt->execute([':list_id' => $listId, ':product_id' => $productId, ':price' => $precio_compra ?? 0.00]);
-        
-        // --- INICIO DE LA MODIFICACIÓN ---
-        $stmt_info = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
-        $stmt_info->execute([':id' => $listId]);
-        $listName = $stmt_info->fetchColumn();
-
-        $stmt_prod_info = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
-        $stmt_prod_info->execute([':id' => $productId]);
-        $productName = $stmt_prod_info->fetchColumn();
-        
-        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$productName}' a la lista '{$listName}'.");
-        // --- FIN DE LA MODIFICACIÓN ---
-
-        echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
-    } catch (PDOException $e) {
-        // ... (código de manejo de error sin cambios)
-    }
-    break;
-
+// Reemplaza el case 'admin/updateListItem' existente con este bloque
 case 'admin/updateListItem':
     try {
         $data = json_decode(file_get_contents('php://input'), true);
         $itemId = filter_var($data['id_item_lista'] ?? 0, FILTER_VALIDATE_INT);
         $field = $data['field'] ?? '';
-        $value = $data['value']; // El valor puede ser número o booleano
+        $value = $data['value'];
 
-        if (!$itemId || !in_array($field, ['cantidad', 'usar_stock_actual'])) {
-            throw new Exception('Datos no válidos.');
+        $allowed_fields = ['cantidad', 'usar_stock_actual', 'nombre_producto', 'precio_compra'];
+        if (!$itemId || !in_array($field, $allowed_fields)) {
+            throw new Exception('Datos no válidos para la actualización.');
         }
 
+        if ($field === 'nombre_producto' || $field === 'precio_compra') {
+            $stmt_check = $pdo->prepare("SELECT id_producto FROM listas_compras_items WHERE id_item_lista = :id");
+            $stmt_check->execute([':id' => $itemId]);
+            if ($stmt_check->fetchColumn() !== null) {
+                throw new Exception('Solo se puede editar el nombre y precio de productos añadidos manualmente.');
+            }
+        }
+        
         $stmt = $pdo->prepare("UPDATE listas_compras_items SET {$field} = :value WHERE id_item_lista = :id");
         $stmt->execute([':value' => $value, ':id' => $itemId]);
         
@@ -705,6 +674,48 @@ case 'admin/updateListItem':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
+// Añade este NUEVO case en tu switch principal
+case 'admin/addManualProductToList':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $productName = trim($data['nombre_producto'] ?? '');
+        $purchasePrice = filter_var($data['precio_compra'] ?? 0.0, FILTER_VALIDATE_FLOAT);
+        $quantity = filter_var($data['cantidad'] ?? 1, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$listId || empty($productName) || $purchasePrice < 0 || $quantity <= 0 || !$userId) {
+            throw new Exception('Datos incompletos o no válidos para añadir el producto.');
+        }
+
+        // Consulta corregida: Inserta en la nueva columna 'nombre_producto'
+        $stmt = $pdo->prepare(
+            "INSERT INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad, usar_stock_actual) 
+             VALUES (:list_id, NULL, :name, :price, :qty, FALSE)"
+        );
+        $stmt->execute([
+            ':list_id' => $listId,
+            ':name' => $productName,
+            ':price' => $purchasePrice,
+            ':qty' => $quantity
+        ]);
+
+        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió el producto manual '{$productName}' a la lista ID {$listId}.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Producto manual añadido.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+
+
 
 case 'admin/removeProductFromList':
     try {
