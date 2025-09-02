@@ -3378,13 +3378,8 @@ case 'admin/getInventoryHistory':
 
 
 
-
-
-
-
-
 case 'admin/deleteProduct':
-    // require_admin();
+    // require_admin(); // Asegúrate de que esta línea esté descomentada y funcione en tu entorno de producción.
     $data = json_decode(file_get_contents('php://input'), true);
     $productId = $data['id_producto'] ?? 0;
     $userId = $_SESSION['id_usuario'] ?? null; // Usamos el usuario real de la sesión
@@ -3398,8 +3393,8 @@ case 'admin/deleteProduct':
     $pdo->beginTransaction();
     try {
         // --- LÓGICA MEJORADA ---
-        // 1. Obtenemos toda la información necesaria del producto en una sola consulta.
-        $stmt_info = $pdo->prepare("SELECT nombre_producto, codigo_producto, stock_actual FROM productos WHERE id_producto = :id");
+        // 1. Obtenemos la información necesaria del producto para el registro de actividad.
+        $stmt_info = $pdo->prepare("SELECT nombre_producto, codigo_producto FROM productos WHERE id_producto = :id");
         $stmt_info->execute([':id' => $productId]);
         $productInfo = $stmt_info->fetch(PDO::FETCH_ASSOC);
 
@@ -3407,10 +3402,14 @@ case 'admin/deleteProduct':
             throw new Exception('El producto que intentas eliminar no existe.');
         }
         
-        // 2. Verificamos el stock usando la información que ya obtuvimos.
-        if ($productInfo['stock_actual'] > 0) {
-            http_response_code(409);
-            throw new Exception('No se puede eliminar un producto con stock. Realiza un ajuste a cero primero.');
+        // 2. Verificamos el stock sumando las existencias de TODAS las tiendas en `inventario_tienda`.
+        $stmt_stock = $pdo->prepare("SELECT SUM(stock) as total_stock FROM inventario_tienda WHERE id_producto = :id_producto");
+        $stmt_stock->execute([':id_producto' => $productId]);
+        $stockInfo = $stmt_stock->fetch(PDO::FETCH_ASSOC);
+        
+        if ($stockInfo && $stockInfo['total_stock'] > 0) {
+            http_response_code(409); // Código de conflicto
+            throw new Exception('No se puede eliminar. El producto tiene existencias (' . $stockInfo['total_stock'] . ') en una o más tiendas. Realiza un ajuste de inventario a cero primero.');
         }
 
         // 3. Eliminamos el producto de la base de datos.
@@ -3418,7 +3417,7 @@ case 'admin/deleteProduct':
         $stmt_delete->execute([':id' => $productId]);
 
         if ($stmt_delete->rowCount() > 0) {
-            // 4. Si la eliminación fue exitosa, registramos la acción en la tabla correcta 'registros_actividad'.
+            // 4. Si la eliminación fue exitosa, registramos la acción.
             $stmt_log = $pdo->prepare(
                 "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
                  VALUES (:id_usuario, :tipo_accion, :descripcion, NOW())"
@@ -3436,16 +3435,23 @@ case 'admin/deleteProduct':
             echo json_encode(['success' => true, 'message' => 'Producto eliminado y la acción ha sido registrada.']);
 
         } else {
+            // Esto podría ocurrir si el producto se eliminó justo después de nuestra verificación de stock.
             throw new Exception('No se pudo eliminar el producto (quizás ya fue eliminado por otra acción).');
         }
 
     } catch (Exception $e) {
         $pdo->rollBack();
-        $errorCode = http_response_code() >= 400 ? http_response_code() : 400;
+        // Mantenemos el código de error si ya se estableció (ej. 409 por stock)
+        $errorCode = http_response_code() >= 400 ? http_response_code() : 500;
         http_response_code($errorCode);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
+
+
+
+
 
 case 'admin/getMovementStates':
     // require_admin();
