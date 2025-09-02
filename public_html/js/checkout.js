@@ -9,10 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const executeCheckout = async (resource, button, confirmStock = false) => {
         const originalButtonText = button.textContent;
         
-        if (!confirmStock) {
-            button.textContent = 'Verificando stock...';
-            button.disabled = true;
-        }
+        button.textContent = 'Verificando...';
+        button.disabled = true;
 
         try {
             const response = await fetch(`api/index.php?resource=${resource}`, {
@@ -21,21 +19,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ confirm_stock: confirmStock })
             });
 
+            // Primero, verificamos si la respuesta no es OK para mostrar un error genérico
+            if (!response.ok && response.status !== 409) {
+                 const errorText = await response.text(); // Leemos el texto del error
+                 throw new Error(`Error del servidor (${response.status}): ${errorText}`);
+            }
+
             const result = await response.json();
 
-            if (response.ok && result.success) {
+            if (result.success) {
                 const successMessage = resource === 'checkout-with-card' 
-                    ? '¡Pago Exitoso! Tu pedido ha sido finalizado.'
-                    : '¡Lista enviada! Serás redirigido a WhatsApp.';
+                    ? 'tu pedido ha sido procesado.'
+                    : '¡Stock confirmado! Serás redirigido a WhatsApp.';
 
                 showNotification(successMessage, 'success');
                 
                 setTimeout(() => {
                     if (resource === 'cart-checkout') {
-                        // Es importante construir la URL de WhatsApp aquí por si el total cambió
-                        // (Aunque para WhatsApp no es crítico, es buena práctica)
-                        window.open(whatsappBtn.href, '_blank');
+                        // Abrimos la URL de WhatsApp que está en el botón
+                        window.open(button.href, '_blank');
                     }
+                    // Redirigimos al dashboard de pedidos
                     window.location.href = 'dashboard.php?view=pedidos';
                 }, 1500);
 
@@ -51,16 +55,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     button.textContent = 'Procesando con ajuste...';
                     await executeCheckout(resource, button, true); 
                 } else {
-                    showNotification('Proceso cancelado. Por favor, ajusta tu lista.', 'info');
+                    showNotification('Proceso cancelado. Por favor, ajusta tu carrito.', 'info');
+                    // Restauramos el botón a su estado original
                     button.textContent = originalButtonText;
                     button.disabled = false;
                 }
             } else {
-                throw new Error(result.error || 'Ocurrió un error inesperado.');
+                // Si la respuesta es OK pero success es false
+                throw new Error(result.error || 'Ocurrió un error inesperado al procesar el pedido.');
             }
 
         } catch (error) {
-            showNotification(error.message, 'error');
+            console.error('Error en executeCheckout:', error); // Para ver el error detallado en la consola
+            showNotification(`Error: ${error.message}`, 'error');
             button.textContent = originalButtonText;
             button.disabled = false;
         }
@@ -80,4 +87,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-

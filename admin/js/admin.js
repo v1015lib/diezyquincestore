@@ -4047,6 +4047,8 @@ async function loadAndRenderListView(listId) {
 
 
 
+
+// Reemplaza esta función en tu archivo admin.js
 function renderListItems(items, existingItemIds = new Set()) {
     const itemsTbody = document.getElementById('list-items-tbody');
     itemsTbody.innerHTML = '';
@@ -4054,10 +4056,12 @@ function renderListItems(items, existingItemIds = new Set()) {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
         
+        // Aplica la clase si el item está marcado
         if (parseInt(item.marcado, 10) === 1) {
             row.classList.add('item-marked');
         }
 
+        // Aplica la animación si el item es nuevo
         if (!existingItemIds.has(item.id_item_lista.toString())) {
             row.classList.add('new-item-highlight');
         }
@@ -4065,7 +4069,7 @@ function renderListItems(items, existingItemIds = new Set()) {
         const isManualItem = item.id_producto === null;
         const displayQuantity = (item.usar_stock_actual && !isManualItem) ? item.stock_actual : item.cantidad;
         
-        // CORRECCIÓN: Se añade la celda con el checkbox
+        // **AQUÍ ESTÁ LA CORRECCIÓN: SE RESTAURA LA CELDA DEL CHECKBOX**
         row.innerHTML = `
             <td>
                 <input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}>
@@ -4086,17 +4090,7 @@ function renderListItems(items, existingItemIds = new Set()) {
     });
 }
 
-
-
-
-
-
-
-
-
-
-
-
+// Reemplaza también esta función completa en tu archivo admin.js
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
     const searchResultsContainer = document.getElementById('product-search-results-list');
@@ -4109,11 +4103,65 @@ function initializeListViewInteractions(listId) {
         refreshBtn.addEventListener('click', () => loadAndRenderListView(listId));
     }
 
-    // (El código de búsqueda y del formulario manual no cambia... se mantiene igual)
-    searchInput.addEventListener('input', () => { /* ...código sin cambios... */ });
-    if(manualForm) { manualForm.addEventListener('submit', async (e) => { /* ...código sin cambios... */ }); }
+    // Búsqueda de productos existentes (sin cambios)
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const query = searchInput.value.trim();
+        if (query.length < 3) {
+            searchResultsContainer.innerHTML = '';
+            return;
+        }
+        searchTimer = setTimeout(async () => {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
+            const result = await response.json();
+            searchResultsContainer.innerHTML = '';
+            if (result.success && result.products.length > 0) {
+                result.products.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.style.cursor = 'pointer';
+                    div.innerHTML = `<span>${p.nombre_producto} (${p.codigo_producto})</span>`;
+                    div.addEventListener('click', async () => {
+                        await addProductToList(listId, p.id_producto);
+                        searchInput.value = '';
+                        searchResultsContainer.innerHTML = '';
+                    });
+                    searchResultsContainer.appendChild(div);
+                });
+            }
+        }, 300);
+    });
+    
+    // Manejador para el formulario de adición manual
+    if(manualForm) {
+        manualForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const feedbackDiv = document.getElementById('manual-add-feedback');
+            const data = {
+                id_lista: listId,
+                nombre_producto: document.getElementById('manual_product_name').value,
+                precio_compra: document.getElementById('manual_purchase_price').value,
+                cantidad: document.getElementById('manual_quantity').value
+            };
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if(!result.success) throw new Error(result.error);
+                manualForm.reset();
+                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                loadAndRenderListView(listId);
+                setTimeout(() => feedbackDiv.innerHTML = '', 2000);
+            } catch (error) {
+                feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+            }
+        });
+    }
 
-    // Interacciones con la tabla
+    // Interacciones con la tabla (marcar, cantidad, stock)
     itemsTbody.addEventListener('change', async (e) => {
         const target = e.target;
         const row = target.closest('tr');
@@ -4130,8 +4178,7 @@ function initializeListViewInteractions(listId) {
             if (useStock) {
                 quantityInput.value = row.dataset.stockActual;
             }
-        } else if (target.classList.contains('mark-item-checkbox')) { // <-- NUEVA LÓGICA
-            // Se activa cuando se hace clic en el nuevo checkbox
+        } else if (target.classList.contains('mark-item-checkbox')) { // **LÓGICA DEL CHECKBOX**
             try {
                 const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
                     method: 'POST',
@@ -4144,21 +4191,19 @@ function initializeListViewInteractions(listId) {
                 }
             } catch (error) {
                 console.error('Error al marcar el item:', error);
-                target.checked = !target.checked; // Revierte el checkbox si hay un error
+                target.checked = !target.checked;
             }
         }
     });
 
+    // Lógica para el botón de eliminar
     itemsTbody.addEventListener('click', async (e) => {
-        // La lógica de click ahora solo se encarga de eliminar
         if (e.target.classList.contains('remove-item-btn')) {
             const itemId = e.target.closest('tr').dataset.itemId;
             await removeProductFromList(itemId);
         }
     });
 }
-
-
 
 
 
