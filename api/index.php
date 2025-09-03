@@ -1168,25 +1168,39 @@ case 'get-card-details':
 
 // ... dentro del switch en api/index.php ...
 
+
+// EN: api/index.php
+
 case 'admin/getWebOrders':
     // require_admin(); // Descomentar en producción
     try {
         // --- LÓGICA DE FILTRADO ---
         $params = [];
-        // --- CORRECCIÓN ---
-        // Se amplía la lista de estados para incluir todos los pedidos que un administrador necesita gestionar.
-        // Por ejemplo, "En Proceso" (8), "Entregado" (10), "Cancelado" (11), "Listo para Retirar" (9), etc.
         $where_clauses = ["cc.estado_id IN (8, 9, 10, 11, 13, 14, 17, 20, 23)"]; 
 
-        // Filtro de búsqueda por número de orden o nombre de cliente
+        // --- INICIO DE LA CORRECCIÓN CLAVE ---
         if (!empty($_GET['search'])) {
-            $searchTerm = '%' . $_GET['search'] . '%';
-            // Se busca en el número de orden o en el nombre de usuario del cliente
-            $where_clauses[] = "(cc.numero_orden_cliente LIKE :search_term OR c.nombre_usuario LIKE :search_term)";
-            $params[':search_term'] = $searchTerm;
+            $rawSearchTerm = $_GET['search'];
+            $searchTermLike = '%' . $rawSearchTerm . '%';
+            
+            // Preparamos las condiciones de búsqueda
+            $search_conditions = ["c.nombre_usuario LIKE :search_like"];
+            $params[':search_like'] = $searchTermLike;
+            
+            // Si el término es puramente numérico, lo buscamos también como número de orden exacto
+            // o como ID interno del carrito, que a veces se muestra como N° de Orden.
+            if (is_numeric($rawSearchTerm)) {
+                $search_conditions[] = "cc.numero_orden_cliente = :search_exact";
+                $search_conditions[] = "cc.id_carrito = :search_exact";
+                $params[':search_exact'] = (int)$rawSearchTerm;
+            }
+            
+            // Unimos todas las condiciones de búsqueda con un OR
+            $where_clauses[] = "(" . implode(" OR ", $search_conditions) . ")";
         }
+        // --- FIN DE LA CORRECCIÓN CLAVE ---
 
-        // Filtro por rango de fechas
+        // Filtro por rango de fechas (sin cambios)
         if (!empty($_GET['startDate'])) {
             $where_clauses[] = "DATE(cc.fecha_creacion) >= :startDate";
             $params[':startDate'] = $_GET['startDate'];
@@ -1196,11 +1210,8 @@ case 'admin/getWebOrders':
             $params[':endDate'] = $_GET['endDate'];
         }
 
-        // Unimos todas las condiciones de filtrado
         $where_sql = " WHERE " . implode(" AND ", $where_clauses);
-        // --- FIN DE LÓGICA DE FILTRADO ---
-
-        // Consulta SQL principal que ahora incluye los filtros
+        
         $sql = "
             SELECT
                 cc.id_carrito,
@@ -1215,13 +1226,13 @@ case 'admin/getWebOrders':
             JOIN clientes c ON cc.id_cliente = c.id_cliente
             JOIN estados e ON cc.estado_id = e.id_estado
             JOIN detalle_carrito dc ON cc.id_carrito = dc.id_carrito
-            {$where_sql} -- Se aplica el WHERE dinámico aquí
+            {$where_sql}
             GROUP BY cc.id_carrito
             ORDER BY cc.fecha_creacion DESC
         ";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params); // Se ejecutan los parámetros de los filtros
+        $stmt->execute($params);
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode(['success' => true, 'orders' => $orders]);
@@ -1230,7 +1241,6 @@ case 'admin/getWebOrders':
         echo json_encode(['success' => false, 'error' => 'Error al obtener los pedidos web: ' . $e->getMessage()]);
     }
     break;
-
 
 case 'admin/updateOrderStatus':
     // require_admin();
