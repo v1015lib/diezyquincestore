@@ -4674,50 +4674,68 @@ case 'toggle-inventory':
 
 
 
+
+
+
+
+
+
+
+
+
 // EN: api/index.php
 
 case 'admin/getProducts':
     if ($method == 'GET') {
         try {
             $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $limit = 50; 
+            $limit = 50;
             $offset = ($page - 1) * $limit;
 
             $searchTerm = $_GET['search'] ?? '';
             $departmentId = $_GET['department'] ?? '';
-            $storeId_filter = $_GET['store'] ?? ''; // Filtro explícito del admin
-            $sortBy = $_GET['sort_by'] ?? 'nombre_producto';
+            $storeId_filter = $_GET['store'] ?? '';
+            $sortBy = $_GET['sort_by'] ?? 'p.nombre_producto'; // Se espera con prefijo
             $order = $_GET['order'] ?? 'ASC';
-            
-            $allowedSortCols = ['codigo_producto', 'nombre_producto', 'departamento', 'precio_venta', 'stock_actual', 'nombre_estado'];
-            if (!in_array($sortBy, $allowedSortCols)) {
-                $sortBy = 'nombre_producto';
-            }
 
-            // Lógica de roles y tiendas
+            // --- CORRECCIÓN CLAVE ---
+            // Se añaden los nombres de columna con prefijo a la lista de valores permitidos.
+            $allowedSortCols = [
+                'p.codigo_producto', 
+                'p.nombre_producto', 
+                'd.departamento', // <-- AÑADIDO Y CORREGIDO
+                'p.precio_venta', 
+                'stock_actual', 
+                'e.nombre_estado' // <-- AÑADIDO Y CORREGIDO
+            ];
+
+            // Se valida que el valor de sortBy sea uno de los permitidos.
+            if (!in_array($sortBy, $allowedSortCols)) {
+                $sortBy = 'p.nombre_producto'; // Valor por defecto si no es válido
+            }
+            // Ya no se necesita el mapeo, se usa el valor directamente.
+            $orderByColumn = $sortBy;
+            // --- FIN DE LA CORRECCIÓN ---
+
+
             $rol = $_SESSION['rol'] ?? 'empleado';
             $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
             
             $where_clauses = [];
             $params = [];
 
-            // --- INICIO DE LA CORRECCIÓN CLAVE ---
+            // Lógica de Stock (sin cambios)
             $stock_subquery = "";
             if ($rol === 'administrador_global') {
-                // Si el admin filtra por una tienda, muestra el stock de esa tienda.
                 if (!empty($storeId_filter)) {
                     $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($storeId_filter) . "), 0)";
                 } else {
-                    // Si no filtra, muestra la suma del stock de todas las tiendas.
                     $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
                 }
-            } else {
-                // Para cualquier otro rol (bodeguero, cajero, etc.), siempre muestra el stock de su tienda asignada.
+            } else if ($id_tienda_usuario) {
                 $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($id_tienda_usuario) . "), 0)";
             }
-            // --- FIN DE LA CORRECCIÓN CLAVE ---
-
-            // Filtros generales (búsqueda, departamento). Estos no cambian.
+            
             if (!empty($searchTerm)) {
                 $where_clauses[] = "(p.nombre_producto LIKE :searchTerm OR p.codigo_producto LIKE :searchTerm)";
                 $params[':searchTerm'] = '%' . $searchTerm . '%';
@@ -4726,25 +4744,12 @@ case 'admin/getProducts':
                 $where_clauses[] = "p.departamento = :departmentId";
                 $params[':departmentId'] = $departmentId;
             }
-            // Si el admin filtra por tienda, también se asegura de mostrar solo productos que existan en esa tienda.
             if ($rol === 'administrador_global' && !empty($storeId_filter)) {
                 $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :storeId)";
                 $params[':storeId'] = $storeId_filter;
             }
 
             $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
-            
-            // El resto de la función (conteo, ordenamiento, etc.) permanece igual.
-            $sql_total = "SELECT COUNT(p.id_producto) FROM productos p" . $where_sql;
-            $stmt_total = $pdo->prepare($sql_total);
-            $stmt_total->execute($params);
-            $total_products = $stmt_total->fetchColumn();
-
-            $sortByMapping = [
-                'stock_actual' => 'stock_actual', 'departamento' => 'd.departamento', 'nombre_producto' => 'p.nombre_producto',
-                'codigo_producto' => 'p.codigo_producto', 'precio_venta' => 'p.precio_venta', 'nombre_estado' => 'e.nombre_estado'
-            ];
-            $orderByColumn = $sortByMapping[$sortBy] ?? 'p.nombre_producto';
             
             $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, $stock_subquery AS stock_actual
                     FROM productos p
@@ -4764,7 +4769,7 @@ case 'admin/getProducts':
             $stmt->execute();
             $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(['success' => true, 'products' => $products, 'total' => $total_products, 'limit' => $limit]);
+            echo json_encode(['success' => true, 'products' => $products]);
             
         } catch (PDOException $e) {
             http_response_code(500);
@@ -4772,16 +4777,6 @@ case 'admin/getProducts':
         }
     }
     break;
-
-
-
-
-
-
-
-
-
-
 
 
 

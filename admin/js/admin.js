@@ -521,11 +521,10 @@ async function showProcessedFiles() {
 
 
 
-
-
+// EN: admin/js/admin.js
 
 async function fetchAndRenderProducts() {
-    if (isLoading || currentFilters.page === -1) return; // Si ya está cargando o no hay más páginas, no hace nada
+    if (isLoading || currentFilters.page === -1) return;
     isLoading = true;
 
     const tableBody = document.getElementById('product-table-body');
@@ -536,9 +535,22 @@ async function fetchAndRenderProducts() {
     }
 
     if (currentFilters.page === 1) {
-        tableBody.innerHTML = `<tr><td colspan="11">Buscando...</td></tr>`;
+        tableBody.innerHTML = ''; // Limpia la tabla solo si es una nueva búsqueda.
+    }
+
+    // --- INICIO: Skeleton Loader ---
+    // Muestra filas de carga para mejorar la percepción de velocidad
+    const skeletonRowCount = 10;
+    const skeletonRowHtml = `
+        <tr class="skeleton-loader">
+            <td colspan="11" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
+        </tr>
+    `;
+    for (let i = 0; i < skeletonRowCount; i++) {
+        tableBody.insertAdjacentHTML('beforeend', skeletonRowHtml);
     }
     loadingIndicator.style.display = 'block';
+    // --- FIN: Skeleton Loader ---
 
     const { search, department, store, sort, page } = currentFilters;
     const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department=${department}&store=${store}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
@@ -546,22 +558,18 @@ async function fetchAndRenderProducts() {
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`Error en la API: ${response.statusText}`);
-        
         const data = await response.json();
 
-        if (page === 1) {
-            tableBody.innerHTML = ''; // Limpia la tabla solo si es la primera página de una nueva búsqueda/filtro
-        }
+        // Elimina los skeletons antes de añadir los datos reales
+        tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
 
         if (data.success && data.products.length > 0) {
             data.products.forEach(product => {
                 const row = document.createElement('tr');
-                // ... (el código para crear la fila es el mismo, no es necesario cambiarlo)
-                 row.dataset.productId = product.id_producto;
+                row.dataset.productId = product.id_producto;
                 row.dataset.status = (product.nombre_estado || '').toLowerCase();
                 const statusClass = (product.nombre_estado || '').toLowerCase() === 'activo' ? 'status-active' : 'status-inactive';
                 const usaInventarioText = product.usa_inventario == 1 ? 'Sí' : 'No';
-                
                 const stockMinimo = parseInt(product.stock_minimo, 10);
                 const stockActual = parseInt(product.stock_actual, 10);
                 const stockClass = (product.usa_inventario == 1 && !isNaN(stockMinimo) && stockMinimo > 0 && stockActual < stockMinimo) ? 'stock-low' : '';
@@ -582,24 +590,21 @@ async function fetchAndRenderProducts() {
                 tableBody.appendChild(row);
             });
 
-            // Si la API devuelve menos productos que el límite, significa que es la última página.
-            if (data.products.length < 50) { 
-                currentFilters.page = -1; // Detiene futuras cargas
+            if (data.products.length < data.limit) {
+                currentFilters.page = -1;
             } else {
-                currentFilters.page++; // Prepara para cargar la siguiente página
+                currentFilters.page++;
             }
-
         } else {
             if (page === 1) {
-                tableBody.innerHTML = `<tr><td colspan="11">No se encontraron productos para los filtros seleccionados.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="11">No se encontraron productos.</td></tr>`;
             }
-            currentFilters.page = -1; // Detiene futuras cargas ya que no hay más productos
+            currentFilters.page = -1;
         }
-
         updateSortIndicators();
         updateBatchActionsState();
-
     } catch (error) {
+        tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
         if (page === 1) {
             tableBody.innerHTML = `<tr><td colspan="11" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
         }
@@ -610,14 +615,22 @@ async function fetchAndRenderProducts() {
 }
 
 
-function handleScroll() {
-    const container = document.getElementById('product-list-container');
-    if (!container) return;
-    
-    // Comprueba si el usuario ha llegado al 80% del final del scroll
-    const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight * 0.8;
 
-    if (nearBottom && !isLoading && currentFilters.page !== -1) {
+
+
+// EN: admin/js/admin.js
+
+function handleScroll() {
+    // Apuntamos al contenedor principal del contenido, que es el que ahora se desplaza
+    const container = document.getElementById('main-content'); 
+    if (!container) return;
+
+    // --- MODIFICACIÓN CLAVE ---
+    // Esta condición ahora solo se cumple si el usuario está
+    // prácticamente al final del scroll (con un margen de 5px).
+    const atTheBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 5;
+
+    if (atTheBottom && !isLoading && currentFilters.page !== -1) {
         fetchAndRenderProducts(); // Llama a cargar la siguiente página de productos
     }
 }

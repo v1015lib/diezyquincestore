@@ -34,14 +34,14 @@
                 <th><input type="checkbox" id="select-all-products"></th>
                 <th class="sortable" data-sort="p.codigo_producto">Código</th>
                 <th class="sortable" data-sort="p.nombre_producto">Nombre</th>
-                <th class="sortable" data-sort="d.departamento">Departamento</th>
-                <th class="sortable" data-sort="p.precio_venta">Precio Venta</th>
-                <th class="sortable" data-sort="stock_actual">Stock Actual</th>
-                <th>Stock Mín.</th>
-                <th>Stock Máx.</th>
-                <th>Usa Inventario</th>
-                <th class="sortable">Estado</th>
-                <th>Acciones</th>
+                <th class="sortable" data-sort="d.departamento">Dept.</th>
+                <th class="sortable" data-sort="p.precio_venta">P. Venta</th>
+                <th class="sortable" data-sort="stock_actual">Stock </th>
+                <th>S. Mín.</th>
+                <th>S. Máx.</th>
+                <th>U. Inv.</th>
+                <th class="sortable" data-sort="e.nombre_estado">Estado</th>
+                <th>Acc.</th>
             </tr>
         </thead>
         <tbody id="product-table-body">
