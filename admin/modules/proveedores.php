@@ -1,5 +1,5 @@
 <div class="module-header">
-    <h2>Gestión de Proveedores</h2>
+    <h2 class="modules_head">Gestión de Proveedores</h2>
     <div class="action-ribbon">
         <button class="action-btn active" data-action="proveedores/gestion">Gestionar Proveedores</button>
     </div>

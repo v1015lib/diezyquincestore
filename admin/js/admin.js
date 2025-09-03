@@ -669,17 +669,37 @@ async function populateStoreFilter() {
 
     // --- LÓGICA DE MENÚ Y CARGA DE MÓDULOS ---
 
-    function initializeSidemenu() {
-        if (menuToggle && sidemenu) {
-            menuToggle.addEventListener('click', () => sidemenu.classList.toggle('active'));
-        }
-        if (collapseBtn && sidemenu) {
-            collapseBtn.addEventListener('click', () => {
-                sidemenu.classList.toggle('sidemenu-collapsed');
-                localStorage.setItem('sidemenuCollapsed', sidemenu.classList.contains('sidemenu-collapsed'));
-            });
-        }
+// admin/js/admin.js
+
+function initializeSidemenu() {
+    // Lógica para el botón de hamburguesa (abrir/cerrar)
+    if (menuToggle && sidemenu) {
+        menuToggle.addEventListener('click', (event) => {
+            // Detenemos la propagación para que el clic no llegue al 'document'
+            event.stopPropagation(); 
+            sidemenu.classList.toggle('active');
+        });
     }
+
+    // Lógica para el botón de colapsar en escritorio (sin cambios)
+    if (collapseBtn && sidemenu) {
+        collapseBtn.addEventListener('click', () => {
+            sidemenu.classList.toggle('sidemenu-collapsed');
+            localStorage.setItem('sidemenuCollapsed', sidemenu.classList.contains('sidemenu-collapsed'));
+        });
+    }
+
+    // --- NUEVA LÓGICA ---
+    // Añadimos un listener a todo el documento para detectar clics
+    document.addEventListener('click', (event) => {
+        // Verificamos si el menú está activo Y si el clic fue FUERA del menú
+        const isClickInsideMenu = sidemenu.contains(event.target);
+
+        if (sidemenu.classList.contains('active') && !isClickInsideMenu) {
+            sidemenu.classList.remove('active');
+        }
+    });
+}
 
     function checkSidemenuState() {
         if (window.innerWidth > 991 && localStorage.getItem('sidemenuCollapsed') === 'true') {
@@ -1342,18 +1362,25 @@ function initializeEditProductFormSubmit(form) {
 
     // --- MANEJADORES DE EVENTOS GLOBALES ---
     
-    sidemenu.addEventListener('click', (event) => {
-        const navLink = event.target.closest('.nav-link');
-        if (navLink) {
-            event.preventDefault();
-            const moduleToLoad = navLink.dataset.module;
-            if (moduleToLoad) {
-                sidemenu.querySelectorAll('.nav-link.active').forEach(link => link.classList.remove('active'));
-                navLink.classList.add('active');
-                loadModule(moduleToLoad);
+sidemenu.addEventListener('click', (event) => {
+    const navLink = event.target.closest('.nav-link');
+    if (navLink) {
+        event.preventDefault();
+        const moduleToLoad = navLink.dataset.module;
+
+        if (moduleToLoad) {
+            // 1. Lógica existente para cargar el módulo
+            sidemenu.querySelectorAll('.nav-link.active').forEach(link => link.classList.remove('active'));
+            navLink.classList.add('active');
+            loadModule(moduleToLoad);
+
+            // 2. Nueva lógica para cerrar el menú en pantallas pequeñas
+            if (window.innerWidth <= 991) {
+                sidemenu.classList.remove('active');
             }
         }
-    });
+    }
+});
 
     let searchTimeout;
 

@@ -1,5 +1,5 @@
 <div class="module-header">
-    <h2>Gestión de Tarjetas Recargables</h2>
+    <h2 class="modules_head">Gestión de Tarjetas Recargables</h2>
     <div class="action-ribbon">
         <button class="action-btn active" data-action="tarjetas/gestion">Gestión y Asignación</button>
 

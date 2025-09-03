@@ -4,11 +4,12 @@
 .module-header {
     margin-bottom: .5rem;
 
-    h2 {
-        font-size: 1rem;
+    .modules_head {
+        font-size: clamp(.9rem, 2vw, 1rem);
         font-weight: 900;
         color: $primary-color;
         margin-bottom: 1.25rem;
+
     }
 
     .action-ribbon {

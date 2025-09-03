@@ -53,8 +53,8 @@ button {
 .module-header {
   margin-bottom: 0.5rem;
 }
-.module-header h2 {
-  font-size: 1rem;
+.module-header .modules_head {
+  font-size: clamp(0.9rem, 2vw, 1rem);
   font-weight: 900;
   color: #0C0A4E;
   margin-bottom: 1.25rem;
@@ -343,7 +343,7 @@ button {
 }
 .dashboard-sidemenu .dashboard-sidemenu-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: clamp(0.9rem, 4vw, 1rem);
   font-weight: 900;
   color: white;
 }
@@ -1301,10 +1301,7 @@ button {
 }
 @media (max-width: 480px) {
   .dashboard-content {
-    padding: 1rem;
-  }
-  .module-header h2 {
-    font-size: 1.5rem;
+    padding: 0.5rem;
   }
   .action-ribbon {
     -webkit-box-orient: vertical;

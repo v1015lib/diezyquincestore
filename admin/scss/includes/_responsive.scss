@@ -26,11 +26,11 @@
 // --- Para Móviles (hasta 480px) ---
 @media (max-width: 480px) {
     .dashboard-content {
-        padding: 1rem;
+        padding: .5rem;
     }
 
-    .module-header h2 {
-        font-size: 1.5rem; // Reduce el tamaño del título principal del módulo
+    .module-header .modules_head{
+
     }
 
     .action-ribbon {
