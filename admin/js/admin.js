@@ -1661,17 +1661,27 @@ mainContent.addEventListener('click', async (event) => {
 
 mainContent.addEventListener('input', (event) => {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(async () => {
-        if (event.target.id === 'product-search-input') {
-            currentFilters.search = event.target.value;
+
+    // Búsqueda de productos
+    if (event.target.id === 'product-search-input') {
+        const searchTerm = event.target.value;
+        // Si el campo de búsqueda se vacía, el refresco es inmediato.
+        // Si se está escribiendo, se mantiene una pequeña espera.
+        const delay = searchTerm === '' ? 0 : 300;
+
+        searchTimeout = setTimeout(async () => {
+            currentFilters.search = searchTerm;
             currentFilters.page = 1;
             await fetchAndRenderProducts();
-        }
-        if (event.target.id === 'customer-search-input') {
-            await fetchAndRenderCustomers(event.target.value);
-        }
-    }, 300);
+        }, delay);
+    }
     
+    // Búsqueda de clientes (sin cambios)
+    if (event.target.id === 'customer-search-input') {
+        searchTimeout = setTimeout(async () => {
+            await fetchAndRenderCustomers(event.target.value);
+        }, 300);
+    }
 });
 
 // REEMPLAZA este event listener completo en admin/js/admin.js
