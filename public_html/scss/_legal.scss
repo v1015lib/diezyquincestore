@@ -1,0 +1,44 @@
+// scss/_legal.scss
+@import 'vars';
+
+// Estilos para el cuerpo de las páginas legales
+.page-legal {
+    // Asegura que el scroll vertical esté siempre disponible
+    overflow-y: auto;
+
+    // Contenedor principal para el texto legal
+    .legal-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        line-height: 1.7;
+        flex-grow: 1; // Permite que ocupe el espacio disponible
+    }
+
+    // Títulos principales
+    h1 {
+        color: $primary-color;
+        border-bottom: 2px solid $tcolor2;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    // Subtítulos
+    h2 {
+        color: $primary-color;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    // Enlaces
+    a {
+        color: $tcolor2;
+        text-decoration: none;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}

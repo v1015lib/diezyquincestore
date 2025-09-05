@@ -12,14 +12,16 @@ if (session_status() == PHP_SESSION_NONE) {
                 <img src="img/esbandera.webp" alt="El Salvador" class="season-img">
             </a>
         </div>
-  <form action="index.php" method="GET" class="search-bar">
-            <input type="text" id="search-input" name="search" placeholder="Que producto buscaba?">
-            <button type="submit" id="search-button">Buscar</button>
-        </form>
-
-        
-        <?php // --- CONDICIÓN AÑADIDA PARA OCULTAR CONTROLES --- ?>
+  
+        <?php // --- INICIO DE LA CORRECCIÓN --- ?>
+        <?php // Si la página NO es de tipo 'simplified', muestra el buscador y los controles. ?>
         <?php if (!isset($page_type) || $page_type !== 'simplified'): ?>
+            
+            <form action="index.php" method="GET" class="search-bar">
+                <input type="text" id="search-input" name="search" placeholder="Que producto buscaba?">
+                <button type="submit" id="search-button">Buscar</button>
+            </form>
+
             <div class="header-right-controls">
                 <nav class="main-nav">
                     <ul>
@@ -47,5 +49,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 </div>
             </div>
         <?php endif; ?>
+        <?php // --- FIN DE LA CORRECCIÓN --- ?>
     </div>
 </header>

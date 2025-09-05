@@ -19,7 +19,6 @@
         max-width: 1200px;
         margin: 0 auto;
         flex-wrap: wrap;
-
     }
 
     .logo a {
@@ -201,6 +200,8 @@
     flex-direction: column;
     // Añade un espacio entre el logo y el buscador
     gap: 1rem;
+        justify-content: center;
+
 
     // El buscador ya no necesita márgenes laterales
     .search-bar {

@@ -2,17 +2,7 @@
     <div class="footer-container">
 
 
-        <!------------------------
-        <div class="footer-column">
-            <h4>Información Importante</h4>
-            <ul class="footer-links">
-                <li><a href="terminos-y-condiciones.php">Términos y Condiciones</a></li>
-                <li><a href="politicas-de-privacidad.php">Políticas de Privacidad</a></li>
-                <li><a href="politicas-de-reembolso.php">Políticas de Reembolso</a></li>
-                <li><a href="terminos-de-uso.php">Términos de Uso</a></li>
-            </ul>
-        </div>
-        -------------------------------------->
+
         <div class="footer-column">
             <h4>Contacto</h4>
             <div class="contact-info">
@@ -38,6 +28,19 @@
             </div>
 
         </div>
+        <div class="footer-column">
+            <h4>Links Informativos</h4>
+            <ul class="footer-links">
+                <li><a href="terminos-y-condiciones.php">Términos y Condiciones</a></li>
+                <li><a href="politicas-de-privacidad.php">Políticas de Privacidad</a></li>
+                <li><a href="politicas-de-reembolso.php">Políticas de Reembolso</a></li>
+                <li><a href="terminos-de-uso.php">Términos de Uso</a></li>
+            </ul>
+        </div>
+
+
+
+
     </div>
     
     <div class="footer-bottom">

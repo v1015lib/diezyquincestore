@@ -29,37 +29,27 @@ input[type=button]{
 }   
 
 html {
-    // --- LA MAGIA DE LA TIPOGRAFÍA RESPONSIVA EMPIEZA AQUÍ ---
-    
-    // Base para móviles (un poco más pequeño para empezar)
     font-size: 1rem; 
-
-    // Aumenta la base en tablets244
     @media (min-width: 768px) {
         font-size: 1rem;
     }
-
-    // El tamaño estándar en escritorio
     @media (min-width: 1200px) {
-        font-size: 1.15rem; // Esto se convierte en nuestro 1rem = 16px
+        font-size: 1.15rem;
     }
-    
 }
 
 body {
-    height: 100vh;
-    overflow: hidden;
-
     line-height: 1.5;
     color: $text-color;
     background-color: $background-color;
     display: flex;
     flex-direction: column;
-
+    height: 100vh;
+    overflow-y: auto; // MODIFICACIÓN CLAVE: Permite scroll vertical por defecto
 }
+
 ul,li,a{
     text-decoration: none;
     list-style: none;
     color: black;
 }
-// ... resto del archivo ...
