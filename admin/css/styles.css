@@ -25,7 +25,6 @@ button {
   -webkit-box-pack: justify;
       -ms-flex-pack: justify;
           justify-content: space-between;
-  padding: 0.5rem;
   background-color: #ffffff;
   border-bottom: 1px solid #dee2e6;
   -ms-flex-negative: 0;
@@ -50,90 +49,14 @@ button {
   cursor: pointer;
 }
 
-.module-header {
-  margin-bottom: 0.5rem;
-}
-.module-header .modules_head {
-  font-size: clamp(0.9rem, 2vw, 1rem);
-  font-weight: 900;
-  color: #0C0A4E;
-  margin-bottom: 1.25rem;
-}
-.module-header .action-ribbon {
-  display: -webkit-box;
-  display: -ms-flexbox;
-  display: flex;
-  -ms-flex-wrap: wrap;
-      flex-wrap: wrap;
-}
-.module-header .action-btn {
-  background-color: #EBEBEB;
-  border: 0;
-  padding: 0.5rem;
-  font-weight: 900;
-  cursor: pointer;
-  -webkit-transition: all 0.2s ease !important;
-  transition: all 0.2s ease !important;
-  font-size: 0.9rem;
-}
-.module-header .action-btn:hover {
-  color: #0C0A4E;
-  background-color: white;
-}
-.module-header .action-btn.active {
-  background-color: #0C0A4E;
-  color: #D4A017;
-  font-weight: 900;
-  border-color: #0C0A4E;
-}
-
 .module-content {
   background-color: #ffffff;
   padding: 0.5rem;
   border-radius: 8px;
   border: 1px solid #dee2e6;
   min-height: 400px;
-}
-
-.widgets-grid {
-  display: -ms-grid;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 0.5rem;
-}
-
-.widget {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 0.5rem;
-  border: 1px solid #dee2e6;
-}
-.widget h3 {
-  font-size: 1rem;
-  color: #343a40;
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f0f0f0;
-}
-.widget .widget-content {
-  color: #6c757d;
-  font-size: 0.8rem;
-  display: -webkit-box;
-  display: -ms-flexbox;
-  display: flex;
-  -webkit-box-orient: vertical;
-  -webkit-box-direction: normal;
-      -ms-flex-direction: column;
-          flex-direction: column;
-  -webkit-box-align: center;
-      -ms-flex-align: center;
-          align-items: center;
-  -ms-flex-line-pack: center;
-      align-content: center;
-  -webkit-box-pack: start;
-      -ms-flex-pack: start;
-          justify-content: flex-start;
-  height: 100%;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .dashboard-sidemenu .nav-link.active {
@@ -342,6 +265,65 @@ tbody tr:hover > * {
   padding: 0;
 }
 
+.module-header {
+  position: relative;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  padding: 1rem 0.5rem;
+}
+.module-header .modules_head {
+  font-size: clamp(0.9rem, 2vw, 1rem);
+  font-weight: 900;
+  color: #0C0A4E;
+}
+.module-header .ribbon_toggle {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0;
+  font-size: clamp(0.9rem, 4vw, 1rem);
+  padding: inherit;
+}
+@media screen and (max-width: 480px) {
+  .module-header .ribbon_toggle {
+    display: block;
+  }
+}
+.module-header .action-ribbon {
+  margin-top: 1rem;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  position: relative;
+}
+.module-header .action-ribbon .action-btn {
+  background-color: #EBEBEB;
+  border: 0;
+  font-weight: 600;
+  cursor: default;
+  -webkit-transition: all 0.2s ease !important;
+  transition: all 0.2s ease !important;
+  font-size: 0.9rem;
+}
+.module-header .action-ribbon .action-btn:hover {
+  color: #0C0A4E;
+  background-color: white;
+}
+.module-header .action-ribbon .action-btn.active {
+  background-color: #0C0A4E;
+  color: #D4A017;
+  font-weight: 900;
+  border-color: #0C0A4E;
+}
+
 .dashboard-layout {
   display: -webkit-box;
   display: -ms-flexbox;
@@ -367,7 +349,6 @@ tbody tr:hover > * {
   -webkit-box-flex: 1;
       -ms-flex-positive: 1;
           flex-grow: 1;
-  padding: 0.5rem;
   overflow-y: auto;
 }
 .dashboard-content::-webkit-scrollbar {
@@ -464,7 +445,7 @@ tbody tr:hover > * {
   display: none;
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 5vw, 1rem);
   cursor: pointer;
 }
 
@@ -1354,7 +1335,7 @@ tbody tr:hover > * {
     display: block;
   }
   .dashboard-content {
-    padding: 1.5rem;
+    padding: 0.5rem;
   }
 }
 @media (max-width: 480px) {
@@ -1386,7 +1367,7 @@ tbody tr:hover > * {
     -webkit-box-align: center;
         -ms-flex-align: center;
             align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
   }
   .dashboard-sidemenu .menu-icon {
     font-size: 1.2rem;

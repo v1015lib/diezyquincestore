@@ -1,5 +1,8 @@
 <div class="module-header">
+        <button class="ribbon_toggle">Acciones</button>
+
     <div class="action-ribbon">
+
         <button class="action-btn active" data-action="pos/vista_principal">POS</button>
         <button class="action-btn " data-action="pos/gestion_pedidos">Gestionar Pedidos Web</button>
     </div>

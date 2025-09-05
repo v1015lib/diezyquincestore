@@ -2,6 +2,8 @@
 
 <div class="module-header">
     <h2 class="modules_head">Gestión de Productos</h2>
+        <button class="ribbon_toggle">Acciones</button>
+
     <div class="action-ribbon">
         <button class="action-btn active" data-action="productos/todos_los_productos">Todos los Productos</button>
         <button class="action-btn" data-action="productos/agregar_producto">Nuevo Producto</button>

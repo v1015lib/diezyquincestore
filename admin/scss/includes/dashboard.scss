@@ -1,48 +1,6 @@
 // Estilos minimalistas para los componentes del admin
 
 // Header de cada módulo (donde va el título y la cinta de opciones)
-.module-header {
-    margin-bottom: .5rem;
-
-    .modules_head {
-        font-size: clamp(.9rem, 2vw, 1rem);
-        font-weight: 900;
-        color: $primary-color;
-        margin-bottom: 1.25rem;
-
-    }
-
-    .action-ribbon {
-        display: flex;
-        flex-wrap: wrap;
-
-    }
-
-    .action-btn {
-        background-color: #EBEBEB;
-        border: 0;
-
-        padding: 0.5rem;
-
-        font-weight: 900;
-        cursor: pointer;
-        transition: all 0.2s ease !important;
-        font-size: 0.9rem;
-
-        &:hover {
-
-            color: $primary-color;
-            background-color: white;
-        }
-
-        &.active {
-            background-color: $primary-color;
-            color: $tcolor2;
-            font-weight: 900;
-            border-color: $primary-color;
-        }
-    }
-}
 
 // Área principal donde se carga el contenido (formularios, listas)
 .module-content {
@@ -51,41 +9,13 @@
     border-radius: 8px;
     border: 1px solid $border-color;
     min-height: 400px;
+    width: 100%;
+    overflow-x: auto;//Controlamos que sea un poco responsivo en celular
 }
 
 // Cuadrícula para los Widgets del Dashboard
-.widgets-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: .5rem;
-}
 
-.widget {
-    background-color: #fff;
-    border-radius: 8px;
-    padding: .5rem;
-    border: 1px solid $border-color;
 
-    h3 {
-        font-size: 1rem;
-        color: $text-color;
-        margin: 0 0 1rem 0;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .widget-content {
-        color: $secondary-color;
-        font-size: .8rem;
-
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        align-content: center;
-        justify-content: flex-start;
-        height: 100%;
-    }
-}
 
 // Estilo para el enlace activo en el menú lateral
 .dashboard-sidemenu .nav-link.active {

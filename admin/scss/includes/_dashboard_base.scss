@@ -1,4 +1,73 @@
-// Estilos base para la estructura principal del dashboard
+.module-header {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
+     padding:1rem .5rem;
+
+    .modules_head {
+        font-size: clamp(.9rem, 2vw, 1rem);
+        font-weight: 900;
+        color: $primary-color;
+
+
+
+
+
+    }
+    .ribbon_toggle{
+
+        display: none;
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 0;
+
+        font-size: clamp(.9rem, 4vw, 1rem);
+        padding: inherit;
+
+
+        @media screen and (max-width: 480px) {
+            display: block;
+        }
+    }
+    .action-ribbon {
+        margin-top: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+
+        position: relative;
+
+    
+
+        .action-btn {
+            background-color: #EBEBEB;
+            border: 0;
+
+
+
+            font-weight: 600;
+            cursor: default;
+            transition: all 0.2s ease !important;
+            font-size: 0.9rem;
+
+            &:hover {
+
+                color: $primary-color;
+                background-color: white;
+            }
+
+            &.active {
+                background-color: $primary-color;
+                color: $tcolor2;
+                font-weight: 900;
+                border-color: $primary-color;
+            }
+        }
+    
+    }
+}
+
 
 
 
@@ -16,7 +85,7 @@
 
 .dashboard-content {
     flex-grow: 1;
-    padding: .5rem; // Más espaciado para un look más limpio
+
     overflow-y: auto;
     // Scrollbar más sutil
     &::-webkit-scrollbar { width: 6px; }
@@ -98,7 +167,7 @@
     display: none;
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: clamp(1rem, 5vw, 1rem);
     cursor: pointer;
   }
 }

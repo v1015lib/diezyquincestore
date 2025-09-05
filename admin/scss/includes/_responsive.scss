@@ -19,7 +19,7 @@
     }
 
     .dashboard-content {
-        padding: 1.5rem; // Reduce el padding en pantallas más pequeñas
+        padding: .5rem; // Reduce el padding en pantallas más pequeñas
     }
 }
 
@@ -54,7 +54,7 @@
         .nav-link {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: .5rem;
 
 
         }
@@ -105,6 +105,7 @@
         }
     }
 }
+
 
 
 
