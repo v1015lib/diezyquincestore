@@ -2995,18 +2995,40 @@ case 'admin/getCardReport':
 
 //Deparamentos
 case 'admin/getDepartments':
-            // require_admin();
-            try {
-                // CORRECCIÓN: Se usa "departamento" para coincidir con la base de datos.
-                $stmt = $pdo->query("SELECT id_departamento, departamento, codigo_departamento FROM departamentos ORDER BY departamento ASC");
-                $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                echo json_encode(['success' => true, 'departments' => $departments]);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al obtener los departamentos.']);
-            }
-            break;
+    // require_admin();
+    try {
+        // --- LÓGICA DE ORDENACIÓN ---
+        $sortBy = $_GET['sort_by'] ?? 'departamento';
+        $order = $_GET['order'] ?? 'ASC';
 
+        // Lista blanca para seguridad
+        $allowedSortCols = ['id_departamento', 'departamento', 'codigo_departamento', 'total_productos'];
+        if (!in_array($sortBy, $allowedSortCols)) {
+            $sortBy = 'departamento';
+        }
+        if (!in_array(strtoupper($order), ['ASC', 'DESC'])) {
+            $order = 'ASC';
+        }
+
+        // --- CONSULTA MODIFICADA ---
+        $stmt = $pdo->query("
+            SELECT 
+                d.id_departamento, 
+                d.departamento, 
+                d.codigo_departamento,
+                (SELECT COUNT(p.id_producto) FROM productos p WHERE p.departamento = d.id_departamento) as total_productos
+            FROM departamentos d 
+            ORDER BY {$sortBy} {$order}
+        ");
+        
+        $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'departments' => $departments]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener los departamentos.']);
+    }
+    break;
 case 'admin/createDepartment':
             // require_admin();
             // CORRECCIÓN: Se espera "departamento" desde el JavaScript.

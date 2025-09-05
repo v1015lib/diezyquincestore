@@ -1388,7 +1388,22 @@ sidemenu.addEventListener('click', (event) => {
 
 
 
+let departmentFilters = {
+    sort: {
+        by: 'departamento',
+        order: 'ASC'
+    }
+};
 
+// Función para actualizar los indicadores visuales de ordenación
+function updateDepartmentSortIndicators() {
+    document.querySelectorAll('#departments-list-container th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === departmentFilters.sort.by) {
+            th.classList.add(departmentFilters.sort.order === 'ASC' ? 'sort-asc' : 'sort-desc');
+        }
+    });
+}
 
 
 
@@ -1398,6 +1413,20 @@ sidemenu.addEventListener('click', (event) => {
 // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
+
+
+        const departmentSortableHeader = event.target.closest('#departments-list-container th.sortable');
+    if (departmentSortableHeader) {
+        const sortBy = departmentSortableHeader.dataset.sort;
+        if (departmentFilters.sort.by === sortBy) {
+            departmentFilters.sort.order = departmentFilters.sort.order === 'ASC' ? 'DESC' : 'ASC';
+        } else {
+            departmentFilters.sort.by = sortBy;
+            departmentFilters.sort.order = 'ASC';
+        }
+        await fetchAndRenderDepartments();
+        return;
+    }
     if (target.id === 'filter-stats-btn') {
         const startDateInput = document.getElementById('start-date');
         const endDateInput = document.getElementById('end-date');
@@ -2415,13 +2444,21 @@ function initializeDepartmentManagement() {
     }
 }
 
+
+
+
+
+
+
 async function fetchAndRenderDepartments() {
     const tableBody = document.getElementById('departments-table-body');
     if (!tableBody) return;
-    tableBody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
 
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getDepartments`);
+        // Se añaden los parámetros de ordenación a la URL de la API
+        const apiUrl = `${API_BASE_URL}?resource=admin/getDepartments&sort_by=${departmentFilters.sort.by}&order=${departmentFilters.sort.order}`;
+        const response = await fetch(apiUrl);
         const result = await response.json();
         
         tableBody.innerHTML = '';
@@ -2430,23 +2467,23 @@ async function fetchAndRenderDepartments() {
                 const row = document.createElement('tr');
                 row.dataset.departmentId = dept.id_departamento;
                 
-                // CORRECCIÓN: Se accede a la propiedad "departamento" del objeto que viene de la API.
                 row.innerHTML = `
                     <td>${dept.id_departamento}</td>
                     <td class="editable" data-field="departamento">${dept.departamento}</td>
                     <td>${dept.codigo_departamento}</td>
+                    <td>${dept.total_productos}</td>
                     <td><button class="action-btn delete-department-btn">&times;</button></td>
                 `;
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="4">No hay departamentos creados.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">No hay departamentos creados.</td></tr>';
         }
+        updateDepartmentSortIndicators(); // Actualiza los indicadores visuales
     } catch (error) {
-        tableBody.innerHTML = '<tr><td colspan="4" style="color:red;">Error al cargar los departamentos.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar los departamentos.</td></tr>';
     }
 }
-
 
 
 // Listener para guardar cambios al editar en línea

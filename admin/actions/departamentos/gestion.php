@@ -22,8 +22,9 @@
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Nombre del Departamento (haz doble clic para editar)</th>
-                        <th>Código</th>
+                        <th class="sortable" data-sort="departamento">Nombre (haz doble clic para editar)</th>
+                        <th class="sortable" data-sort="codigo_departamento">Código</th>
+                        <th class="sortable" data-sort="total_productos">Total Productos</th>
                         <th>Acción</th>
                     </tr>
                 </thead>
