@@ -5,12 +5,13 @@
 // Área principal donde se carga el contenido (formularios, listas)
 .module-content {
     background-color: #ffffff;
-    padding: .5rem;
+    padding: .2rem;
     border-radius: 8px;
     border: 1px solid $border-color;
     min-height: 400px;
     width: 100%;
     overflow-x: auto;//Controlamos que sea un poco responsivo en celular
+
 }
 
 // Cuadrícula para los Widgets del Dashboard

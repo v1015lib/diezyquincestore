@@ -51,7 +51,7 @@ button {
 
 .module-content {
   background-color: #ffffff;
-  padding: 0.5rem;
+  padding: 0.2rem;
   border-radius: 8px;
   border: 1px solid #dee2e6;
   min-height: 400px;
@@ -744,7 +744,7 @@ tbody tr:hover > * {
   -webkit-box-direction: normal;
       -ms-flex-direction: column;
           flex-direction: column;
-  height: calc(100vh - 145px);
+  height: calc(100vh - 164px);
   background-color: #f8f9fa;
 }
 
