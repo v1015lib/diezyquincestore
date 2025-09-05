@@ -1095,6 +1095,7 @@ case 'checkout-with-card':
 // ... resto de los case ...
 
 /************************************************************************/
+// ...
 case 'get-card-details':
     if (!isset($_SESSION['id_cliente'])) {
         http_response_code(401);
@@ -1115,7 +1116,7 @@ case 'get-card-details':
 
         $transactions = [];
 
-        // --- INICIO DE LA LÓGICA DE HISTORIAL CORREGIDA ---
+        // --- LÓGICA DE HISTORIAL CORREGIDA ---
         // Ahora obtenemos el id_usuario_venta para saber si fue una compra en web o en POS
         $stmt_sales = $pdo->prepare(
             "SELECT fecha_venta as fecha, id_venta, monto_total, id_usuario_venta 
@@ -1136,9 +1137,8 @@ case 'get-card-details':
                 'monto' => - (float)$row['monto_total']
             ];
         }
-        // --- FIN DE LA LÓGICA DE HISTORIAL ---
-
-        // Obtener recargas (esto no cambia)
+        
+        // --- OBTENER RECARGAS ---
         $stmt_recharges = $pdo->prepare("SELECT fecha, descripcion FROM registros_actividad WHERE tipo_accion = 'Recarga de Tarjeta' AND descripcion LIKE :card_pattern ORDER BY fecha DESC");
         $stmt_recharges->execute([':card_pattern' => '%' . $card['numero_tarjeta'] . '%']);
         while ($row = $stmt_recharges->fetch(PDO::FETCH_ASSOC)) {
@@ -1160,6 +1160,7 @@ case 'get-card-details':
         echo json_encode(['success' => false, 'error' => 'Error al obtener los datos de la tarjeta.']);
     }
     break;
+// ...
 
 
 
