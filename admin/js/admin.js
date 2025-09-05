@@ -840,6 +840,8 @@ async function loadActionContent(actionPath) {
             initializeTiendaManagement();
         } else if (actionPath === 'proveedores/gestion') { 
             initializeProveedorManagement();
+        }else if (actionPath === 'utilidades/generador_codigos') { // <-- AÑADE ESTA LÍNEA
+            initializeBarcodeGenerator(); // <-- AÑADE ESTA LÍNEA
         }
         // --- FIN DE LA LÓGICA CORREGIDA ---
     } catch (error) {
@@ -4662,7 +4664,52 @@ async function reactivateUser(userId) {
 }
 
 
+function initializeBarcodeGenerator() {
+    const form = document.getElementById('generate-barcodes-form');
+    const feedbackDiv = document.getElementById('generator-feedback');
+    const resultsContainer = document.getElementById('results-container');
+    const outputTextarea = document.getElementById('generated-codes-output');
+    const copyBtn = document.getElementById('copy-codes-btn');
 
+    if (!form) return;
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = form.querySelector('.form-submit-btn');
+        const quantity = document.getElementById('quantity').value;
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Generando...';
+        feedbackDiv.innerHTML = '';
+        resultsContainer.style.display = 'none';
+        outputTextarea.value = '';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/generateEan13Codes&quantity=${quantity}`);
+            const result = await response.json();
+
+            if (result.success && result.codes) {
+                outputTextarea.value = result.codes.join('\n');
+                resultsContainer.style.display = 'block';
+                feedbackDiv.innerHTML = `<div class="message success">¡Se generaron ${result.codes.length} códigos con éxito!</div>`;
+            } else {
+                throw new Error(result.error || 'No se pudieron generar los códigos.');
+            }
+        } catch (error) {
+            feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Generar Códigos';
+        }
+    });
+
+    copyBtn.addEventListener('click', () => {
+        outputTextarea.select();
+        document.execCommand('copy');
+        feedbackDiv.innerHTML = `<div class="message success">Códigos copiados al portapapeles.</div>`;
+        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 2000);
+    });
+}
 
 
 });

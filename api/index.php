@@ -33,6 +33,76 @@ try {
     switch ($resource) {
 
 
+
+
+
+// Agrega este 'case' dentro del switch($resource)
+
+case 'admin/generateEan13Codes':
+    // require_admin(); // Seguridad
+    try {
+        $quantity = isset($_GET['quantity']) ? (int)$_GET['quantity'] : 0;
+        if ($quantity <= 0 || $quantity > 100) {
+            throw new Exception("La cantidad debe ser entre 1 y 100.");
+        }
+
+        $generated_codes = [];
+        $max_attempts = $quantity * 10; // Evitar bucles infinitos
+        $attempts = 0;
+
+        // Preparamos la consulta una sola vez
+        $stmt_check = $pdo->prepare("SELECT 1 FROM productos WHERE codigo_producto = :code LIMIT 1");
+
+        while (count($generated_codes) < $quantity && $attempts < $max_attempts) {
+            $attempts++;
+            // Genera 8 dígitos aleatorios
+            $random_part = str_pad(mt_rand(0, 99999999), 8, '0', STR_PAD_LEFT);
+            $base12 = '1015' . $random_part;
+
+            // Calcular el dígito de control EAN-13
+            $sum_odd = 0;
+            $sum_even = 0;
+            for ($i = 0; $i < 12; $i++) {
+                if (($i + 1) % 2 != 0) { // Posiciones impares (1, 3, 5...)
+                    $sum_odd += (int)$base12[$i];
+                } else { // Posiciones pares (2, 4, 6...)
+                    $sum_even += (int)$base12[$i];
+                }
+            }
+            $total_sum = $sum_odd + ($sum_even * 3);
+            $check_digit = (10 - ($total_sum % 10)) % 10;
+            $ean13_code = $base12 . $check_digit;
+
+            // Verificar si ya existe en la base de datos
+            $stmt_check->execute([':code' => $ean13_code]);
+            if (!$stmt_check->fetch()) {
+                // Si no existe, lo añadimos a nuestra lista y a un array para evitar duplicados en la misma tanda
+                if (!in_array($ean13_code, $generated_codes)) {
+                    $generated_codes[] = $ean13_code;
+                }
+            }
+        }
+
+        if (count($generated_codes) < $quantity) {
+             throw new Exception("No se pudieron generar todos los códigos únicos solicitados. Intenta con una cantidad menor o más tarde.");
+        }
+
+        echo json_encode(['success' => true, 'codes' => $generated_codes]);
+
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
+
+
+
+
+
+
+
 case 'pos_set_store':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = json_decode(file_get_contents('php://input'), true);
