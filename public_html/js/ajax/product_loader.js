@@ -211,14 +211,21 @@ export function setupPagination(paginationControlsId, totalPages, currentPage, p
     }
 }
 
+// --- FUNCIÓN MODIFICADA ---
 function createPageButton(text, page, productListId, paginationControlsId, isActive = false, isPageNumber = false) {
     const button = document.createElement('button');
     button.textContent = text;
     if (isActive) button.classList.add('active');
     if (isPageNumber) button.classList.add('page-number');
+    
     button.addEventListener('click', () => {
+        // Actualizamos el número de página en los parámetros globales
         currentProductParams.page = page;
-        loadProducts(productListId, paginationControlsId, currentProductParams);
+        
+        // Llamamos a loadProducts pasando una copia de los parámetros
+        // y añadiendo la instrucción para que haga scroll.
+        loadProducts(productListId, paginationControlsId, { ...currentProductParams, shouldScroll: true });
     });
+    
     return button;
 }
