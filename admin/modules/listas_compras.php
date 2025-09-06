@@ -1,6 +1,6 @@
 <div class="module-header">
     <h2 class="modules_head">Listas de Compras</h2>
-        <button class="ribbon_toggle">Acciones</button>
+    <button class="ribbon_toggle">Acciones</button>
 
     <div class="action-ribbon">
         <button class="action-btn active" data-action="listas_compras/gestion">Gestionar Listas</button>

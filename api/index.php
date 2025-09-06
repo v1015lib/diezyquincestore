@@ -32,9 +32,145 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+/***********************************************************/
+// --- INICIO: CASES CORREGIDOS Y COMPLETOS PARA LISTAS DE COMPRAS ---
 
+case 'admin/getShoppingLists':
+    try {
+        $filter_date = $_GET['date'] ?? null;
+        $sql = "SELECT lc.id_lista, lc.nombre_lista, lc.fecha_creacion, u.nombre_usuario, p.nombre_proveedor 
+                FROM listas_compras lc
+                JOIN usuarios u ON lc.id_usuario_creador = u.id_usuario
+                LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor";
+        $params = [];
+        if ($filter_date) {
+            $sql .= " WHERE lc.fecha_creacion = :filter_date";
+            $params[':filter_date'] = $filter_date;
+        }
+        $sql .= " ORDER BY lc.fecha_creacion DESC, lc.id_lista DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $lists = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'lists' => $lists]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las listas: ' . $e->getMessage()]);
+    }
+    break;
 
+case 'admin/createShoppingList':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $listName = trim($data['nombre_lista'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
 
+        if (empty($listName) || !$userId) {
+            throw new Exception('El nombre de la lista es obligatorio y debes haber iniciado sesión.');
+        }
+        
+        $stmt = $pdo->prepare("INSERT INTO listas_compras (nombre_lista, fecha_creacion, id_usuario_creador) VALUES (:name, CURDATE(), :user_id)");
+        $stmt->execute([':name' => $listName, ':user_id' => $userId]);
+        $newListId = $pdo->lastInsertId();
+
+        logActivity($pdo, $userId, 'Lista de Compras Creada', "Creó la nueva lista de compras: '{$listName}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Lista creada. Ahora puedes añadir productos.', 'newListId' => $newListId]);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/getListItems':
+    try {
+        $id_lista = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$id_lista) throw new Exception("ID de lista no válido.");
+
+        $stmt_name = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = ?");
+        $stmt_name->execute([$id_lista]);
+        $nombre_lista = $stmt_name->fetchColumn();
+
+        $stmt_items = $pdo->prepare("
+            SELECT 
+                lci.id_item_lista, lci.id_producto, 
+                COALESCE(p.nombre_producto, lci.nombre_producto) as nombre_producto, 
+                COALESCE(p.precio_compra, lci.precio_compra) as precio_compra, 
+                lci.cantidad,
+                (SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = lci.id_producto) as stock_total
+            FROM listas_compras_items lci
+            LEFT JOIN productos p ON lci.id_producto = p.id_producto
+            WHERE lci.id_lista = ? ORDER BY lci.id_item_lista ASC
+        ");
+        $stmt_items->execute([$id_lista]);
+        $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'items' => $items, 'nombre_lista' => $nombre_lista]);
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/searchProductsForList':
+    try {
+        $query = '%' . ($_GET['query'] ?? '') . '%';
+        $stmt = $pdo->prepare("
+            SELECT 
+                p.id_producto, p.nombre_producto, p.precio_compra,
+                (SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto) as stock_total
+            FROM productos p 
+            WHERE (p.nombre_producto LIKE :query OR p.codigo_producto LIKE :query) 
+            AND p.estado = 1 LIMIT 10
+        ");
+        $stmt->execute([':query' => $query]);
+        $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'productos' => $productos]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+case 'admin/saveShoppingList':
+    $data = json_decode(file_get_contents('php://input'), true);
+    if (isset($data['id_lista']) && isset($data['items'])) {
+        $id_lista = $data['id_lista'];
+        $items = $data['items'];
+        try {
+            $pdo->beginTransaction();
+            $stmt_delete = $pdo->prepare("DELETE FROM listas_compras_items WHERE id_lista = ?");
+            $stmt_delete->execute([$id_lista]);
+            $stmt_insert = $pdo->prepare(
+                "INSERT INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) VALUES (?, ?, ?, ?, ?)"
+            );
+            foreach ($items as $item) {
+                $stmt_insert->execute([
+                    $id_lista,
+                    $item['id_producto'],
+                    $item['nombre_producto'],
+                    $item['precio_compra'],
+                    $item['cantidad']
+                ]);
+            }
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Lista guardada correctamente.']);
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al guardar la lista: ' . $e->getMessage()]);
+        }
+    } else {
+         http_response_code(400);
+         echo json_encode(['success' => false, 'error' => 'Datos incompletos.']);
+    }
+    break;
+    
+// --- FIN: CASES CORREGIDOS ---
+
+/**********************************************************/
 
 // Agrega este 'case' dentro del switch($resource)
 

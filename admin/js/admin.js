@@ -709,6 +709,7 @@ function initializeSidemenu() {
 
 // REEMPLAZA ESTA FUNCIÓN COMPLETA
 // REEMPLAZA ESTA FUNCIÓN EN admin.js
+// REEMPLAZA ESTA FUNCIÓN EN admin.js
 async function loadModule(moduleName) {
     mainContent.innerHTML = '<h2>Cargando...</h2>';
     try {
@@ -730,10 +731,9 @@ async function loadModule(moduleName) {
             case 'usuarios': defaultAction = 'usuarios/gestion'; break;
             case 'pos': defaultAction = 'pos/vista_principal'; break; 
             case 'web_admin': defaultAction = 'web_admin/sliders'; break;
-            case 'listas_compras': defaultAction = 'listas_compras/gestion'; break;
             case 'tiendas': defaultAction = 'tiendas/gestion'; break; 
             case 'proveedores': defaultAction = 'proveedores/gestion'; break;
-        
+            case 'listas_compras': defaultAction = 'listas_compras/gestion'; break; // ESTA ES LA LÍNEA CORRECTA Y ÚNICA
 
         }
         if (defaultAction) {
@@ -743,14 +743,351 @@ async function loadModule(moduleName) {
         mainContent.innerHTML = `<p style="color:red;">${error.message}</p>`;
     }
 }
-// REEMPLAZA ESTA FUNCIÓN COMPLETA
 
-
-
-// admin/js/admin.js
+/*************************************************************************/
+//Listas de compras funciones
 
 // admin/js/admin.js
 
+/*************************************************************************/
+// --- INICIO: MÓDULO LISTAS DE COMPRAS (BLOQUE CORREGIDO) ---
+
+function initializeShoppingListManagement() {
+    const dateFilter = document.getElementById('list-date-filter');
+    const listsTbody = document.getElementById('shopping-lists-tbody');
+    if (!dateFilter || !listsTbody) return;
+
+    if (!dateFilter.value) {
+        dateFilter.valueAsDate = new Date();
+    }
+    
+    fetchAndRenderShoppingLists(dateFilter.value);
+    dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
+
+    listsTbody.addEventListener('click', e => {
+        const target = e.target.closest('button');
+        if (!target) return;
+        const listId = target.closest('tr')?.dataset.listId;
+        if (!listId) return;
+
+        if (target.classList.contains('view-list-btn')) {
+            loadActionContent(`listas_compras/ver_lista&id=${listId}`);
+        } else if (target.classList.contains('delete-list-btn')) {
+            deleteShoppingList(listId, target.closest('tr'));
+        } else if (target.classList.contains('copy-list-btn')) {
+            copyShoppingList(listId);
+        }
+    });
+}
+
+async function fetchAndRenderShoppingLists(date) {
+    const tableBody = document.getElementById('shopping-lists-tbody');
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando listas...</td></tr>';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingLists&date=${date}`);
+        const result = await response.json();
+        tableBody.innerHTML = '';
+        if (result.success && result.lists.length > 0) {
+            result.lists.forEach(list => {
+                const row = document.createElement('tr');
+                row.dataset.listId = list.id_lista;
+                row.innerHTML = `
+                    <td>${list.nombre_lista}</td>
+                    <td>${list.fecha_creacion}</td>
+                    <td>${list.nombre_usuario}</td>
+                    <td>${list.nombre_proveedor || '<em>N/A</em>'}</td>
+                    <td>
+                        <button class="action-btn btn-sm view-list-btn">Ver / Editar</button>
+                        <button class="action-btn btn-sm delete-list-btn">Eliminar</button>
+                        <button class="action-btn btn-sm copy-list-btn">Copiar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="5">No hay listas para la fecha seleccionada.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar las listas.</td></tr>';
+    }
+}
+
+async function deleteShoppingList(listId, rowElement) {
+    if (!confirm('¿Seguro que quieres eliminar esta lista? Esta acción es irreversible.')) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteShoppingList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_lista: listId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            rowElement.remove();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+function initializeCreateShoppingListForm() {
+    const form = document.getElementById('create-shopping-list-form');
+    if (!form) return;
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const listName = document.getElementById('nombre_lista').value;
+        const providerId = document.getElementById('id_proveedor').value;
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/createShoppingList`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre_lista: listName, id_proveedor: providerId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                loadActionContent(`listas_compras/ver_lista&id=${result.newListId}`);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    });
+}
+
+function initializeListasCompras(container) {
+    const listaContainer = container.querySelector('.lista-compras-container');
+    if (!listaContainer) return;
+    const listId = listaContainer.dataset.idLista;
+    if (!listId) {
+        console.error("Error crítico: no se pudo encontrar el ID de la lista.");
+        return;
+    }
+    loadAndRenderListView(listId);
+}
+
+async function loadAndRenderListView(listId) {
+    try {
+        const detailsResponse = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
+        const detailsResult = await detailsResponse.json();
+        if (!detailsResult.success) throw new Error(detailsResult.error);
+        
+        document.getElementById('list-name-header').textContent = `Editando Lista: ${detailsResult.listName}`;
+        renderListItems(detailsResult.items);
+        initializeListViewInteractions(listId);
+    } catch (error) {
+        document.getElementById('action-content').innerHTML = `<p style="color:red;">Error al cargar la lista: ${error.message}</p>`;
+    }
+}
+
+function renderListItems(items) {
+    const itemsTbody = document.getElementById('list-items-tbody');
+    if (!itemsTbody) return;
+    itemsTbody.innerHTML = '';
+    items.forEach(item => {
+        const row = document.createElement('tr');
+        row.dataset.itemId = item.id_item_lista;
+        row.dataset.stockActual = item.stock_actual;
+        if (parseInt(item.marcado, 10) === 1) row.classList.add('item-marked');
+        
+        const isManualItem = !item.id_producto;
+        const displayQuantity = (item.usar_stock_actual && !isManualItem) ? item.stock_actual : item.cantidad;
+        
+        row.innerHTML = `
+            <td><input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}></td>
+            <td ${isManualItem ? 'class="editable" data-field="nombre_producto"' : ''}>${item.nombre_producto}</td>
+            <td ${isManualItem ? 'class="editable" data-field="precio_compra"' : ''}>$${parseFloat(item.precio_compra).toFixed(3)}</td>
+            <td><input type="number" class="quantity-input" value="${displayQuantity}" min="0" ${item.usar_stock_actual ? 'disabled' : ''}></td>
+            <td><input type="checkbox" class="use-stock-checkbox" ${item.usar_stock_actual ? 'checked' : ''} ${isManualItem ? 'disabled' : ''}></td>
+            <td><button class="action-btn btn-sm btn-danger remove-item-btn">Quitar</button></td>
+        `;
+        itemsTbody.appendChild(row);
+    });
+}
+
+function initializeListViewInteractions(listId) {
+    const searchInput = document.getElementById('product-search-for-list');
+    const searchResultsContainer = document.getElementById('product-search-results-list');
+    const itemsTbody = document.getElementById('list-items-tbody');
+    const manualForm = document.getElementById('manual-add-product-form');
+    let searchTimer;
+
+    // Listener para el formulario de añadir manualmente
+    manualForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); // <-- Previene la recarga
+        const feedbackDiv = document.getElementById('manual-add-feedback');
+        const data = {
+            id_lista: listId,
+            nombre_producto: document.getElementById('manual_product_name').value,
+            precio_compra: document.getElementById('manual_purchase_price').value,
+            cantidad: document.getElementById('manual_quantity').value
+        };
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if(!result.success) throw new Error(result.error);
+            manualForm.reset();
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            await loadAndRenderListView(listId);
+            setTimeout(() => feedbackDiv.innerHTML = '', 2000);
+        } catch (error) {
+            feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+        }
+    });
+
+    // Listener para la búsqueda de productos
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const query = searchInput.value.trim();
+        if (query.length < 2) {
+            searchResultsContainer.style.display = 'none';
+            return;
+        }
+        searchTimer = setTimeout(async () => {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
+            const result = await response.json();
+            searchResultsContainer.innerHTML = '';
+            if (result.success && result.products.length > 0) {
+                searchResultsContainer.style.display = 'block';
+                result.products.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerHTML = `<span>${p.nombre_producto} (${p.codigo_producto})</span>`;
+                    div.addEventListener('click', async () => {
+                        await addProductToList(listId, p.id_producto);
+                        searchInput.value = '';
+                        searchResultsContainer.style.display = 'none';
+                    });
+                    searchResultsContainer.appendChild(div);
+                });
+            } else {
+                searchResultsContainer.style.display = 'none';
+            }
+        }, 300);
+    });
+
+    // Manejador de eventos para la tabla
+    itemsTbody.addEventListener('change', async (e) => {
+        const target = e.target;
+        const row = target.closest('tr');
+        if (!row) return;
+        const itemId = row.dataset.itemId;
+        const quantityInput = row.querySelector('.quantity-input');
+
+        if (target.classList.contains('quantity-input')) {
+            await updateListItem(itemId, 'cantidad', target.value);
+        } else if (target.classList.contains('use-stock-checkbox')) {
+            const useStock = target.checked;
+            await updateListItem(itemId, 'usar_stock_actual', useStock);
+            quantityInput.disabled = useStock;
+            if (useStock) quantityInput.value = row.dataset.stockActual;
+        } else if (target.classList.contains('mark-item-checkbox')) {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_item_lista: itemId })
+            });
+            const result = await response.json();
+            if (result.success) row.classList.toggle('item-marked', result.newState);
+            else target.checked = !target.checked;
+        }
+    });
+
+    itemsTbody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('remove-item-btn')) {
+            const itemId = e.target.closest('tr').dataset.itemId;
+            await removeProductFromList(itemId);
+        }
+    });
+}
+
+async function addProductToList(listId, productId) {
+    await fetch(`${API_BASE_URL}?resource=admin/addProductToList`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_lista: listId, id_producto: productId })
+    });
+    await loadAndRenderListView(listId);
+}
+
+async function updateListItem(itemId, field, value) {
+    await fetch(`${API_BASE_URL}?resource=admin/updateListItem`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_item_lista: itemId, field: field, value: value })
+    });
+}
+
+async function removeProductFromList(itemId) {
+    await fetch(`${API_BASE_URL}?resource=admin/removeProductFromList`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_item_lista: itemId })
+    });
+    document.querySelector(`tr[data-item-id="${itemId}"]`).remove();
+}
+
+async function saveLista(listId, tableBody, exitAfter = false) {
+    const items = Array.from(tableBody.querySelectorAll('tr')).map(row => {
+        const productoInput = row.querySelector('.editable[data-field="nombre_producto"]') || row.querySelector('td:nth-child(2)');
+        const precioInput = row.querySelector('.editable[data-field="precio_compra"]') || row.querySelector('td:nth-child(3)');
+        return {
+            id_item_lista: row.dataset.itemId,
+            nombre_producto: productoInput.textContent,
+            precio_compra: parseFloat(precioInput.textContent.replace('$', '')),
+            cantidad: row.querySelector('.quantity-input').value,
+            usar_stock_actual: row.querySelector('.use-stock-checkbox').checked
+        };
+    });
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/saveShoppingList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_lista: listId, items: items })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        alert('Lista guardada con éxito.');
+        if (exitAfter) document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
+    } catch (error) {
+        alert('Error al guardar: ' + error.message);
+    }
+}
+
+async function copyShoppingList(listId) {
+    if (!confirm('¿Seguro que quieres copiar esta lista? Se creará una nueva lista para hoy con los mismos productos.')) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/copyShoppingList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_lista: listId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            fetchAndRenderShoppingLists(document.getElementById('list-date-filter').value);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        alert(`Error al copiar: ${error.message}`);
+    }
+}
+
+// --- FIN: MÓDULO LISTAS DE COMPRAS ---
+/*************************************************************************/
+
+
+
+/***********************************************************************/
+
+// REEMPLAZA ESTA FUNCIÓN COMPLETA EN: admin/js/admin.js
 
 async function loadActionContent(actionPath) {
     const actionContent = document.getElementById('action-content');
@@ -763,98 +1100,66 @@ async function loadActionContent(actionPath) {
     
     actionContent.innerHTML = '<p>Cargando...</p>';
     try {
-        const response = await fetch(`actions/${actionPath}.php`);
+        // --- INICIO DE LA CORRECCIÓN CLAVE ---
+        // Se separa la ruta de la acción de sus parámetros de consulta (query string).
+        const [path, ...queryParts] = actionPath.split('&');
+        const queryString = queryParts.join('&');
+        const finalUrl = `actions/${path}.php${queryString ? '?' + queryString : ''}`;
+        // --- FIN DE LA CORRECCIÓN CLAVE ---
+
+        const response = await fetch(finalUrl); // Se usa la URL corregida.
         if (!response.ok) throw new Error('Acción no encontrada.');
         actionContent.innerHTML = await response.text();
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        if (actionPath === 'productos/todos_los_productos') {
-            currentFilters.page = 1; // Reinicia la paginación
-
-            // Estas funciones se ejecutan para todos los roles que acceden a esta vista.
-            await populateDepartmentFilter();
-            
-            // Esta función se ejecuta SÓLO si el rol es 'administrador_global'.
-            if (USER_ROLE === 'administrador_global') {
-                await populateStoreFilter();
-            }
-            
-            // La carga de productos se ejecuta para todos.
-            await fetchAndRenderProducts();
-            
-            // El listener para el scroll infinito se añade al final.
-            mainContentContainer?.addEventListener('scroll', handleScroll);
-        
-        } else if (actionPath === 'productos/agregar_producto') {
-            initializeAddProductForm();
-        } else if (actionPath === 'productos/modificar_producto') {
-            initializeProductSearchForEdit();
-        } else if (actionPath === 'productos/eliminar_producto') {
-            initializeProductSearchForDelete();
-        } else if (actionPath === 'productos/crear_oferta') {
-            initializeOfferManagement();
-        } else if (actionPath === 'productos/ofertas_activas') {
-            await fetchAndRenderActiveOffers();
-        } else if (actionPath === 'clientes/todos_los_clientes') {
-            await fetchAndRenderCustomers();
-        } else if (actionPath === 'clientes/nuevo_cliente') {
-            initializeAddCustomerForm();
-        } else if (actionPath === 'departamentos/gestion') {
-            initializeDepartmentManagement();
-        } else if (actionPath === 'tarjetas/gestion') {
-            initializeCardManagement();
-        } else if (actionPath === 'tarjetas/reporte_clientes') {
-            fetchAndRenderCardReport();
-        } else if (actionPath === 'tarjetas/recargar') {
-            initializeCardRecharge();
-        } else if (actionPath === 'inventario/agregar_stock') {
-            initializeInventoryForm('stock');
-        } else if (actionPath === 'inventario/ajuste_inventario') {
-            initializeInventoryForm('adjust');
-        } else if (actionPath === 'inventario/historial_movimientos') {
-            await populateMovementTypeFilter();
-            fetchAndRenderInventoryHistory();
-        } else if (actionPath === 'utilidades/copia_seguridad') {
-            initializeBackupControls();
-        } else if (actionPath === 'estadisticas/resumen') {
-            loadStatisticsWidgets();
-        } else if (actionPath === 'dashboard/ventas_por_usuario') {
-            await fetchAndRenderUserSales();
-        } else if (actionPath === 'dashboard/log_actividad') {
-            await fetchAndRenderActivityLog();
-        } else if (actionPath === 'usuarios/gestion') {
-            initializeUserManagement();
-        }else if (actionPath === 'usuarios/permisos') { // <-- AÑADIR ESTE NUEVO BLOQUE
-            initializePermissionsManagement();
-        } else if (actionPath === 'pos/vista_principal') {
-            initializePOS();
-        } else if (actionPath === 'pos/gestion_pedidos') { 
-            initializeWebOrderManagement();
-        } else if (actionPath.startsWith('web_admin/')) {
-            initializeWebAdminControls();
-        } else if (actionPath === 'listas_compras/gestion') {
-            initializeShoppingListManagement(); 
-        } else if (actionPath === 'listas_compras/crear_lista') {
-            initializeCreateShoppingListForm(); 
-        } else if (actionPath === 'tiendas/gestion') {
-            initializeTiendaManagement();
-        } else if (actionPath === 'proveedores/gestion') { 
-            initializeProveedorManagement();
-        }else if (actionPath === 'utilidades/generador_codigos') { // <-- AÑADE ESTA LÍNEA
-            initializeBarcodeGenerator(); // <-- AÑADE ESTA LÍNEA
+        // El resto de la lógica para inicializar los módulos permanece igual.
+        let defaultAction = '';
+        switch (path) { // Se usa 'path' en lugar de 'actionPath' para el switch.
+            case 'dashboard/log_actividad': fetchAndRenderActivityLog(); break;
+            case 'productos/todos_los_productos':
+                currentFilters.page = 1;
+                await populateDepartmentFilter();
+                if (USER_ROLE === 'administrador_global') await populateStoreFilter();
+                await fetchAndRenderProducts();
+                mainContentContainer?.addEventListener('scroll', handleScroll);
+                break;
+            case 'productos/agregar_producto': initializeAddProductForm(); break;
+            case 'productos/modificar_producto': initializeProductSearchForEdit(); break;
+            case 'productos/eliminar_producto': initializeProductSearchForDelete(); break;
+            case 'productos/crear_oferta': initializeOfferManagement(); break;
+            case 'productos/ofertas_activas': await fetchAndRenderActiveOffers(); break;
+            case 'clientes/todos_los_clientes': await fetchAndRenderCustomers(); break;
+            case 'clientes/nuevo_cliente': initializeAddCustomerForm(); break;
+            case 'departamentos/gestion': initializeDepartmentManagement(); break;
+            case 'utilidades/copia_seguridad': initializeBackupControls(); break;
+            case 'tarjetas/gestion': initializeCardManagement(); break;
+            case 'tarjetas/reporte_clientes': fetchAndRenderCardReport(); break;
+            case 'tarjetas/recargar': initializeCardRecharge(); break;
+            case 'inventario/agregar_stock': initializeInventoryForm('stock'); break;
+            case 'inventario/ajuste_inventario': initializeInventoryForm('adjust'); break;
+            case 'inventario/historial_movimientos':
+                await populateMovementTypeFilter();
+                fetchAndRenderInventoryHistory();
+                break;
+            case 'estadisticas/resumen': loadStatisticsWidgets(); break;
+            case 'dashboard/ventas_por_usuario': await fetchAndRenderUserSales(); break;
+            case 'usuarios/gestion': initializeUserManagement(); break;
+            case 'usuarios/permisos': initializePermissionsManagement(); break;
+            case 'pos/vista_principal': initializePOS(); break; 
+            case 'pos/gestion_pedidos': initializeWebOrderManagement(); break;
+            case 'web_admin/sliders': initializeWebAdminControls(); break;
+            case 'listas_compras/gestion': initializeShoppingListManagement(); break; 
+            case 'listas_compras/crear_lista': initializeCreateShoppingListForm(); break;
+            case 'listas_compras/ver_lista': initializeListasCompras(actionContent); break;
+            case 'tiendas/gestion': initializeTiendaManagement(); break; 
+            case 'proveedores/gestion': initializeProveedorManagement(); break;
+            case 'utilidades/generador_codigos': initializeBarcodeGenerator(); break;
         }
-        // --- FIN DE LA LÓGICA CORREGIDA ---
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
     }
 }
 
 
-   // admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
-
-    // --- FUNCIONES AUXILIARES Y DE FORMULARIOS ---
-// EN: admin/js/admin.js
-// REEMPLAZA esta función completa
 
 async function populateDepartmentFilter(selectorId = 'department-filter') {
     const filterSelect = document.getElementById(selectorId);
@@ -884,7 +1189,7 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
     }
 }
 
-    function updateSortIndicators() {
+function updateSortIndicators() {
         document.querySelectorAll('.product-table th.sortable').forEach(th => {
             th.classList.remove('sort-asc', 'sort-desc');
             if (th.dataset.sort === currentFilters.sort.by) {
@@ -893,7 +1198,7 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
         });
     }
 
-    async function saveFieldUpdate(productId, field, value, cell) {
+async function saveFieldUpdate(productId, field, value, cell) {
         const originalText = cell.innerHTML;
         cell.textContent = 'Guardando...';
         try {
@@ -914,7 +1219,7 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
     
 
 
-    function updateBatchActionsState() {
+function updateBatchActionsState() {
     const selectedRows = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr'));
     const batchSelector = mainContent.querySelector('#batch-action-selector');
     const batchButton = mainContent.querySelector('#batch-action-execute');
@@ -956,7 +1261,7 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
     // Si hay una mezcla de activos e inactivos, ninguna opción se mostrará.
 }
 
-    function resetProductForm(form) {
+function resetProductForm(form) {
         if (!form) return;
         form.reset();
         const inventoryFields = form.querySelector('#inventoryFields');
@@ -3935,6 +4240,7 @@ async function fetchAndRenderWebOrders() {
 
 
 
+/**********************************************************************************/
 
 
 
@@ -3943,164 +4249,20 @@ async function fetchAndRenderWebOrders() {
 
 // --- INICIO: MÓDULO LISTAS DE COMPRAS ---
 
-function initializeShoppingListManagement() {
-    const dateFilter = document.getElementById('list-date-filter');
-    const listsTbody = document.getElementById('shopping-lists-tbody');
-
-    if (!dateFilter || !listsTbody) return;
-
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se crea la fecha de hoy manualmente para evitar problemas de zona horaria
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayString = `${year}-${month}-${day}`;
-
-    dateFilter.value = todayString;
-    fetchAndRenderShoppingLists(todayString);
-    // --- FIN DE LA CORRECCIÓN ---
-    
-    dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
-
-    listsTbody.addEventListener('click', e => {
-        const target = e.target;
-        const listId = target.closest('tr')?.dataset.listId;
-        if (!listId) return;
-
-        if (target.classList.contains('view-list-btn')) {
-            loadAndRenderListView(listId);
-        } else if (target.classList.contains('copy-list-btn')) {
-            copyShoppingList(listId);
-        } else if (target.classList.contains('delete-list-btn')) {
-            deleteShoppingList(listId, target.closest('tr'));
-        }
-    });
-
-}
-
-function initializeShoppingListManagement() {
-    const dateFilter = document.getElementById('list-date-filter');
-    const listsTbody = document.getElementById('shopping-lists-tbody');
-
-    if (!dateFilter || !listsTbody) return;
-
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se crea la fecha de hoy manualmente para evitar problemas de zona horaria
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayString = `${year}-${month}-${day}`;
-
-    dateFilter.value = todayString;
-    fetchAndRenderShoppingLists(todayString);
-    // --- FIN DE LA CORRECCIÓN ---
-    
-    dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
-
-    listsTbody.addEventListener('click', e => {
-        const target = e.target;
-        const listId = target.closest('tr')?.dataset.listId;
-        if (!listId) return;
-
-        if (target.classList.contains('view-list-btn')) {
-            loadAndRenderListView(listId);
-        } else if (target.classList.contains('copy-list-btn')) {
-            copyShoppingList(listId);
-        } else if (target.classList.contains('delete-list-btn')) {
-            deleteShoppingList(listId, target.closest('tr'));
-        }
-    });
-}
 
 
-async function fetchAndRenderShoppingLists(date) {
-    const tableBody = document.getElementById('shopping-lists-tbody');
-    tableBody.innerHTML = '<tr><td colspan="5">Cargando listas...</td></tr>';
-
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingLists&date=${date}`);
-        const result = await response.json();
-
-        tableBody.innerHTML = '';
-        if (result.success && result.lists.length > 0) {
-            result.lists.forEach(list => {
-                const row = document.createElement('tr');
-                row.dataset.listId = list.id_lista;
-                // --- CAMBIO: Se añade la columna de proveedor y el botón de eliminar ---
-                row.innerHTML = `
-                    <td>${list.nombre_lista}</td>
-                    <td>${list.fecha_creacion}</td>
-                    <td>${list.nombre_usuario}</td>
-                    <td>${list.nombre_proveedor || '<em>N/A</em>'}</td>
-                    <td>
-                        <button class="action-btn btn-sm view-list-btn">Ver / Editar</button>
-                        <button class="action-btn btn-sm copy-list-btn">Copiar a Hoy</button>
-                        <button class="action-btn btn-sm delete-list-btn" >Eliminar</button>
-                    </td>
-                `;
-                tableBody.appendChild(row);
-            });
-        } else {
-            tableBody.innerHTML = '<tr><td colspan="5">No hay listas para la fecha seleccionada.</td></tr>';
-        }
-    } catch (error) {
-        tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar las listas.</td></tr>';
-    }
-}
 
 
-async function initializeCreateShoppingListForm() {
-    const form = document.getElementById('create-shopping-list-form');
-    const providerSelect = document.getElementById('id_proveedor');
-    if (!form || !providerSelect) return;
 
-    // Cargar proveedores en el dropdown
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getProviders`);
-        const result = await response.json();
-        if (result.success) {
-            result.providers.forEach(provider => {
-                const option = document.createElement('option');
-                option.value = provider.id_proveedor;
-                option.textContent = provider.nombre_proveedor;
-                providerSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        providerSelect.innerHTML = '<option value="">Error al cargar proveedores</option>';
-    }
 
-    form.addEventListener('submit', async e => {
-        e.preventDefault();
-        const listName = document.getElementById('nombre_lista').value;
-        const providerId = providerSelect.value; // Capturar el valor del proveedor
-        try {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/createShoppingList`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nombre_lista: listName,
-                    id_proveedor: providerId // Enviar el ID del proveedor
-                })
-            });
-            const result = await response.json();
-            if (result.success) {
-                loadAndRenderListView(result.newListId);
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (error) {
-            alert(`Error: ${error.message}`);
-        }
-    });
-}
+
+
+
+
 async function loadAndRenderListView(listId) {
     const actionContent = document.getElementById('action-content');
     const itemsTbody = actionContent.querySelector('#list-items-tbody');
     
-    // Antes de recargar, guardamos los IDs de los items que ya están visibles
     const existingItemIds = new Set();
     if (itemsTbody) {
         itemsTbody.querySelectorAll('tr').forEach(row => {
@@ -4111,7 +4273,6 @@ async function loadAndRenderListView(listId) {
     }
 
     try {
-        // Si la vista no está cargada, la carga primero
         if (!actionContent.querySelector('#view-list-container')) {
             const response = await fetch(`actions/listas_compras/ver_lista.php`);
             actionContent.innerHTML = await response.text();
@@ -4122,7 +4283,6 @@ async function loadAndRenderListView(listId) {
 
         if (detailsResult.success) {
             document.getElementById('list-name-header').textContent = `Editando Lista: ${detailsResult.listName}`;
-            // Pasamos los IDs existentes a la función que renderiza
             renderListItems(detailsResult.items, existingItemIds);
             initializeListViewInteractions(listId);
         } else {
@@ -4137,7 +4297,6 @@ async function loadAndRenderListView(listId) {
 
 
 
-// Reemplaza esta función en tu archivo admin.js
 function renderListItems(items, existingItemIds = new Set()) {
     const itemsTbody = document.getElementById('list-items-tbody');
     itemsTbody.innerHTML = '';
@@ -4145,12 +4304,10 @@ function renderListItems(items, existingItemIds = new Set()) {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
         
-        // Aplica la clase si el item está marcado
         if (parseInt(item.marcado, 10) === 1) {
             row.classList.add('item-marked');
         }
 
-        // Aplica la animación si el item es nuevo
         if (!existingItemIds.has(item.id_item_lista.toString())) {
             row.classList.add('new-item-highlight');
         }
@@ -4158,7 +4315,6 @@ function renderListItems(items, existingItemIds = new Set()) {
         const isManualItem = item.id_producto === null;
         const displayQuantity = (item.usar_stock_actual && !isManualItem) ? item.stock_actual : item.cantidad;
         
-        // **AQUÍ ESTÁ LA CORRECCIÓN: SE RESTAURA LA CELDA DEL CHECKBOX**
         row.innerHTML = `
             <td>
                 <input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}>
@@ -4178,7 +4334,6 @@ function renderListItems(items, existingItemIds = new Set()) {
         itemsTbody.appendChild(row);
     });
 }
-
 // Reemplaza también esta función completa en tu archivo admin.js
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
@@ -4192,7 +4347,6 @@ function initializeListViewInteractions(listId) {
         refreshBtn.addEventListener('click', () => loadAndRenderListView(listId));
     }
 
-    // Búsqueda de productos existentes (sin cambios)
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const query = searchInput.value.trim();
@@ -4221,7 +4375,6 @@ function initializeListViewInteractions(listId) {
         }, 300);
     });
     
-    // Manejador para el formulario de adición manual
     if(manualForm) {
         manualForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -4250,7 +4403,6 @@ function initializeListViewInteractions(listId) {
         });
     }
 
-    // Interacciones con la tabla (marcar, cantidad, stock)
     itemsTbody.addEventListener('change', async (e) => {
         const target = e.target;
         const row = target.closest('tr');
@@ -4267,7 +4419,7 @@ function initializeListViewInteractions(listId) {
             if (useStock) {
                 quantityInput.value = row.dataset.stockActual;
             }
-        } else if (target.classList.contains('mark-item-checkbox')) { // **LÓGICA DEL CHECKBOX**
+        } else if (target.classList.contains('mark-item-checkbox')) {
             try {
                 const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
                     method: 'POST',
@@ -4285,7 +4437,6 @@ function initializeListViewInteractions(listId) {
         }
     });
 
-    // Lógica para el botón de eliminar
     itemsTbody.addEventListener('click', async (e) => {
         if (e.target.classList.contains('remove-item-btn')) {
             const itemId = e.target.closest('tr').dataset.itemId;
@@ -4293,6 +4444,7 @@ function initializeListViewInteractions(listId) {
         }
     });
 }
+
 
 
 
@@ -4348,36 +4500,23 @@ async function copyShoppingList(listId) {
         alert(`Error al copiar: ${error.message}`);
     }
 }
-async function deleteShoppingList(listId, rowElement) { // <-- NUEVA FUNCIÓN
-    if (!confirm('¿Estás seguro de que quieres eliminar esta lista de compras? Esta acción es irreversible.')) {
-        return;
-    }
 
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteShoppingList`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_lista: listId })
-        });
 
-        const result = await response.json();
-
-        if (result.success) {
-            alert(result.message);
-            rowElement.remove(); // Elimina la fila de la tabla visualmente
-        } else {
-            throw new Error(result.error);
-        }
-    } catch (error) {
-        alert(`Error al eliminar la lista: ${error.message}`);
-    }
-}
 
 // --- FIN: MÓDULO LISTAS DE COMPRAS ---
 /**********************************************************************************/
-// EN admin/js/admin.js (Añadir al final)
 
-// --- Lógica para el módulo de Tiendas ---
+
+
+
+
+
+
+
+
+
+
+
 
 function initializeTiendaManagement() {
     fetchAndRenderTiendas();
@@ -4710,7 +4849,6 @@ function initializeBarcodeGenerator() {
         setTimeout(() => { feedbackDiv.innerHTML = ''; }, 2000);
     });
 }
-
 
 });
 

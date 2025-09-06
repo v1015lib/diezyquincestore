@@ -88,3 +88,234 @@
 }
 
 // --- FIN: Estilos ---
+
+/* Estilos para el nuevo módulo de Listas de Compras */
+.lista-compras-container {
+    .table-notepad {
+        width: 100%;
+        margin-top: 1rem;
+        border-collapse: collapse;
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            border: none;
+            background-color: transparent;
+            padding: 4px;
+            &:focus {
+                outline: 1px solid #007bff;
+            }
+        }
+    }
+
+    .btn-add {
+        font-size: 20px;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        margin-top: 15px;
+    }
+}
+
+/* Modal de búsqueda */
+#modal-buscar-producto-lista {
+    .producto-buscado-item {
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        &:hover {
+            background-color: #f0f0f0;
+        }
+    }
+}
+// ... (código existente)
+
+// --- INICIO: Animación para resaltar nuevos items en la lista (Versión Mejorada) ---
+
+// Define la animación de desvanecimiento para fondo y texto
+@keyframes highlight-fade-strong {
+  0% {
+    background-color: #0C0A4E; // Tu $primary-color
+    color: white;
+  }
+  100% {
+    background-color: #ffffff; // Fondo blanco
+    color: #343a40; // Texto negro/gris oscuro
+  }
+}
+
+// Clase que se aplicará a las nuevas filas
+.product-table tbody tr.new-item-highlight {
+  // Se aplica la animación a la fila completa
+  animation: highlight-fade-strong .3s ease-out forwards;
+  
+  // Forzamos a que los elementos internos (como los <td>) hereden el color
+  & > * {
+      color: inherit;
+      transition: color .3s ease-out; // Transición suave también para el color del texto
+  }
+}
+
+// --- FIN: Animación ---
+
+.product-table tbody tr {
+  cursor: pointer; // Indica que las filas son clickables
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.product-table tbody tr.item-marked {
+  text-decoration: line-through; // Tacha el texto
+  opacity: 0.5; // Lo hace semitransparente
+  background-color: #f8f9fa; // Un fondo gris claro
+
+  &:hover {
+    opacity: 0.8; // Aumenta un poco la opacidad al pasar el mouse
+  }
+}
+// --- INICIO: Estilos para el checkbox de marcar item ---
+
+.product-table .mark-item-checkbox {
+  width: 20px;       // Aumenta el tamaño del checkbox
+  height: 20px;
+  cursor: pointer;
+  vertical-align: middle; // Centra verticalmente en la celda
+}
+
+// Se quita el cursor de puntero para toda la fila
+.product-table tbody tr {
+  cursor: default; 
+}
+
+// --- FIN: Estilos ---
+
+/* Estilos para el nuevo módulo de Listas de Compras */
+.lista-compras-container {
+    .table-notepad {
+        width: 100%;
+        margin-top: 1rem;
+        border-collapse: collapse;
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            border: none;
+            background-color: transparent;
+            padding: 4px;
+            &:focus {
+                outline: 1px solid #007bff;
+            }
+        }
+    }
+
+    .btn-add {
+        font-size: 20px;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        margin-top: 15px;
+    }
+}
+
+/* Modal de búsqueda */
+#modal-buscar-producto-lista {
+    .producto-buscado-item {
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        &:hover {
+            background-color: #f0f0f0;
+        }
+    }
+}
+.list-header-responsive {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+
+    h3 {
+        margin: 0;
+        flex-grow: 1;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+}
+
+.list-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    @media (min-width: 768px) {
+        grid-template-columns: 2fr 3fr;
+    }
+
+    .search-product-form {
+        position: relative;
+    }
+
+    .manual-add-form {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 0.5rem;
+    }
+
+    input[type="text"], input[type="number"] {
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        width: 100%;
+    }
+}
+
+.search-results-popover {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    z-index: 10;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#list-items-container {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+#list-items-table {
+    font-size: 0.9rem;
+    th, td {
+        padding: 0.5rem;
+    }
+    .quantity-input {
+        width: 70px;
+        text-align: center;
+    }
+}
