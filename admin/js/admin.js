@@ -862,9 +862,16 @@ function renderListItems(items) {
     items.forEach(item => {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
+        if (parseInt(item.marcado, 10) === 1) {
+            row.classList.add('item-marked');
+        }
+        
         row.innerHTML = `
+            <td style="text-align: center;">
+                <input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}>
+            </td>
             <td>${item.nombre_producto}</td>
-            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(3)}" step="0.001"></td>
+            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(2)}" step="0.01"></td>
             <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
             <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
@@ -883,7 +890,10 @@ function initializeListViewInteractions(listId) {
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const query = searchInput.value.trim();
-        if (query.length < 2) { searchResults.style.display = 'none'; return; }
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
         
         searchTimer = setTimeout(async () => {
             const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
@@ -915,6 +925,7 @@ function initializeListViewInteractions(listId) {
         const data = {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
+            // El campo ahora se llama precio_compra, pero le pasamos el precio de venta
             precio_compra: document.getElementById('manual_purchase_price').value,
             cantidad: 1 // Siempre se añade con cantidad 1
         };
@@ -935,14 +946,36 @@ function initializeListViewInteractions(listId) {
         }
     });
 
-    // Editar campos en la tabla (cantidad, precio)
+    // Ocultar resultados de búsqueda si se hace clic fuera
+    document.addEventListener('click', function(event) {
+        if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Eventos de la tabla (editar, tachar)
     itemsTbody.addEventListener('change', async (e) => {
-        if (e.target.classList.contains('editable-field')) {
-            const row = e.target.closest('tr');
-            const itemId = row.dataset.itemId;
-            const field = e.target.dataset.field;
-            const value = e.target.value;
+        const target = e.target;
+        const row = target.closest('tr');
+        if (!row) return;
+        const itemId = row.dataset.itemId;
+        
+        if (target.classList.contains('editable-field')) {
+            const field = target.dataset.field;
+            const value = target.value;
             await updateListItem(itemId, field, value);
+        } else if (target.classList.contains('mark-item-checkbox')) {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_item_lista: itemId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                row.classList.toggle('item-marked', result.newState);
+            } else {
+                target.checked = !target.checked; // Revertir si hay error
+            }
         }
     });
     
@@ -955,7 +988,7 @@ function initializeListViewInteractions(listId) {
         }
     });
     
-    // Botones de la cabecera
+    // Botones de la cabecera (Guardar y Salir, Copiar)
     const headerActions = document.querySelector('.header-actions');
     headerActions.addEventListener('click', async (e) => {
         if (e.target.id === 'save-and-exit-btn') {
@@ -965,6 +998,7 @@ function initializeListViewInteractions(listId) {
         }
     });
 }
+
 
 async function addProductToList(listId, productId) {
     await fetch(`${API_BASE_URL}?resource=admin/addProductToList`, {
@@ -4247,8 +4281,11 @@ function renderListItems(items) {
         row.dataset.itemId = item.id_item_lista;
         
         row.innerHTML = `
+            <td style="text-align: center;">
+                <input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}>
+            </td>
             <td>${item.nombre_producto}</td>
-            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(3)}" step="0.001"></td>
+            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(2)}" step="0.01">$</td>
             <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
             <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
@@ -4256,6 +4293,9 @@ function renderListItems(items) {
     });
 }
 // Reemplaza también esta función completa en tu archivo admin.js
+
+
+// REEMPLAZA esta función completa en tu archivo admin.js
 
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
@@ -4279,7 +4319,6 @@ function initializeListViewInteractions(listId) {
                 result.products.forEach(p => {
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
-                    // **AQUÍ SE MUESTRA EL STOCK**
                     div.innerHTML = `<span>${p.nombre_producto}</span> <strong>Stock: ${p.stock_actual || 0}</strong>`;
                     div.addEventListener('click', async () => {
                         await addProductToList(listId, p.id_producto);
@@ -4302,7 +4341,7 @@ function initializeListViewInteractions(listId) {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
             precio_compra: document.getElementById('manual_purchase_price').value,
-            cantidad: 1 // Siempre se añade con cantidad 1
+            cantidad: 1
         };
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
@@ -4321,16 +4360,40 @@ function initializeListViewInteractions(listId) {
         }
     });
 
-    // Editar campos en la tabla (cantidad, precio)
+    // *** INICIO DE LA CORRECCIÓN CLAVE ***
+    // Eventos de la tabla (editar campos y marcar/desmarcar)
     itemsTbody.addEventListener('change', async (e) => {
-        if (e.target.classList.contains('editable-field')) {
-            const row = e.target.closest('tr');
-            const itemId = row.dataset.itemId;
-            const field = e.target.dataset.field;
-            const value = e.target.value;
+        const target = e.target;
+        const row = target.closest('tr');
+        if (!row) return;
+        const itemId = row.dataset.itemId;
+        
+        // Si se cambia un campo de texto/número
+        if (target.classList.contains('editable-field')) {
+            const field = target.dataset.field;
+            const value = target.value;
             await updateListItem(itemId, field, value);
+        } 
+        // Si se hace clic en el checkbox de tachar
+        else if (target.classList.contains('mark-item-checkbox')) {
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_item_lista: itemId })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Aplica o quita la clase 'item-marked' según la respuesta de la API
+                    row.classList.toggle('item-marked', result.newState);
+                }
+            } catch (error) {
+                console.error('Error al marcar el item:', error);
+                target.checked = !target.checked; // Revierte el checkbox si hay un error
+            }
         }
     });
+    // *** FIN DE LA CORRECCIÓN CLAVE ***
     
     // Eliminar item de la lista
     itemsTbody.addEventListener('click', async (e) => {
@@ -4340,8 +4403,8 @@ function initializeListViewInteractions(listId) {
             await removeProductFromList(itemId, row);
         }
     });
-
-    // Ocultar resultados si se hace clic fuera
+    
+    // Ocultar resultados de búsqueda si se hace clic fuera
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
             searchResults.style.display = 'none';
@@ -4358,8 +4421,6 @@ function initializeListViewInteractions(listId) {
         }
     });
 }
-
-
 
 
 

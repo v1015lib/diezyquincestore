@@ -19,7 +19,7 @@ $id_lista = $_GET['id'] ?? 0;
         </div>
         <form id="manual-add-product-form" class="manual-add-form">
             <input type="text" id="manual_product_name" placeholder="Añadir producto manual" required>
-            <input type="number" id="manual_purchase_price" placeholder="Precio Compra" step="0.001" required>
+            <input type="number" id="manual_purchase_price" placeholder="Precio Venta" step="0.01" required>
             <button type="submit" class="action-btn btn-sm btn-success">Añadir</button>
         </form>
          <div id="manual-add-feedback" class="form-message"></div>
@@ -29,9 +29,10 @@ $id_lista = $_GET['id'] ?? 0;
         <table id="list-items-table" class="product-table">
             <thead>
                 <tr>
+                    <th style="width: 5%; text-align: center;">✓</th> 
                     <th>Producto</th>
-                    <th>Precio Compra</th>
-                    <th>Cantidad a Comprar</th>
+                    <th>Precio Venta</th>
+                    <th>Cantidad</th>
                     <th>Acción</th>
                 </tr>
             </thead>

@@ -48,16 +48,16 @@ case 'admin/addProductToList':
             throw new Exception('Datos incompletos para añadir el producto.');
         }
 
-        // 1. Obtener precio de compra y nombre del producto.
-        $stmt_info = $pdo->prepare("SELECT nombre_producto, precio_compra FROM productos WHERE id_producto = :pid");
+        // *** CORRECCIÓN CLAVE: Ahora obtiene el precio_venta ***
+        $stmt_info = $pdo->prepare("SELECT nombre_producto, precio_venta FROM productos WHERE id_producto = :pid");
         $stmt_info->execute([':pid' => $productId]);
         $product_data = $stmt_info->fetch(PDO::FETCH_ASSOC);
         
         if (!$product_data) {
-            throw new Exception("El producto que intentas añadir ya no existe.");
+            throw new Exception("El producto ya no existe.");
         }
         
-        // 2. Insertar el item con cantidad 1, ignorando si ya existe para evitar duplicados.
+        // Se inserta el precio de venta en la columna de la lista
         $stmt = $pdo->prepare(
             "INSERT IGNORE INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) 
              VALUES (:list_id, :product_id, :name, :price, 1)"
@@ -66,20 +66,44 @@ case 'admin/addProductToList':
             ':list_id' => $listId,
             ':product_id' => $productId,
             ':name' => $product_data['nombre_producto'],
-            ':price' => $product_data['precio_compra'] ?? 0.0
+            ':price' => $product_data['precio_venta'] ?? 0.0 // Se usa precio_venta
         ]);
 
         logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$product_data['nombre_producto']}' a la lista ID {$listId}.");
         
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
-
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
+
+
+    case 'admin/toggleListItemMark':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $itemId = filter_var($data['id_item_lista'] ?? 0, FILTER_VALIDATE_INT);
+        if (!$itemId) {
+            throw new Exception('ID de item no válido.');
+        }
+
+        $stmt = $pdo->prepare("UPDATE listas_compras_items SET marcado = NOT marcado WHERE id_item_lista = :id");
+        $stmt->execute([':id' => $itemId]);
+        
+        $stmt_new_status = $pdo->prepare("SELECT marcado FROM listas_compras_items WHERE id_item_lista = :id");
+        $stmt_new_status->execute([':id' => $itemId]);
+        $newState = $stmt_new_status->fetchColumn();
+
+        echo json_encode(['success' => true, 'newState' => $newState]);
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
 
 /**********************************************************/
 
@@ -834,10 +858,8 @@ case 'admin/toggleListItemMark':
 
 
 
+// REEMPLAZA este case en tu archivo /api/index.php
 
-
-
-// Reemplaza el case 'admin/getShoppingListDetails' existente con este bloque
 case 'admin/getShoppingListDetails':
     try {
         $listId = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
@@ -858,7 +880,7 @@ case 'admin/getShoppingListDetails':
         }
         $stock_selection = !empty($stock_sql_subquery) ? "COALESCE({$stock_sql_subquery}, 0)" : "0";
         
-        // CORRECCIÓN: Se añade lci.marcado a la consulta
+        // *** CORRECCIÓN CLAVE: Se añade lci.marcado a la consulta SELECT ***
         $stmt_items = $pdo->prepare("
             SELECT 
                 lci.id_item_lista, 
@@ -867,12 +889,12 @@ case 'admin/getShoppingListDetails':
                 lci.precio_compra, 
                 lci.cantidad, 
                 lci.usar_stock_actual, 
-                lci.marcado,
+                lci.marcado, -- <--- LÍNEA AÑADIDA
                 {$stock_selection} AS stock_actual
             FROM listas_compras_items lci
             LEFT JOIN productos p ON lci.id_producto = p.id_producto
             WHERE lci.id_lista = :id
-            ORDER BY lci.marcado ASC, COALESCE(p.nombre_producto, lci.nombre_producto) ASC
+            ORDER BY lci.marcado ASC, lci.id_item_lista ASC
         ");
         $stmt_items->execute([':id' => $listId]);
         $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
@@ -883,6 +905,7 @@ case 'admin/getShoppingListDetails':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
 
 
 // Reemplaza el case 'admin/updateListItem' existente con este bloque
