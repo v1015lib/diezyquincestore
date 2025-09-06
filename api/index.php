@@ -33,142 +33,53 @@ try {
     switch ($resource) {
 
 /***********************************************************/
-// --- INICIO: CASES CORREGIDOS Y COMPLETOS PARA LISTAS DE COMPRAS ---
 
-case 'admin/getShoppingLists':
-    try {
-        $filter_date = $_GET['date'] ?? null;
-        $sql = "SELECT lc.id_lista, lc.nombre_lista, lc.fecha_creacion, u.nombre_usuario, p.nombre_proveedor 
-                FROM listas_compras lc
-                JOIN usuarios u ON lc.id_usuario_creador = u.id_usuario
-                LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor";
-        $params = [];
-        if ($filter_date) {
-            $sql .= " WHERE lc.fecha_creacion = :filter_date";
-            $params[':filter_date'] = $filter_date;
-        }
-        $sql .= " ORDER BY lc.fecha_creacion DESC, lc.id_lista DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $lists = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['success' => true, 'lists' => $lists]);
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error al obtener las listas: ' . $e->getMessage()]);
-    }
-    break;
+// REEMPLAZA este case en tu archivo /api/index.php
 
-case 'admin/createShoppingList':
+case 'admin/addProductToList':
     $pdo->beginTransaction();
     try {
         $data = json_decode(file_get_contents('php://input'), true);
-        $listName = trim($data['nombre_lista'] ?? '');
+        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
+        $productId = filter_var($data['id_producto'] ?? 0, FILTER_VALIDATE_INT);
         $userId = $_SESSION['id_usuario'] ?? null;
 
-        if (empty($listName) || !$userId) {
-            throw new Exception('El nombre de la lista es obligatorio y debes haber iniciado sesión.');
+        if (!$listId || !$productId || !$userId) {
+            throw new Exception('Datos incompletos para añadir el producto.');
+        }
+
+        // 1. Obtener precio de compra y nombre del producto.
+        $stmt_info = $pdo->prepare("SELECT nombre_producto, precio_compra FROM productos WHERE id_producto = :pid");
+        $stmt_info->execute([':pid' => $productId]);
+        $product_data = $stmt_info->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$product_data) {
+            throw new Exception("El producto que intentas añadir ya no existe.");
         }
         
-        $stmt = $pdo->prepare("INSERT INTO listas_compras (nombre_lista, fecha_creacion, id_usuario_creador) VALUES (:name, CURDATE(), :user_id)");
-        $stmt->execute([':name' => $listName, ':user_id' => $userId]);
-        $newListId = $pdo->lastInsertId();
+        // 2. Insertar el item con cantidad 1, ignorando si ya existe para evitar duplicados.
+        $stmt = $pdo->prepare(
+            "INSERT IGNORE INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) 
+             VALUES (:list_id, :product_id, :name, :price, 1)"
+        );
+        $stmt->execute([
+            ':list_id' => $listId,
+            ':product_id' => $productId,
+            ':name' => $product_data['nombre_producto'],
+            ':price' => $product_data['precio_compra'] ?? 0.0
+        ]);
 
-        logActivity($pdo, $userId, 'Lista de Compras Creada', "Creó la nueva lista de compras: '{$listName}'.");
+        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$product_data['nombre_producto']}' a la lista ID {$listId}.");
         
         $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'Lista creada. Ahora puedes añadir productos.', 'newListId' => $newListId]);
+        echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
+
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
-case 'admin/getListItems':
-    try {
-        $id_lista = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
-        if (!$id_lista) throw new Exception("ID de lista no válido.");
-
-        $stmt_name = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = ?");
-        $stmt_name->execute([$id_lista]);
-        $nombre_lista = $stmt_name->fetchColumn();
-
-        $stmt_items = $pdo->prepare("
-            SELECT 
-                lci.id_item_lista, lci.id_producto, 
-                COALESCE(p.nombre_producto, lci.nombre_producto) as nombre_producto, 
-                COALESCE(p.precio_compra, lci.precio_compra) as precio_compra, 
-                lci.cantidad,
-                (SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = lci.id_producto) as stock_total
-            FROM listas_compras_items lci
-            LEFT JOIN productos p ON lci.id_producto = p.id_producto
-            WHERE lci.id_lista = ? ORDER BY lci.id_item_lista ASC
-        ");
-        $stmt_items->execute([$id_lista]);
-        $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode(['success' => true, 'items' => $items, 'nombre_lista' => $nombre_lista]);
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-    break;
-
-case 'admin/searchProductsForList':
-    try {
-        $query = '%' . ($_GET['query'] ?? '') . '%';
-        $stmt = $pdo->prepare("
-            SELECT 
-                p.id_producto, p.nombre_producto, p.precio_compra,
-                (SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto) as stock_total
-            FROM productos p 
-            WHERE (p.nombre_producto LIKE :query OR p.codigo_producto LIKE :query) 
-            AND p.estado = 1 LIMIT 10
-        ");
-        $stmt->execute([':query' => $query]);
-        $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['success' => true, 'productos' => $productos]);
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-    break;
-
-case 'admin/saveShoppingList':
-    $data = json_decode(file_get_contents('php://input'), true);
-    if (isset($data['id_lista']) && isset($data['items'])) {
-        $id_lista = $data['id_lista'];
-        $items = $data['items'];
-        try {
-            $pdo->beginTransaction();
-            $stmt_delete = $pdo->prepare("DELETE FROM listas_compras_items WHERE id_lista = ?");
-            $stmt_delete->execute([$id_lista]);
-            $stmt_insert = $pdo->prepare(
-                "INSERT INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) VALUES (?, ?, ?, ?, ?)"
-            );
-            foreach ($items as $item) {
-                $stmt_insert->execute([
-                    $id_lista,
-                    $item['id_producto'],
-                    $item['nombre_producto'],
-                    $item['precio_compra'],
-                    $item['cantidad']
-                ]);
-            }
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Lista guardada correctamente.']);
-        } catch (PDOException $e) {
-            $pdo->rollBack();
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Error al guardar la lista: ' . $e->getMessage()]);
-        }
-    } else {
-         http_response_code(400);
-         echo json_encode(['success' => false, 'error' => 'Datos incompletos.']);
-    }
-    break;
-    
-// --- FIN: CASES CORREGIDOS ---
 
 /**********************************************************/
 
@@ -806,6 +717,8 @@ case 'admin/createShoppingList':
 
 // Añade estos DOS nuevos bloques 'case' dentro del switch principal en tu api/index.php
 
+// REEMPLAZA este case en tu archivo /api/index.php
+
 case 'admin/addProductToList':
     $pdo->beginTransaction();
     try {
@@ -818,29 +731,32 @@ case 'admin/addProductToList':
             throw new Exception('Datos incompletos para añadir el producto.');
         }
 
-        // 1. Obtener el precio de compra del producto
-        $stmt_price = $pdo->prepare("SELECT precio_compra, nombre_producto FROM productos WHERE id_producto = :pid");
-        $stmt_price->execute([':pid' => $productId]);
-        $product_data = $stmt_price->fetch(PDO::FETCH_ASSOC);
-        $purchasePrice = $product_data['precio_compra'] ?? 0.0;
-        $productName = $product_data['nombre_producto'] ?? 'Producto no encontrado';
-
-        // 2. Insertar el item en la lista o actualizar la cantidad si ya existe
+        // 1. Obtener precio de compra y nombre del producto.
+        $stmt_info = $pdo->prepare("SELECT nombre_producto, precio_compra FROM productos WHERE id_producto = :pid");
+        $stmt_info->execute([':pid' => $productId]);
+        $product_data = $stmt_info->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$product_data) {
+            throw new Exception("El producto que intentas añadir ya no existe.");
+        }
+        
+        // 2. Insertar el item con cantidad 1, ignorando si ya existe para evitar duplicados.
         $stmt = $pdo->prepare(
-            "INSERT INTO listas_compras_items (id_lista, id_producto, precio_compra, cantidad, usar_stock_actual) 
-             VALUES (:list_id, :product_id, :price, 1, FALSE)
-             ON DUPLICATE KEY UPDATE cantidad = cantidad + 1"
+            "INSERT IGNORE INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) 
+             VALUES (:list_id, :product_id, :name, :price, 1)"
         );
         $stmt->execute([
             ':list_id' => $listId,
             ':product_id' => $productId,
-            ':price' => $purchasePrice
+            ':name' => $product_data['nombre_producto'],
+            ':price' => $product_data['precio_compra'] ?? 0.0
         ]);
 
-        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$productName}' a la lista ID {$listId}.");
+        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$product_data['nombre_producto']}' a la lista ID {$listId}.");
         
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
+
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(400);

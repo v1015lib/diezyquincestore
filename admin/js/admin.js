@@ -747,19 +747,16 @@ async function loadModule(moduleName) {
 /*************************************************************************/
 //Listas de compras funciones
 
-// admin/js/admin.js
+// REEMPLAZA TODO EL BLOQUE DE FUNCIONES DE LISTAS DE COMPRAS CON ESTO
 
 /*************************************************************************/
-// --- INICIO: MÓDULO LISTAS DE COMPRAS (BLOQUE CORREGIDO) ---
+// --- INICIO: MÓDULO LISTAS DE COMPRAS (BLOQUE CORREGIDO Y SIMPLIFICADO) ---
 
 function initializeShoppingListManagement() {
     const dateFilter = document.getElementById('list-date-filter');
     const listsTbody = document.getElementById('shopping-lists-tbody');
     if (!dateFilter || !listsTbody) return;
-
-    if (!dateFilter.value) {
-        dateFilter.valueAsDate = new Date();
-    }
+    if (!dateFilter.value) dateFilter.valueAsDate = new Date();
     
     fetchAndRenderShoppingLists(dateFilter.value);
     dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
@@ -782,7 +779,7 @@ function initializeShoppingListManagement() {
 
 async function fetchAndRenderShoppingLists(date) {
     const tableBody = document.getElementById('shopping-lists-tbody');
-    tableBody.innerHTML = '<tr><td colspan="5">Cargando listas...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingLists&date=${date}`);
         const result = await response.json();
@@ -812,26 +809,6 @@ async function fetchAndRenderShoppingLists(date) {
     }
 }
 
-async function deleteShoppingList(listId, rowElement) {
-    if (!confirm('¿Seguro que quieres eliminar esta lista? Esta acción es irreversible.')) return;
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteShoppingList`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_lista: listId })
-        });
-        const result = await response.json();
-        if (result.success) {
-            alert(result.message);
-            rowElement.remove();
-        } else {
-            throw new Error(result.error);
-        }
-    } catch (error) {
-        alert(`Error: ${error.message}`);
-    }
-}
-
 function initializeCreateShoppingListForm() {
     const form = document.getElementById('create-shopping-list-form');
     if (!form) return;
@@ -848,9 +825,7 @@ function initializeCreateShoppingListForm() {
             const result = await response.json();
             if (result.success) {
                 loadActionContent(`listas_compras/ver_lista&id=${result.newListId}`);
-            } else {
-                throw new Error(result.error);
-            }
+            } else { throw new Error(result.error); }
         } catch (error) {
             alert(`Error: ${error.message}`);
         }
@@ -858,71 +833,90 @@ function initializeCreateShoppingListForm() {
 }
 
 function initializeListasCompras(container) {
-    const listaContainer = container.querySelector('.lista-compras-container');
-    if (!listaContainer) return;
-    const listId = listaContainer.dataset.idLista;
-    if (!listId) {
-        console.error("Error crítico: no se pudo encontrar el ID de la lista.");
-        return;
+    const listId = container.querySelector('.lista-compras-container')?.dataset.idLista;
+    if (listId) {
+        loadAndRenderListView(listId);
+    } else {
+        console.error("Error: No se pudo encontrar el ID de la lista.");
     }
-    loadAndRenderListView(listId);
 }
 
 async function loadAndRenderListView(listId) {
     try {
-        const detailsResponse = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
-        const detailsResult = await detailsResponse.json();
-        if (!detailsResult.success) throw new Error(detailsResult.error);
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
         
-        document.getElementById('list-name-header').textContent = `Editando Lista: ${detailsResult.listName}`;
-        renderListItems(detailsResult.items);
-        initializeListViewInteractions(listId);
+        document.getElementById('list-name-header').textContent = `Editando: ${result.listName}`;
+        renderListItems(result.items);
+        initializeListViewInteractions(listId); 
     } catch (error) {
-        document.getElementById('action-content').innerHTML = `<p style="color:red;">Error al cargar la lista: ${error.message}</p>`;
+        document.getElementById('action-content').innerHTML = `<p class="message error">${error.message}</p>`;
     }
 }
 
 function renderListItems(items) {
-    const itemsTbody = document.getElementById('list-items-tbody');
-    if (!itemsTbody) return;
-    itemsTbody.innerHTML = '';
+    const tbody = document.getElementById('list-items-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
     items.forEach(item => {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
-        row.dataset.stockActual = item.stock_actual;
-        if (parseInt(item.marcado, 10) === 1) row.classList.add('item-marked');
-        
-        const isManualItem = !item.id_producto;
-        const displayQuantity = (item.usar_stock_actual && !isManualItem) ? item.stock_actual : item.cantidad;
-        
         row.innerHTML = `
-            <td><input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}></td>
-            <td ${isManualItem ? 'class="editable" data-field="nombre_producto"' : ''}>${item.nombre_producto}</td>
-            <td ${isManualItem ? 'class="editable" data-field="precio_compra"' : ''}>$${parseFloat(item.precio_compra).toFixed(3)}</td>
-            <td><input type="number" class="quantity-input" value="${displayQuantity}" min="0" ${item.usar_stock_actual ? 'disabled' : ''}></td>
-            <td><input type="checkbox" class="use-stock-checkbox" ${item.usar_stock_actual ? 'checked' : ''} ${isManualItem ? 'disabled' : ''}></td>
-            <td><button class="action-btn btn-sm btn-danger remove-item-btn">Quitar</button></td>
+            <td>${item.nombre_producto}</td>
+            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(3)}" step="0.001"></td>
+            <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
+            <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
-        itemsTbody.appendChild(row);
+        tbody.appendChild(row);
     });
 }
 
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
-    const searchResultsContainer = document.getElementById('product-search-results-list');
-    const itemsTbody = document.getElementById('list-items-tbody');
+    const searchResults = document.getElementById('product-search-results-list');
     const manualForm = document.getElementById('manual-add-product-form');
+    const itemsTbody = document.getElementById('list-items-tbody');
     let searchTimer;
 
-    // Listener para el formulario de añadir manualmente
+    // Búsqueda de productos
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const query = searchInput.value.trim();
+        if (query.length < 2) { searchResults.style.display = 'none'; return; }
+        
+        searchTimer = setTimeout(async () => {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
+            const result = await response.json();
+            searchResults.innerHTML = '';
+            if (result.success && result.products.length > 0) {
+                searchResults.style.display = 'block';
+                result.products.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerHTML = `<span>${p.nombre_producto}</span> <strong>Stock: ${p.stock_actual || 0}</strong>`;
+                    div.addEventListener('click', async () => {
+                        await addProductToList(listId, p.id_producto);
+                        searchInput.value = '';
+                        searchResults.style.display = 'none';
+                    });
+                    searchResults.appendChild(div);
+                });
+            } else {
+                searchResults.style.display = 'none';
+            }
+        }, 300);
+    });
+
+    // Añadir producto manualmente
     manualForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // <-- Previene la recarga
+        e.preventDefault();
         const feedbackDiv = document.getElementById('manual-add-feedback');
         const data = {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
             precio_compra: document.getElementById('manual_purchase_price').value,
-            cantidad: document.getElementById('manual_quantity').value
+            cantidad: 1 // Siempre se añade con cantidad 1
         };
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
@@ -931,78 +925,43 @@ function initializeListViewInteractions(listId) {
                 body: JSON.stringify(data)
             });
             const result = await response.json();
-            if(!result.success) throw new Error(result.error);
+            if (!result.success) throw new Error(result.error);
             manualForm.reset();
             feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
             await loadAndRenderListView(listId);
-            setTimeout(() => feedbackDiv.innerHTML = '', 2000);
+            setTimeout(() => { feedbackDiv.innerHTML = '' }, 2500);
         } catch (error) {
             feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
         }
     });
 
-    // Listener para la búsqueda de productos
-    searchInput.addEventListener('input', () => {
-        clearTimeout(searchTimer);
-        const query = searchInput.value.trim();
-        if (query.length < 2) {
-            searchResultsContainer.style.display = 'none';
-            return;
-        }
-        searchTimer = setTimeout(async () => {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
-            const result = await response.json();
-            searchResultsContainer.innerHTML = '';
-            if (result.success && result.products.length > 0) {
-                searchResultsContainer.style.display = 'block';
-                result.products.forEach(p => {
-                    const div = document.createElement('div');
-                    div.className = 'search-result-item';
-                    div.innerHTML = `<span>${p.nombre_producto} (${p.codigo_producto})</span>`;
-                    div.addEventListener('click', async () => {
-                        await addProductToList(listId, p.id_producto);
-                        searchInput.value = '';
-                        searchResultsContainer.style.display = 'none';
-                    });
-                    searchResultsContainer.appendChild(div);
-                });
-            } else {
-                searchResultsContainer.style.display = 'none';
-            }
-        }, 300);
-    });
-
-    // Manejador de eventos para la tabla
+    // Editar campos en la tabla (cantidad, precio)
     itemsTbody.addEventListener('change', async (e) => {
-        const target = e.target;
-        const row = target.closest('tr');
-        if (!row) return;
-        const itemId = row.dataset.itemId;
-        const quantityInput = row.querySelector('.quantity-input');
-
-        if (target.classList.contains('quantity-input')) {
-            await updateListItem(itemId, 'cantidad', target.value);
-        } else if (target.classList.contains('use-stock-checkbox')) {
-            const useStock = target.checked;
-            await updateListItem(itemId, 'usar_stock_actual', useStock);
-            quantityInput.disabled = useStock;
-            if (useStock) quantityInput.value = row.dataset.stockActual;
-        } else if (target.classList.contains('mark-item-checkbox')) {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_item_lista: itemId })
-            });
-            const result = await response.json();
-            if (result.success) row.classList.toggle('item-marked', result.newState);
-            else target.checked = !target.checked;
+        if (e.target.classList.contains('editable-field')) {
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.itemId;
+            const field = e.target.dataset.field;
+            const value = e.target.value;
+            await updateListItem(itemId, field, value);
         }
     });
-
+    
+    // Eliminar item de la lista
     itemsTbody.addEventListener('click', async (e) => {
         if (e.target.classList.contains('remove-item-btn')) {
-            const itemId = e.target.closest('tr').dataset.itemId;
-            await removeProductFromList(itemId);
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.itemId;
+            await removeProductFromList(itemId, row);
+        }
+    });
+    
+    // Botones de la cabecera
+    const headerActions = document.querySelector('.header-actions');
+    headerActions.addEventListener('click', async (e) => {
+        if (e.target.id === 'save-and-exit-btn') {
+            document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
+        } else if (e.target.id === 'copy-list-btn') {
+            await copyShoppingList(listId);
         }
     });
 }
@@ -1017,46 +976,30 @@ async function addProductToList(listId, productId) {
 }
 
 async function updateListItem(itemId, field, value) {
-    await fetch(`${API_BASE_URL}?resource=admin/updateListItem`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_item_lista: itemId, field: field, value: value })
-    });
-}
-
-async function removeProductFromList(itemId) {
-    await fetch(`${API_BASE_URL}?resource=admin/removeProductFromList`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_item_lista: itemId })
-    });
-    document.querySelector(`tr[data-item-id="${itemId}"]`).remove();
-}
-
-async function saveLista(listId, tableBody, exitAfter = false) {
-    const items = Array.from(tableBody.querySelectorAll('tr')).map(row => {
-        const productoInput = row.querySelector('.editable[data-field="nombre_producto"]') || row.querySelector('td:nth-child(2)');
-        const precioInput = row.querySelector('.editable[data-field="precio_compra"]') || row.querySelector('td:nth-child(3)');
-        return {
-            id_item_lista: row.dataset.itemId,
-            nombre_producto: productoInput.textContent,
-            precio_compra: parseFloat(precioInput.textContent.replace('$', '')),
-            cantidad: row.querySelector('.quantity-input').value,
-            usar_stock_actual: row.querySelector('.use-stock-checkbox').checked
-        };
-    });
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/saveShoppingList`, {
+     try {
+        await fetch(`${API_BASE_URL}?resource=admin/updateListItem`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_lista: listId, items: items })
+            body: JSON.stringify({ id_item_lista: itemId, field: field, value: value })
+        });
+    } catch(error) {
+        console.error("Error al actualizar item:", error);
+    }
+}
+
+async function removeProductFromList(itemId, rowElement) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/removeProductFromList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_item_lista: itemId })
         });
         const result = await response.json();
-        if (!result.success) throw new Error(result.error);
-        alert('Lista guardada con éxito.');
-        if (exitAfter) document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
+        if (result.success) {
+            rowElement.remove();
+        } else { throw new Error(result.error); }
     } catch (error) {
-        alert('Error al guardar: ' + error.message);
+        alert("Error al eliminar el producto: " + error.message);
     }
 }
 
@@ -1071,7 +1014,7 @@ async function copyShoppingList(listId) {
         const result = await response.json();
         if (result.success) {
             alert(result.message);
-            fetchAndRenderShoppingLists(document.getElementById('list-date-filter').value);
+            document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
         } else {
             throw new Error(result.error);
         }
@@ -1082,7 +1025,6 @@ async function copyShoppingList(listId) {
 
 // --- FIN: MÓDULO LISTAS DE COMPRAS ---
 /*************************************************************************/
-
 
 
 /***********************************************************************/
@@ -4296,158 +4238,126 @@ async function loadAndRenderListView(listId) {
 
 
 
-
-function renderListItems(items, existingItemIds = new Set()) {
-    const itemsTbody = document.getElementById('list-items-tbody');
-    itemsTbody.innerHTML = '';
+function renderListItems(items) {
+    const tbody = document.getElementById('list-items-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
     items.forEach(item => {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
         
-        if (parseInt(item.marcado, 10) === 1) {
-            row.classList.add('item-marked');
-        }
-
-        if (!existingItemIds.has(item.id_item_lista.toString())) {
-            row.classList.add('new-item-highlight');
-        }
-        
-        const isManualItem = item.id_producto === null;
-        const displayQuantity = (item.usar_stock_actual && !isManualItem) ? item.stock_actual : item.cantidad;
-        
         row.innerHTML = `
-            <td>
-                <input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}>
-            </td>
-            <td ${isManualItem ? 'class="editable" data-field="nombre_producto"' : ''}>${item.nombre_producto}</td>
-            <td ${isManualItem ? 'class="editable" data-field="precio_compra"' : ''}>$${parseFloat(item.precio_compra).toFixed(3)}</td>
-            <td>
-                <input type="number" class="quantity-input" value="${displayQuantity}" min="0" ${item.usar_stock_actual ? 'disabled' : ''}>
-            </td>
-            <td>
-                <input type="checkbox" class="use-stock-checkbox" ${item.usar_stock_actual ? 'checked' : ''} ${isManualItem ? 'disabled' : ''}>
-            </td>
-            <td>
-                <button class="action-btn btn-sm btn-danger remove-item-btn">Quitar</button>
-            </td>
+            <td>${item.nombre_producto}</td>
+            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(3)}" step="0.001"></td>
+            <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
+            <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
-        itemsTbody.appendChild(row);
+        tbody.appendChild(row);
     });
 }
 // Reemplaza también esta función completa en tu archivo admin.js
+
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
-    const searchResultsContainer = document.getElementById('product-search-results-list');
-    const itemsTbody = document.getElementById('list-items-tbody');
+    const searchResults = document.getElementById('product-search-results-list');
     const manualForm = document.getElementById('manual-add-product-form');
-    const refreshBtn = document.getElementById('refresh-list-btn');
+    const itemsTbody = document.getElementById('list-items-tbody');
     let searchTimer;
 
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => loadAndRenderListView(listId));
-    }
-
+    // Búsqueda de productos
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const query = searchInput.value.trim();
-        if (query.length < 3) {
-            searchResultsContainer.innerHTML = '';
-            return;
-        }
+        if (query.length < 2) { searchResults.style.display = 'none'; return; }
+        
         searchTimer = setTimeout(async () => {
             const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}`);
             const result = await response.json();
-            searchResultsContainer.innerHTML = '';
+            searchResults.innerHTML = '';
             if (result.success && result.products.length > 0) {
+                searchResults.style.display = 'block';
                 result.products.forEach(p => {
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
-                    div.style.cursor = 'pointer';
-                    div.innerHTML = `<span>${p.nombre_producto} (${p.codigo_producto})</span>`;
+                    // **AQUÍ SE MUESTRA EL STOCK**
+                    div.innerHTML = `<span>${p.nombre_producto}</span> <strong>Stock: ${p.stock_actual || 0}</strong>`;
                     div.addEventListener('click', async () => {
                         await addProductToList(listId, p.id_producto);
                         searchInput.value = '';
-                        searchResultsContainer.innerHTML = '';
+                        searchResults.style.display = 'none';
                     });
-                    searchResultsContainer.appendChild(div);
+                    searchResults.appendChild(div);
                 });
+            } else {
+                searchResults.style.display = 'none';
             }
         }, 300);
     });
-    
-    if(manualForm) {
-        manualForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const feedbackDiv = document.getElementById('manual-add-feedback');
-            const data = {
-                id_lista: listId,
-                nombre_producto: document.getElementById('manual_product_name').value,
-                precio_compra: document.getElementById('manual_purchase_price').value,
-                cantidad: document.getElementById('manual_quantity').value
-            };
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await response.json();
-                if(!result.success) throw new Error(result.error);
-                manualForm.reset();
-                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-                loadAndRenderListView(listId);
-                setTimeout(() => feedbackDiv.innerHTML = '', 2000);
-            } catch (error) {
-                feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
-            }
-        });
-    }
 
-    itemsTbody.addEventListener('change', async (e) => {
-        const target = e.target;
-        const row = target.closest('tr');
-        if (!row) return;
-        const itemId = row.dataset.itemId;
-        const quantityInput = row.querySelector('.quantity-input');
-
-        if (target.classList.contains('quantity-input')) {
-            await updateListItem(itemId, 'cantidad', target.value);
-        } else if (target.classList.contains('use-stock-checkbox')) {
-            const useStock = target.checked;
-            await updateListItem(itemId, 'usar_stock_actual', useStock);
-            quantityInput.disabled = useStock;
-            if (useStock) {
-                quantityInput.value = row.dataset.stockActual;
-            }
-        } else if (target.classList.contains('mark-item-checkbox')) {
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_item_lista: itemId })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    row.classList.toggle('item-marked', result.newState);
-                }
-            } catch (error) {
-                console.error('Error al marcar el item:', error);
-                target.checked = !target.checked;
-            }
+    // Añadir producto manualmente
+    manualForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const feedbackDiv = document.getElementById('manual-add-feedback');
+        const data = {
+            id_lista: listId,
+            nombre_producto: document.getElementById('manual_product_name').value,
+            precio_compra: document.getElementById('manual_purchase_price').value,
+            cantidad: 1 // Siempre se añade con cantidad 1
+        };
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error);
+            manualForm.reset();
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            await loadAndRenderListView(listId);
+            setTimeout(() => { feedbackDiv.innerHTML = '' }, 2500);
+        } catch (error) {
+            feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
         }
     });
 
+    // Editar campos en la tabla (cantidad, precio)
+    itemsTbody.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('editable-field')) {
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.itemId;
+            const field = e.target.dataset.field;
+            const value = e.target.value;
+            await updateListItem(itemId, field, value);
+        }
+    });
+    
+    // Eliminar item de la lista
     itemsTbody.addEventListener('click', async (e) => {
         if (e.target.classList.contains('remove-item-btn')) {
-            const itemId = e.target.closest('tr').dataset.itemId;
-            await removeProductFromList(itemId);
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.itemId;
+            await removeProductFromList(itemId, row);
+        }
+    });
+
+    // Ocultar resultados si se hace clic fuera
+    document.addEventListener('click', function(event) {
+        if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+    
+    // Botones de la cabecera
+    const headerActions = document.querySelector('.header-actions');
+    headerActions.addEventListener('click', async (e) => {
+        if (e.target.id === 'save-and-exit-btn') {
+            document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
+        } else if (e.target.id === 'copy-list-btn') {
+            await copyShoppingList(listId);
         }
     });
 }
-
-
-
-
 
 
 

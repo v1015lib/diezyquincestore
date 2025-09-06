@@ -319,3 +319,32 @@
         text-align: center;
     }
 }
+/* ... (código existente en el archivo) ... */
+
+/* --- INICIO: AJUSTE DE ANCHO PARA TABLA DE LISTA DE COMPRAS --- */
+
+#list-items-table {
+    table-layout: fixed; /* Asegura que los anchos definidos se respeten */
+    width: 100%;
+
+    th, td {
+        /* Se alinea el texto de las celdas numéricas a la derecha para mayor claridad */
+        &:nth-child(2), 
+        &:nth-child(3) {
+            text-align: right;
+        }
+
+        /* Se centra el botón de acción */
+        &:nth-child(4) {
+            text-align: center;
+        }
+    }
+
+    /* Asignación de anchos específicos a cada columna */
+    th:nth-child(1) { width: 100%; } /* Columna "Producto" (más ancha) */
+    th:nth-child(2) { width: 9%; } /* Columna "Precio Compra" */
+    th:nth-child(3) { width: 9%; } /* Columna "Cantidad a Comprar" */
+    th:nth-child(4) { width: 9%; } /* Columna "Acción" (más angosta) */
+}
+
+/* --- FIN: AJUSTE DE ANCHO --- */
