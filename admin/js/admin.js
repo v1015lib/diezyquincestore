@@ -1689,7 +1689,63 @@ function updateDepartmentSortIndicators() {
 }
 
 
+// EN: admin/js/admin.js
 
+// REEMPLAZA ESTA FUNCIÓN EN: admin/js/admin.js
+
+async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
+    const salesWidget = document.getElementById('sales-summary-widget');
+    const chartTitle = document.getElementById('sales-chart-title');
+    if (!salesWidget || !chartTitle) return;
+
+    salesWidget.innerHTML = `<p>Calculando...</p>`;
+    chartTitle.textContent = `Gráfico de Ventas (cargando...)`;
+
+    try {
+        const params = new URLSearchParams({ startDate, endDate });
+        if (storeId) {
+            params.append('storeId', storeId);
+        }
+        
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getSalesStats&${params.toString()}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const stats = result.stats;
+            const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('es-SV');
+            const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('es-SV');
+            
+            salesWidget.innerHTML = `
+                <p style="font-size: 2rem; font-weight: 400; color: #0C0A4E; margin-bottom: 5px;">$${stats.total_revenue}</p>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #6c757d;">
+                    ${stats.sales_by_payment.map(item => `
+                        <li style="display: flex; justify-content: space-between; padding: 0.2rem 0;">
+                            <span>${item.nombre_metodo}:</span>
+                            <strong>${item.count} ventas</strong>
+                        </li>
+                    `).join('') || '<li>No hay ventas por método de pago.</li>'}
+                    
+                    <li style="display: flex; justify-content: space-between; padding: 0.2rem 0; margin-top: 8px; border-top: 1px solid #eee;">
+                        <span>Promedio por Venta:</span>
+                        <strong>$${stats.average_sale}</strong>
+                    </li>
+                </ul>
+            `;
+            
+            chartTitle.textContent = `Historial de Ventas (${formattedStartDate} - ${formattedEndDate})`;
+            
+            // --- ✅ CORRECCIÓN APLICADA ---
+            // Se pasa el objeto correcto 'stats.chart_data' a la función del gráfico.
+            renderSalesChart(stats.chart_data);
+            
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        salesWidget.innerHTML = `<p style="color:red;">Error al cargar resumen de ventas.</p>`;
+        chartTitle.textContent = 'Error al cargar gráfico';
+    }
+}
 
 
 
@@ -3297,59 +3353,6 @@ function updateProcessorButtons() {
 
 
 
-async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
-    const salesWidget = document.getElementById('sales-summary-widget');
-    const chartTitle = document.getElementById('sales-chart-title');
-    if (!salesWidget || !chartTitle) return;
-
-    salesWidget.innerHTML = `<p>Calculando...</p>`;
-    chartTitle.textContent = `Gráfico de Ventas (cargando...)`;
-
-    try {
-        const params = new URLSearchParams({ startDate, endDate });
-        if (storeId) {
-            params.append('storeId', storeId);
-        }
-        
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getSalesStats&${params.toString()}`);
-        const result = await response.json();
-
-        if (result.success) {
-            const stats = result.stats;
-            const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('es-SV');
-            const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('es-SV');
-            
-            salesWidget.innerHTML = `
-                <p style="font-size: 2rem; font-weight: 400; color: #0C0A4E; margin-bottom: 5px;">$${stats.total_revenue}</p>
-                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #6c757d;">
-                    ${stats.sales_by_payment.map(item => `
-                        <li style="display: flex; justify-content: space-between; padding: 0.2rem 0;">
-                            <span>${item.nombre_metodo}:</span>
-                            <strong>${item.count} ventas</strong>
-                        </li>
-                    `).join('') || '<li>No hay ventas por método de pago.</li>'}
-                    
-                    <li style="display: flex; justify-content: space-between; padding: 0.2rem 0; margin-top: 8px; border-top: 1px solid #eee;">
-                        <span>Promedio por Venta:</span>
-                        <strong>$${stats.average_sale}</strong>
-                    </li>
-                </ul>
-            `;
-            
-            chartTitle.textContent = `Historial de Ventas (${formattedStartDate} - ${formattedEndDate})`;
-
-            // --- CORRECCIÓN CLAVE ---
-            // Se usa la nueva propiedad 'daily_sales_by_store' que envía la API.
-            renderSalesChart(stats.daily_sales_by_store);
-            
-        } else {
-            throw new Error(result.error);
-        }
-    } catch (error) {
-        salesWidget.innerHTML = `<p style="color:red;">Error al cargar resumen de ventas.</p>`;
-        chartTitle.textContent = 'Error al cargar gráfico';
-    }
-}
 
 
 
@@ -3359,6 +3362,8 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
 
 
 
+
+// REEMPLAZA ESTA FUNCIÓN EN: admin/js/admin.js
 
 async function loadStatisticsWidgets() {
     const endDateInput = document.getElementById('end-date');
@@ -3379,13 +3384,15 @@ async function loadStatisticsWidgets() {
     startDateInput.value = formatDate(startDate);
     endDateInput.value = formatDate(endDate);
     
-    // Se obtiene el valor inicial del filtro de tienda al cargar.
     const initialStoreId = storeFilter ? storeFilter.value : null;
 
-    // Se cargan los datos iniciales con el rango de fechas y la tienda por defecto.
     await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value, initialStoreId);
-    await fetchAndRenderProductStats(initialStoreId);
+    
+    // --- ✅ CORRECCIÓN APLICADA ---
+    // Se añaden los parámetros de fecha a la llamada de esta función para que los filtros coincidan.
+    await fetchAndRenderProductStats(startDateInput.value, endDateInput.value, initialStoreId);
 }
+
 
 
 
@@ -3444,32 +3451,9 @@ async function fetchAndRenderProductStats(storeId = null) {
 
 
 
+// EN: admin/js/admin.js
 
-
-
-
-
-
-
-
-
-
-
-
-// En tu archivo: admin/js/admin.js
-
-// En tu archivo: admin/js/admin.js
-
-
-
-
-// En: admin/js/admin.js
-
-// admin/js/admin.js
-
-// ... (otras funciones del archivo)
-
-function renderSalesChart(dailySalesByStore) {
+function renderSalesChart(chartData) {
     const ctx = document.getElementById('salesChart').getContext('2d');
     if (!ctx) return;
 
@@ -3477,13 +3461,10 @@ function renderSalesChart(dailySalesByStore) {
         window.mySalesChart.destroy();
     }
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Si no hay datos para graficar, se limpia el área y se detiene la función para evitar errores.
-    if (!Array.isArray(dailySalesByStore) || dailySalesByStore.length === 0 || !dailySalesByStore[0].data || dailySalesByStore[0].data.length === 0) {
+    if (!chartData || !chartData.labels || chartData.labels.length === 0) {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); 
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     const chartColors = [
         'rgba(12, 10, 78, 1)',    
@@ -3493,19 +3474,14 @@ function renderSalesChart(dailySalesByStore) {
         'rgba(155, 89, 182, 1)',  
         'rgba(52, 152, 219, 1)'   
     ];
+    
+    const labels = chartData.labels;
 
-    const labels = dailySalesByStore[0].data.map(sale => {
-        return new Date(sale.fecha + 'T00:00:00').toLocaleDateString('es-SV', { 
-            month: 'short', 
-            day: 'numeric' 
-        });
-    });
-
-    const datasets = dailySalesByStore.map((storeData, index) => {
+    const datasets = chartData.datasets.map((storeData, index) => {
         const color = chartColors[index % chartColors.length];
         return {
             label: storeData.store_name,
-            data: storeData.data.map(sale => sale.daily_total),
+            data: storeData.data,
             borderColor: color,
             backgroundColor: color.replace('1)', '0.1)'),
             borderWidth: 2,
@@ -3527,12 +3503,20 @@ function renderSalesChart(dailySalesByStore) {
                 }
             },
             responsive: true,
-            // --- CORRECCIÓN CLAVE ---
-            // Se establece en 'false' para que el gráfico se ajuste mejor a su contenedor.
             maintainAspectRatio: true
         }
     });
 }
+
+
+
+
+
+
+
+
+
+
 
 
 async function loadStatisticsWidgets() {
