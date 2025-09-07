@@ -4340,42 +4340,49 @@ case 'admin/deleteProduct':
     }
     break;
 
-        case 'admin/uploadImage':
-    // Endpoint dedicado exclusivamente a subir una imagen al bucket.
+
+case 'admin/uploadImage':
     try {
-        if (!isset($_FILES['url_imagen']) || $_FILES['url_imagen']['error'] !== UPLOAD_ERR_OK) {
-            throw new Exception('No se recibió ningún archivo o hubo un error en la subida.');
+        if (!isset($_FILES['url_imagen']) || !is_array($_FILES['url_imagen']['name'])) {
+            throw new Exception('No se recibieron archivos o el formato es incorrecto.');
         }
 
-        // Reutilizamos la misma lógica de GCS que ya tienes
         require_once __DIR__ . '/../vendor/autoload.php';
         $keyFilePath = __DIR__ . '/../keygcs.json';
         $bucketName = 'libreria-web-imagenes';
         
-        $fileTmpPath = $_FILES['url_imagen']['tmp_name'];
-        $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'], PATHINFO_EXTENSION));
-        $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
-        $gcsPath = 'productos/' . $newFileName;
-        
         $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
         $bucket = $storage->bucket($bucketName);
         
-        $bucket->upload(
-            fopen($fileTmpPath, 'r'),
-            ['name' => $gcsPath]
-        );
+        $uploadCount = 0;
+        $totalFiles = count($_FILES['url_imagen']['name']);
+
+        for ($i = 0; $i < $totalFiles; $i++) {
+            if ($_FILES['url_imagen']['error'][$i] === UPLOAD_ERR_OK) {
+                $fileTmpPath = $_FILES['url_imagen']['tmp_name'][$i];
+                $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'][$i], PATHINFO_EXTENSION));
+                $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
+                $gcsPath = 'productos/' . $newFileName;
+                
+                $bucket->upload(
+                    fopen($fileTmpPath, 'r'),
+                    ['name' => $gcsPath]
+                );
+                $uploadCount++;
+            }
+        }
         
-        echo json_encode(['success' => true, 'message' => 'Imagen subida correctamente.']);
+        if ($uploadCount == 0) {
+             throw new Exception('Ninguna de las imágenes pudo ser procesada.');
+        }
+
+        echo json_encode(['success' => true, 'message' => "$uploadCount de $totalFiles imágenes subidas correctamente."]);
 
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
-    // api/index.php (reemplaza este case específico)
-
-
 
 
 // api/index.php
@@ -4460,7 +4467,6 @@ case 'admin/getProductDetails':
 
 
 case 'admin/getBucketImages':
-    // Lógica para listar todas las imágenes en la carpeta 'productos' del bucket
     try {
         require_once __DIR__ . '/../vendor/autoload.php';
         $keyFilePath = __DIR__ . '/../keygcs.json';
@@ -4469,21 +4475,42 @@ case 'admin/getBucketImages':
 
         $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
         $bucket = $storage->bucket($bucketName);
-        $options = ['prefix' => 'productos/']; // Solo listar imágenes de la carpeta de productos
         
-        $imageUrls = [];
+        $options = ['prefix' => 'productos/'];
+        
+        $all_images = [];
         foreach ($bucket->objects($options) as $object) {
-            // Ignoramos "carpetas vacías" si existen
-            if (substr($object->name(), -1) === '/') {
-                continue;
-            }
-            $imageUrls[] = [
+            if (substr($object->name(), -1) === '/') continue;
+            
+            // Obtenemos la fecha de actualización para ordenar
+            $info = $object->info();
+            $last_updated = $info['updated'];
+
+            $all_images[] = [
                 'url' => $cdnDomain . '/' . $object->name(),
-                'name' => $object->name() // Guardamos el 'path' para poder borrarlo
+                'name' => $object->name(),
+                'updated' => strtotime($last_updated) // Convertimos a timestamp para ordenar
             ];
         }
+
+        // Ordenamos todas las imágenes de más reciente a más antigua
+        usort($all_images, function($a, $b) {
+            return $b['updated'] - $a['updated'];
+        });
         
-        echo json_encode(['success' => true, 'images' => $imageUrls]);
+        // Lógica de Paginación
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = 20; // Imágenes por página
+        $offset = ($page - 1) * $limit;
+        
+        $paginated_images = array_slice($all_images, $offset, $limit);
+        $has_more = count($all_images) > ($offset + $limit);
+
+        echo json_encode([
+            'success' => true, 
+            'images' => $paginated_images,
+            'has_more' => $has_more // Informamos al frontend si hay más páginas
+        ]);
 
     } catch (Exception $e) {
         http_response_code(500);

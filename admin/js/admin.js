@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelector = document.getElementById('selector-imagen');
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
+
     const API_BASE_URL = '../api/index.php';
 
 
@@ -38,6 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
 let isLoading = false;       
 
 
+let galleryPage = 1;
+let isLoadingGallery = false;
+let galleryHasMore = true;
 
 
     async function updateHeaderUserInfo() {
@@ -1609,39 +1613,75 @@ function initializeEditProductFormSubmit(form) {
     }
 
     // --- ⭐ FUNCIONES DE LA GALERÍA RESTAURADAS ⭐ ---
-    async function openImageGallery() {
-        if (!galleryModal) return;
-        galleryModal.style.display = 'flex';
-        await loadImageGrid();
-    }
+async function openImageGallery() {
+    if (!galleryModal) return;
+    galleryModal.style.display = 'flex';
+    
+    // Reseteamos el estado de la galería cada vez que se abre
+    galleryPage = 1;
+    galleryHasMore = true;
+    const grid = galleryModal.querySelector('.image-grid-container');
+    grid.innerHTML = ''; // Limpiamos el contenido anterior
+    
+    await loadImageGrid();
+}
     
     function closeImageGallery() {
         if (galleryModal) galleryModal.style.display = 'none';
     }
 
-    async function loadImageGrid() {
-        const grid = galleryModal.querySelector('.image-grid-container');
-        grid.innerHTML = '<p>Cargando imágenes...</p>';
-        try {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/getBucketImages`);
-            const result = await response.json();
-            grid.innerHTML = '';
-            if (result.success && result.images.length > 0) {
-                result.images.forEach(image => {
-                    const item = document.createElement('div');
-                    item.className = 'image-grid-item';
-                    item.dataset.imageUrl = image.url;
-                    item.dataset.imageName = image.name;
-                    item.innerHTML = `<img src="${image.url}" alt="${image.name}"><button class="delete-image-btn" title="Eliminar del bucket">&times;</button>`;
-                    grid.appendChild(item);
-                });
-            } else {
-                grid.innerHTML = '<p>No hay imágenes en el bucket.</p>';
+
+async function loadImageGrid() {
+    if (isLoadingGallery || !galleryHasMore) return;
+    isLoadingGallery = true;
+    
+    const grid = galleryModal.querySelector('.image-grid-container');
+    const loadingIndicator = document.createElement('p');
+    loadingIndicator.textContent = 'Cargando más imágenes...';
+    grid.appendChild(loadingIndicator);
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getBucketImages&page=${galleryPage}`);
+        const result = await response.json();
+        
+        loadingIndicator.remove(); // Quitamos el indicador de carga
+
+        if (result.success && result.images.length > 0) {
+            result.images.forEach(image => {
+                const item = document.createElement('div');
+                item.className = 'image-grid-item';
+                item.dataset.imageUrl = image.url;
+                item.dataset.imageName = image.name;
+                item.innerHTML = `<img src="${image.url}" alt="${image.name}" loading="lazy"><button class="delete-image-btn" title="Eliminar del bucket">&times;</button>`;
+                grid.appendChild(item);
+            });
+            galleryPage++; // Preparamos para la siguiente página
+            galleryHasMore = result.has_more;
+        } else {
+            galleryHasMore = false; // No hay más imágenes
+            if (grid.innerHTML === '') {
+                 grid.innerHTML = '<p>No hay imágenes en el bucket.</p>';
             }
-        } catch (error) {
-            grid.innerHTML = `<p style="color:red;">Error al cargar las imágenes.</p>`;
         }
+    } catch (error) {
+        grid.innerHTML = `<p style="color:red;">Error al cargar las imágenes.</p>`;
+    } finally {
+        isLoadingGallery = false;
     }
+}
+
+
+
+
+if (galleryModal) {
+    const gridContainer = galleryModal.querySelector('.image-grid-container');
+    gridContainer.addEventListener('scroll', () => {
+        // Si el usuario ha llegado casi al final del scroll, carga más
+        if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 100) {
+            loadImageGrid();
+        }
+    });
+}
 
     // --- MANEJADORES DE EVENTOS GLOBALES ---
     
@@ -2225,35 +2265,49 @@ mainContent.addEventListener('change', async (event) => {
                     closeImageGallery();
                 }
             }
-            if (target.id === 'gallery-upload-btn') {
-                const fileInput = galleryModal.querySelector('#gallery-upload-input');
-                const feedbackDiv = galleryModal.querySelector('#gallery-upload-feedback');
-                if (fileInput.files.length > 0) {
-                    const formData = new FormData();
-                    formData.append('url_imagen', fileInput.files[0]);
-                    target.textContent = 'Subiendo...';
-                    target.disabled = true;
-                    feedbackDiv.textContent = '';
-                    try {
-                        const response = await fetch(`${API_BASE_URL}?resource=admin/uploadImage`, { method: 'POST', body: formData });
-                        const result = await response.json();
-                        if (!result.success) throw new Error(result.error);
-                        feedbackDiv.textContent = '¡Imagen subida! Recargando...';
-                        feedbackDiv.style.color = 'green';
-                        fileInput.value = '';
-                        await loadImageGrid();
-                        galleryModal.querySelector('.gallery-tab-btn[data-tab="select"]').click();
-                    } catch (error) {
-                        feedbackDiv.textContent = `Error: ${error.message}`;
-                        feedbackDiv.style.color = 'red';
-                    } finally {
-                        target.textContent = 'Subir Imagen';
-                        target.disabled = false;
-                    }
-                } else {
-                    feedbackDiv.textContent = 'Selecciona un archivo primero.';
-                }
-            }
+if (target.id === 'gallery-upload-btn') {
+    const fileInput = galleryModal.querySelector('#gallery-upload-input');
+    const feedbackDiv = galleryModal.querySelector('#gallery-upload-feedback');
+    
+    if (fileInput.files.length > 0) {
+        const formData = new FormData();
+        // Añadimos todos los archivos seleccionados al FormData
+        for (let i = 0; i < fileInput.files.length; i++) {
+            formData.append('url_imagen[]', fileInput.files[i]);
+        }
+        
+        target.textContent = 'Subiendo...';
+        target.disabled = true;
+        feedbackDiv.textContent = '';
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/uploadImage`, {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            
+            if (!result.success) throw new Error(result.error);
+            
+            feedbackDiv.textContent = result.message;
+            feedbackDiv.style.color = 'green';
+            fileInput.value = ''; // Limpiamos el input
+            
+            // Recargamos la galería desde cero para ver las nuevas imágenes al principio
+            openImageGallery(); 
+            galleryModal.querySelector('.gallery-tab-btn[data-tab="select"]').click();
+
+        } catch (error) {
+            feedbackDiv.textContent = `Error: ${error.message}`;
+            feedbackDiv.style.color = 'red';
+        } finally {
+            target.textContent = 'Subir Imágenes';
+            target.disabled = false;
+        }
+    } else {
+        feedbackDiv.textContent = 'Selecciona uno o más archivos primero.';
+    }
+}
             if (target.matches('.modal-close-btn') || target.id === 'gallery-cancel-btn') {
                 closeImageGallery();
             }
@@ -3485,7 +3539,9 @@ function renderSalesChart(chartData) {
             borderColor: color,
             backgroundColor: color.replace('1)', '0.1)'),
             borderWidth: 2,
-            tension: 0.1,
+            tension: 0.4,       // ✅ Suaviza la línea
+            pointRadius: 1,     // ✅ Elimina los puntos visibles
+            pointHoverRadius: 5, // ✅ El punto aparece al pasar el ratón
             fill: true
         };
     });
