@@ -1,24 +1,61 @@
-// js/modal_handler.js
+// EN: public_html/js/modal_handler.js
 
+// --- Referencias a TODOS los modales ---
 const loginPromptModal = document.getElementById('login-prompt-modal');
-const cancelPromptBtn = document.getElementById('login-prompt-cancel');
+const imagePreviewModal = document.getElementById('image-preview-modal');
+const imagePreviewDisplay = document.getElementById('image-preview-display');
 
-// Función para mostrar la ventana modal
+// --- Función para mostrar el modal de Login ---
 export function showLoginPrompt() {
     if (loginPromptModal) {
-        loginPromptModal.classList.remove('hidden');
-        // Usamos un pequeño delay para que la transición de opacidad funcione
-        setTimeout(() => loginPromptModal.classList.add('visible'), 10);
+        loginPromptModal.classList.add('visible');
     }
 }
 
-// Función para inicializar los botones de la modal (cerrar)
-export function initializeModals() {
-    if (cancelPromptBtn && loginPromptModal) {
-        cancelPromptBtn.addEventListener('click', () => {
-            loginPromptModal.classList.remove('visible');
-            // Usamos un delay para que la animación de salida termine antes de ocultarlo
-            setTimeout(() => loginPromptModal.classList.add('hidden'), 300);
-        });
+// --- Función para abrir el modal de previsualización de imagen ---
+function openImagePreview(imageSrc) {
+    if (imagePreviewModal && imagePreviewDisplay) {
+        imagePreviewDisplay.src = imageSrc;
+        imagePreviewModal.classList.add('visible');
     }
+}
+
+// --- Función para cerrar el modal de previsualización de imagen ---
+function closeImagePreview() {
+    if (imagePreviewModal) {
+        imagePreviewModal.classList.remove('visible');
+        // Limpiamos la imagen después de que la transición termine
+        setTimeout(() => {
+            imagePreviewDisplay.src = '';
+        }, 300);
+    }
+}
+
+// --- Función ÚNICA para inicializar TODOS los modales y sus triggers ---
+export function initializeModals() {
+    // Listener para cerrar el modal de login
+    document.body.addEventListener('click', (event) => {
+        if (event.target.id === 'login-prompt-cancel' || event.target === loginPromptModal) {
+            if (loginPromptModal) loginPromptModal.classList.remove('visible');
+        }
+    });
+
+    // Listener para abrir y cerrar el modal de imagen
+    document.body.addEventListener('click', (event) => {
+        const imageTrigger = event.target.closest('.product-image-preview-trigger');
+        
+        // Abrir previsualización de imagen
+        if (imageTrigger) {
+            event.preventDefault();
+            const imageSrc = imageTrigger.querySelector('img')?.src;
+            if (imageSrc) {
+                openImagePreview(imageSrc);
+            }
+        }
+
+        // Cerrar modal de imagen (al hacer clic en fondo o 'X')
+        if (event.target === imagePreviewModal || event.target.closest('#image-preview-modal .close-btn')) {
+            closeImagePreview();
+        }
+    });
 }

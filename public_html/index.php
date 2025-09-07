@@ -71,9 +71,6 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
                 ?>
 
                 <div class="products-container">
-
-
-
                         <div class="product-list-controls">
                             <div id="results-summary" class="results-summary-style"></div>
                             <div class="sort-control">
@@ -87,10 +84,6 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
                                 </select>
                             </div>
                         </div>
-
-
-
-
                     <div id="product-list" class="product-grid"></div>
                     <div id="pagination-controls" class="pagination"></div>
                 </div>    
@@ -101,7 +94,8 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
     
     <?php include 'includes/cart_panel.php' ?>
     <div id="notification-container" class="notification-container"></div>
-    <div id="login-prompt-modal" class="modal-overlay hidden">
+    
+    <div id="login-prompt-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Inicia Sesión para Continuar</h3>
             <p>Debe inciar sesion o registrarte para efectuar la accion :)
@@ -112,39 +106,47 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
             </div>
         </div>
     </div>
-    <div id="share-modal" class="modal-overlay hidden">
+
+    <div id="share-modal" class="modal-overlay">
         <div class="modal-content share-modal-content">
             <div class="modal-header">
                 <h3>Compartir Producto</h3>
                 <button id="share-modal-close" class="modal-close-btn">&times;</button>
             </div>
-<div class="modal-body">
-    <p id="share-product-name" style="font-weight: 600; margin-bottom: 1.5rem;"></p>
-    <div class="share-options">
-        <a href="#" id="share-whatsapp" class="share-option whatsapp" target="_blank" rel="noopener noreferrer">
-            <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/whatsapp.svg" alt="WhatsApp">
-            <span>WhatsApp</span>
-        </a>
-        <a href="#" id="share-facebook" class="share-option facebook" target="_blank" rel="noopener noreferrer">
-            <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/facebook.svg" alt="Facebook">
-            <span>Facebook</span>
-        </a>
-        <a href="#" id="share-twitter" class="share-option twitter" target="_blank" rel="noopener noreferrer">
-            <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/x.svg" alt="X (Twitter)">
-            <span>X</span>
-        </a>
-        <button id="share-copy-link" class="share-option copy-link">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'%3E%3C/path%3E%3Crect x='8' y='2' width='8' height='4' rx='1' ry='1'%3E%3C/rect%3E%3C/svg%3E" alt="Copiar">
-            <span>Copiar Enlace</span>
-        </button>
-    </div>
-</div>
+            <div class="modal-body">
+                <p id="share-product-name" style="font-weight: 600; margin-bottom: 1.5rem;"></p>
+                <div class="share-options">
+                    <a href="#" id="share-whatsapp" class="share-option whatsapp" target="_blank" rel="noopener noreferrer">
+                        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/whatsapp.svg" alt="WhatsApp">
+                        <span>WhatsApp</span>
+                    </a>
+                    <a href="#" id="share-facebook" class="share-option facebook" target="_blank" rel="noopener noreferrer">
+                        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/facebook.svg" alt="Facebook">
+                        <span>Facebook</span>
+                    </a>
+                    <a href="#" id="share-twitter" class="share-option twitter" target="_blank" rel="noopener noreferrer">
+                        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/x.svg" alt="X (Twitter)">
+                        <span>X</span>
+                    </a>
+                    <button id="share-copy-link" class="share-option copy-link">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'%3E%3C/path%3E%3Crect x='8' y='2' width='8' height='4' rx='1' ry='1'%3E%3C/rect%3E%3C/svg%3E" alt="Copiar">
+                        <span>Copiar Enlace</span>
+                    </button>
+                </div>
+            </div>
         </div>
-    <script type="module" src="js/main.js"></script>
+    </div>
 
+    <div id="image-preview-modal" class="modal-overlay">
+        <div class="modal-content image-preview-content">
+            <span class="close-btn">&times;</span>
+            <img id="image-preview-display" src="" alt="Previsualización de imagen">
+        </div>
+    </div>
+    
+    <script type="module" src="js/main.js"></script>
     <script>
         const layoutSettings = <?php echo json_encode($layout_settings); ?>;
     </script>
-    
 </body>
 </html>

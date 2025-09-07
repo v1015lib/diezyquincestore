@@ -39,11 +39,18 @@ export async function getUserFavorites() {
  * @param {boolean} isFavorite - Si el producto está en favoritos.
  * @returns {string} El HTML completo de la tarjeta.
  */
+
+
+// EN: public_html/js/ajax/product_loader.js
+
+// REEMPLAZA la función createProductCardHTML completa para asegurar la clase correcta
+// public_html/js/ajax/product_loader.js
+
+// REEMPLAZA la función createProductCardHTML completa para asegurar la clase correcta
 export function createProductCardHTML(product, cartQuantity = 0, isFavorite = false) {
     const precioVenta = parseFloat(product.precio_venta);
     const precioOferta = parseFloat(product.precio_oferta);
 
-    // Lógica de visibilidad
     const isLoggedIn = document.querySelector('.my-account-link');
     const canShowDetails = !layoutSettings.details_for_logged_in_only || isLoggedIn;
     
@@ -54,13 +61,9 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         let priceHtml = '';
         let codeHtml = '';
         
-        // --- INICIO: CÓDIGO CORREGIDO ---
-        // Ahora el departamento solo se muestra si la visibilidad general está permitida
         if (layoutSettings.show_product_department) {
             departmentHtml = `<p class="department"> ${product.nombre_departamento}</p>`;
-            //Si se quier poner Depto:  despues de <p class="department">
         }
-        // --- FIN: CÓDIGO CORREGIDO ---
 
         if (layoutSettings.show_product_price) {
             if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
@@ -86,7 +89,7 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
     if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
         const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
         discountBadgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
-    }   //Antes de ${discountPercent} puede agregarse un "-" para que se vea -40% por ejemplo
+    }
 
     return `
         <div class="product-card" data-product-id="${product.id_producto}">
@@ -96,10 +99,12 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                 </button>
             </div>
-            <div class="product-image-container">
+            
+            <div class="product-image-container product-image-preview-trigger">
                 <img src="${product.url_imagen || 'https://via.placeholder.com/200'}" alt="${product.nombre_producto}" loading="lazy">
                 ${discountBadgeHtml}
             </div>
+
             <div class="product-info">
                 <h3>${product.nombre_producto}</h3>
                 ${departmentHtml}
@@ -115,9 +120,6 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         </div>
     `;
 }
-
-
-
 export async function loadProducts(productListId, paginationControlsId, params = {}) {
     currentProductParams = { ...currentProductParams, ...params };
     currentProductParams.page = params.page || 1;
@@ -229,3 +231,4 @@ function createPageButton(text, page, productListId, paginationControlsId, isAct
     
     return button;
 }
+
