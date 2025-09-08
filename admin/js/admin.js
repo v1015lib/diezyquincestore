@@ -4850,12 +4850,20 @@ async function reactivateUser(userId) {
 }
 
 
+
+
+
+
+
+// EN: admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN)
 function initializeBarcodeGenerator() {
     const form = document.getElementById('generate-barcodes-form');
     const feedbackDiv = document.getElementById('generator-feedback');
     const resultsContainer = document.getElementById('results-container');
     const outputTextarea = document.getElementById('generated-codes-output');
     const copyBtn = document.getElementById('copy-codes-btn');
+    const previewContainer = document.getElementById('barcode-preview-container');
+    const downloadBtn = document.getElementById('download-barcodes-btn');
 
     if (!form) return;
 
@@ -4869,15 +4877,35 @@ function initializeBarcodeGenerator() {
         feedbackDiv.innerHTML = '';
         resultsContainer.style.display = 'none';
         outputTextarea.value = '';
+        previewContainer.innerHTML = '<p>Generando previsualizaciones...</p>';
+        downloadBtn.disabled = true;
 
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/generateEan13Codes&quantity=${quantity}`);
             const result = await response.json();
 
             if (result.success && result.codes) {
-                outputTextarea.value = result.codes.join('\n');
+                const codes = result.codes;
+                outputTextarea.value = codes.join('\n');
                 resultsContainer.style.display = 'block';
-                feedbackDiv.innerHTML = `<div class="message success">¡Se generaron ${result.codes.length} códigos con éxito!</div>`;
+                feedbackDiv.innerHTML = `<div class="message success">¡Se generaron ${codes.length} códigos con éxito!</div>`;
+                
+                previewContainer.innerHTML = '';
+                codes.slice(0, 10).forEach(code => {
+                    const barcodeApiUrl = `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=EAN13&dpi=96`;
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'barcode-image-wrapper';
+                    imgContainer.innerHTML = `
+                        <img src="${barcodeApiUrl}" alt="Código de barras para ${code}">
+                        <span>${code}</span>
+                    `;
+                    previewContainer.appendChild(imgContainer);
+                });
+                if(codes.length > 10) {
+                    previewContainer.insertAdjacentHTML('beforeend', '<p>Mostrando 10 de ' + codes.length + ' códigos...</p>');
+                }
+                downloadBtn.disabled = false;
+                
             } else {
                 throw new Error(result.error || 'No se pudieron generar los códigos.');
             }
@@ -4895,7 +4923,43 @@ function initializeBarcodeGenerator() {
         feedbackDiv.innerHTML = `<div class="message success">Códigos copiados al portapapeles.</div>`;
         setTimeout(() => { feedbackDiv.innerHTML = ''; }, 2000);
     });
+
+    // --- INICIO DE LA LÓGICA DE DESCARGA CORREGIDA ---
+    downloadBtn.addEventListener('click', () => {
+        const codes = outputTextarea.value.split('\n').filter(Boolean);
+        if (codes.length === 0) return;
+
+        const downloadForm = document.createElement('form');
+        downloadForm.method = 'POST';
+        // --- RUTA CORREGIDA ---
+        downloadForm.action = '../api/download_barcodes.php'; 
+        downloadForm.target = '_blank';
+
+        const codesInput = document.createElement('input');
+        codesInput.type = 'hidden';
+        codesInput.name = 'codes';
+        codesInput.value = JSON.stringify(codes);
+        downloadForm.appendChild(codesInput);
+
+        document.body.appendChild(downloadForm);
+        downloadForm.submit();
+        document.body.removeChild(downloadForm);
+    });
+    // --- FIN DE LA LÓGICA DE DESCARGA CORREGIDA ---
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 });
 

@@ -15,8 +15,21 @@
     </form>
 
     <fieldset class="form-fieldset" style="margin-top: 2rem; display: none;" id="results-container">
-        <legend class="form-section-header">Códigos Generados</legend>
-        <textarea id="generated-codes-output" rows="10" readonly style="width: 100%; padding: 0.5rem; white-space: pre;"></textarea>
-        <button id="copy-codes-btn" class="action-btn" style="margin-top: 1rem;">Copiar al Portapapeles</button>
+        <legend class="form-section-header">Resultados</legend>
+        
+        <div class="barcode-results-grid">
+            <div class="barcode-column">
+                <h4>Códigos Generados:</h4>
+                <textarea id="generated-codes-output" rows="10" readonly></textarea>
+                <button id="copy-codes-btn" class="action-btn" style="margin-top: 1rem;">Copiar Códigos</button>
+            </div>
+            <div class="barcode-column">
+                <h4>Previsualización de Códigos de Barras:</h4>
+                <div id="barcode-preview-container">
+                    <p>Aquí se mostrarán las imágenes...</p>
+                </div>
+                <button id="download-barcodes-btn" class="action-btn form-submit-btn" style="margin-top: 1rem;" disabled>Descargar Códigos de Barras (ZIP)</button>
+            </div>
+        </div>
     </fieldset>
-</div>
+    </div>

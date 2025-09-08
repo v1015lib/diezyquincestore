@@ -2,6 +2,7 @@
 date_default_timezone_set('America/El_Salvador');
 
 session_start();
+require_once __DIR__ . '/../vendor/autoload.php'; 
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -34,8 +35,74 @@ try {
 
 /***********************************************************/
 
-// REEMPLAZA este case en tu archivo /api/index.php
 
+
+
+case 'admin/generateBarcodeImages':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $codes = $data['codes'] ?? [];
+
+        if (empty($codes)) {
+            throw new Exception("No se proporcionaron códigos.");
+        }
+
+        $generator = new \Picqer\Barcode\BarcodeGeneratorPNG();
+        $zip = new ZipArchive();
+        $zipFileName = 'barcodes_' . time() . '.zip';
+        $zipFilePath = sys_get_temp_dir() . '/' . $zipFileName;
+
+        if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+            throw new Exception("No se pudo crear el archivo ZIP en el servidor.");
+        }
+
+        foreach ($codes as $code) {
+            if (preg_match('/^[0-9]{13}$/', $code)) {
+                $barcodeImage = $generator->getBarcode($code, $generator::TYPE_EAN_13, 2, 60);
+                $zip->addFromString($code . '.png', $barcodeImage);
+            }
+        }
+        $zip->close();
+
+        // --- INICIO DE LA CORRECCIÓN REFORZADA ---
+        // 1. Limpia cualquier posible salida de texto (buffers).
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        // 2. Elimina la cabecera 'Content-Type: application/json' previamente establecida.
+        header_remove('Content-Type');
+        // --- FIN DE LA CORRECCIÓN REFORZADA ---
+        
+        // 3. Ahora sí, enviamos las cabeceras correctas para el ZIP.
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $zipFileName . '"');
+        header('Content-Length: ' . filesize($zipFilePath));
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        // Leemos y enviamos el archivo
+        readfile($zipFilePath);
+
+        // Eliminamos el archivo temporal del servidor
+        unlink($zipFilePath);
+        exit;
+
+    } catch (Exception $e) {
+        // Si algo falla, devolvemos un error JSON claro
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+    break;
+
+
+
+
+
+
+
+/****************************************************/
 case 'admin/addProductToList':
     $pdo->beginTransaction();
     try {
