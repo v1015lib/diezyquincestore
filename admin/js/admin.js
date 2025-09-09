@@ -1406,38 +1406,30 @@ function initializeAddProductForm() {
 
 
 
-
-
-
-
-    async function renderEditForm(product) {
+async function renderEditForm(product) {
     const container = document.getElementById('edit-product-container');
     const searchContainer = document.getElementById('product-search-container');
-    if (!container || !searchContainer) return;
+    const barcodeContainer = document.getElementById('barcode-display-container');
 
-    // Oculta la búsqueda y muestra el contenedor del formulario.
+    if (!container || !searchContainer || !barcodeContainer) return;
+
     searchContainer.classList.add('hidden');
     container.classList.remove('hidden');
+    barcodeContainer.innerHTML = '';
 
-    // Carga el HTML del formulario de "agregar producto" para reutilizarlo.
     const formResponse = await fetch('actions/productos/agregar_producto.php');
-    const formHtml = await formResponse.text();
-    container.innerHTML = formHtml;
+    container.innerHTML = await formResponse.text();
 
-    // Adapta el formulario para la edición.
     const form = container.querySelector('#add-product-form');
-    form.id = 'edit-product-form'; // Cambia el ID para evitar conflictos.
+    form.id = 'edit-product-form';
     form.querySelector('.form-submit-btn').textContent = 'Actualizar Producto';
 
-    // --- CORRECCIÓN CLAVE ---
-    // Crea y añade un campo oculto con el ID del producto DENTRO del formulario.
     const idInput = document.createElement('input');
     idInput.type = 'hidden';
-    idInput.name = 'id_producto'; // El nombre que el PHP espera en $_POST.
+    idInput.name = 'id_producto';
     idInput.value = product.id_producto;
-    form.appendChild(idInput); // Se añade al final del formulario.
+    form.appendChild(idInput);
 
-    // Rellena todos los campos del formulario con los datos del producto.
     const fields = [
         'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
@@ -1445,34 +1437,46 @@ function initializeAddProductForm() {
     ];
     
     fields.forEach(field => {
-        const input = form.querySelector(`#${field}`);
-        if (input) {
-            // Renombramos 'url_imagen' a 'selected-image-url' para que coincida con el ID del input oculto de la imagen.
-            const inputId = (field === 'url_imagen') ? 'selected-image-url' : field;
-            const formInput = form.querySelector(`#${inputId}`);
-            if (formInput) {
-                formInput.value = product[field] || '';
-            }
+        const inputId = (field === 'url_imagen') ? 'selected-image-url' : field;
+        const formInput = form.querySelector(`#${inputId}`);
+        if (formInput) {
+            formInput.value = product[field] || '';
         }
     });
 
-    // Muestra la previsualización de la imagen si existe.
     if (product.url_imagen) {
         form.querySelector('#image-preview').src = product.url_imagen;
         form.querySelector('#image-preview').classList.remove('hidden');
         form.querySelector('#no-image-text').classList.add('hidden');
     }
 
-    // Deshabilita la edición de campos de inventario si ya se está usando.
     const usaInventario = parseInt(product.usa_inventario, 10) === 1;
     const stockInput = form.querySelector('#stock_actual');
     const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox');
     if (stockInput) stockInput.disabled = usaInventario;
     if (usaInventarioCheckbox) usaInventarioCheckbox.disabled = usaInventario;
 
-    // Adjunta el evento de envío al formulario ya modificado.
+    const productCode = product.codigo_producto.trim();
+    if (/^[0-9]{13}$/.test(productCode)) {
+        const downloadUrl = `../api/index.php?resource=admin/getBarcodeImage&code=${productCode}&download=true`;
+        
+        barcodeContainer.innerHTML = `
+            <h4>Código de Barras EAN-13</h4>
+            <img src="../api/index.php?resource=admin/getBarcodeImage&code=${productCode}" alt="Código de barras para ${productCode}">
+            <a href="${downloadUrl}" class="action-btn" style="margin-top: 1rem; display: inline-block;">Descargar Código</a>
+        `;
+    } else {
+        barcodeContainer.innerHTML = `
+            <h4>Código de Barras</h4>
+            <p>N/A (El código actual no es un EAN-13 válido de 13 dígitos)</p>
+        `;
+    }
+
     initializeEditProductFormSubmit(form);
 }
+
+
+
 
 
 

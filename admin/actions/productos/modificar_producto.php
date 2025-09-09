@@ -16,5 +16,6 @@
 
     <div id="edit-product-container" class="hidden">
         </div>
+    <div id="barcode-display-container" style="margin-top: 2rem; text-align: center;"></div>
 
 </div>

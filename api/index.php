@@ -37,6 +37,62 @@ try {
 
 
 
+case 'admin/getBarcodeImage':
+    try {
+        $code = $_GET['code'] ?? '';
+        $forceDownload = isset($_GET['download']) && $_GET['download'] === 'true';
+
+        if (!preg_match('/^[0-9]{13}$/', $code)) {
+            exit;
+        }
+
+        $generator = new \Picqer\Barcode\BarcodeGeneratorPNG();
+
+        $barcodeImage = $generator->getBarcode($code, $generator::TYPE_EAN_13, 2, 60);
+        $barcodeGdImage = imagecreatefromstring($barcodeImage);
+        $barcodeWidth = imagesx($barcodeGdImage);
+        $barcodeHeight = imagesy($barcodeGdImage);
+        
+        $textHeight = 20;
+        $newHeight = $barcodeHeight + $textHeight;
+        
+        // --- ¡LA CORRECCIÓN ESTÁ AQUÍ! ---
+        $finalImage = imagecreatetruecolor($barcodeWidth, $newHeight);
+        
+        $backgroundColor = imagecolorallocate($finalImage, 255, 255, 255);
+        $textColor = imagecolorallocate($finalImage, 0, 0, 0);
+        imagefill($finalImage, 0, 0, $backgroundColor);
+        
+        imagecopy($finalImage, $barcodeGdImage, 0, 0, 0, 0, $barcodeWidth, $barcodeHeight);
+        
+        $font = 4;
+        $textWidth = imagefontwidth($font) * strlen($code);
+        $textX = ($barcodeWidth - $textWidth) / 2;
+        $textY = $barcodeHeight + 5;
+        imagestring($finalImage, $font, $textX, $textY, $code, $textColor);
+
+        if (ob_get_level()) ob_end_clean();
+        header_remove();
+        
+        if ($forceDownload) {
+            header('Content-Disposition: attachment; filename="barcode-' . $code . '.png"');
+        }
+        
+        header('Content-Type: image/png');
+        imagepng($finalImage);
+
+        imagedestroy($barcodeGdImage);
+        imagedestroy($finalImage);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        exit;
+    }
+    break;
+
+
+/****************************************************/
 
 case 'admin/generateBarcodeImages':
     try {
