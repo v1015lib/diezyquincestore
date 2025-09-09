@@ -757,7 +757,11 @@ async function loadModule(moduleName) {
         if (!response.ok) throw new Error('Módulo no encontrado.');
         mainContent.innerHTML = await response.text();
 
-        // Determina qué acción cargar por defecto para cada módulo
+
+       if (moduleName === 'web_admin') {
+            initializeWebAdminControls();
+            return; // Detenemos aquí para no cargar una "acción" que ya no existe
+        }
         let defaultAction = '';
         switch (moduleName) {
             case 'dashboard': defaultAction = 'dashboard/log_actividad'; break;
@@ -770,7 +774,6 @@ async function loadModule(moduleName) {
             case 'estadisticas': defaultAction = 'estadisticas/resumen'; break;
             case 'usuarios': defaultAction = 'usuarios/gestion'; break;
             case 'pos': defaultAction = 'pos/vista_principal'; break; 
-            case 'web_admin': defaultAction = 'web_admin/sliders'; break;
             case 'tiendas': defaultAction = 'tiendas/gestion'; break; 
             case 'proveedores': defaultAction = 'proveedores/gestion'; break;
             case 'listas_compras': defaultAction = 'listas_compras/gestion'; break; // ESTA ES LA LÍNEA CORRECTA Y ÚNICA
@@ -2424,66 +2427,80 @@ async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
         alert("Error al guardar el cambio.");
     }
 }
-        async function initializeWebAdminControls() {
-        const container = document.getElementById('action-content');
-        if (!container) return;
 
-        // 1. Cargar los ajustes actuales de la API
+
+// En admin/js/admin.js, reemplaza la función initializeWebAdminControls completa por esta:
+async function initializeWebAdminControls() {
+    // Apuntamos al contenedor general del módulo
+    const moduleContainer = document.querySelector('.module-header')?.parentElement;
+    if (!moduleContainer) return;
+
+    // Función para guardar TODOS los ajustes
+    const saveAllSettings = async () => {
+        const settingsToSave = {};
+        // Recolecta los valores de TODOS los campos de configuración
+        moduleContainer.querySelectorAll('.admin-config-input, .switch').forEach(input => {
+            const key = input.id;
+            const value = input.type === 'checkbox' ? input.checked : (input.tagName === 'SELECT' ? parseInt(input.value, 10) : input.value);
+            settingsToSave[key] = value;
+        });
+
         try {
-            const response = await fetch(`${API_BASE_URL}?resource=layout-settings`);
+            const response = await fetch(`${API_BASE_URL}?resource=admin/saveLayoutSettings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settingsToSave) // Envía el objeto completo
+            });
             const result = await response.json();
-            if (result.success && result.settings) {
-                // 2. Poblar TODOS los campos (interruptores, textos, selectores)
-                for (const key in result.settings) {
-                    const input = document.getElementById(key);
-                    if (input) {
-                        if (input.type === 'checkbox') {
-                            input.checked = result.settings[key];
-                        } else {
-                            input.value = result.settings[key];
-                        }
+            if (!result.success) throw new Error(result.error);
+            console.log('Configuración guardada con éxito.'); // Feedback en la consola
+        } catch (error) {
+            console.error('Error al guardar la configuración:', error);
+        }
+    };
+
+    // Carga inicial de datos
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=layout-settings`);
+        const result = await response.json();
+        if (result.success && result.settings) {
+            for (const key in result.settings) {
+                const input = document.getElementById(key);
+                if (input) {
+                    if (input.type === 'checkbox') {
+                        input.checked = result.settings[key];
+                    } else {
+                        input.value = result.settings[key];
                     }
                 }
             }
-        } catch (error) {
-            console.error('Error al cargar la configuración de la web:', error);
         }
-        
-        // 3. Crear un único listener para guardar cualquier cambio
-        container.addEventListener('change', async (event) => {
-            // Se activa si se toca un interruptor o cualquier campo de configuración
-            if (event.target.matches('.switch, .admin-config-input')) {
-                const settingsToSave = {};
-                
-                // Recolectar datos de interruptores de la vista actual
-                container.querySelectorAll('.switch').forEach(s => {
-                    settingsToSave[s.id] = s.checked;
-                });
-                // Recolectar datos de otros inputs y selects de la vista actual
-                container.querySelectorAll('.admin-config-input').forEach(i => {
-                    const value = i.tagName === 'SELECT' ? parseInt(i.value, 10) : i.value;
-                    settingsToSave[i.id] = value;
-                });
-                
-                // 4. Enviar el objeto completo a la API para que lo guarde
-                try {
-                    const response = await fetch(`${API_BASE_URL}?resource=admin/saveLayoutSettings`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(settingsToSave)
-                    });
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-                    
-                    console.log('Configuración guardada:', result.message);
-
-                } catch (error) {
-                    console.error('Error al guardar la configuración:', error);
-                }
-            }
-        });
+    } catch (error) {
+        console.error('Error al cargar la configuración inicial:', error);
     }
-// --- LÓGICA DEL MÓDULO DE TARJETAS ---
+
+    // Listener para los botones de las pestañas
+    const tabButtons = moduleContainer.querySelectorAll('.action-ribbon .action-btn[data-tab]');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            moduleContainer.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById(`tab-content-${button.dataset.tab}`).classList.add('active');
+        });
+    });
+
+    // Listener para cualquier cambio en los campos para autoguardar
+    moduleContainer.addEventListener('change', (event) => {
+        if (event.target.matches('.switch, .admin-config-input')) {
+            saveAllSettings();
+        }
+    });
+}
+
+
+
 
 function initializeCardManagement() {
     const createForm = document.getElementById('create-cards-form');
