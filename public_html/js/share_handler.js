@@ -42,7 +42,7 @@ export function initializeShareHandler() {
             const productId = productCard.dataset.productId;
             const productName = productCard.querySelector('h3').textContent;
             
-            const productUrl = `${window.location.origin}${window.location.pathname.replace('index.php', '')}pageuniquecontent.php?search=${encodeURIComponent(productName)}`;
+            const productUrl = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}index.php?product_id=${encodeURIComponent(productId)}`;
 
             openShareModal(productName, productUrl);
         }

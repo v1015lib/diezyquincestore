@@ -25,12 +25,14 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
     <link rel="shortcut icon" href="img/favicon.png">    
     <meta name="robots" content="index, follow">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php include 'includes/og_meta_handler.php';//Metadatos?>
+
     <title>Variedades 10 y 15</title>
     <meta name="description" content="Busca en la variedad de productos disponibles, lo que buscas en un solo lugar, y horarios de atencion unicos.">
 
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Google tag (gtag.js) -->
+
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
 <script>
   window.dataLayer = window.dataLayer || [];

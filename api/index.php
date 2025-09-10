@@ -5999,8 +5999,6 @@ function handleCheckUsernameRequest(PDO $pdo) {
 
 
 
-// EN: api/index.php (REEMPLAZA ESTA FUNCIÓN)
-
 function handleProductsRequest(PDO $pdo) {
     $is_user_logged_in = isset($_SESSION['id_cliente']);
     $client_type_id = null;
@@ -6014,6 +6012,11 @@ function handleProductsRequest(PDO $pdo) {
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
     $offset = ($page - 1) * $limit;
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    $product_id = isset($_GET['product_id']) ? (int)$_GET['product_id'] : null;
+    // --- FIN DE LA MODIFICACIÓN ---
+
     $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
@@ -6026,7 +6029,6 @@ function handleProductsRequest(PDO $pdo) {
     if (!in_array($sort_by, $allowedSorts)) { $sort_by = 'random'; }
     if (!in_array($order, ['ASC', 'DESC'])) { $order = 'ASC'; }
 
-    // --- LÓGICA DE PRECIOS MEJORADA ---
     $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.departamento, p.precio_venta, p.url_imagen,
                       p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
                       CASE
@@ -6042,36 +6044,41 @@ function handleProductsRequest(PDO $pdo) {
     $where_clauses = ["p.estado = 1"];
     $params = [];
 
-    if ($hide_no_image) {
-        $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
-    }
-    if ($department_id !== null && $department_id > 0) {
-        $where_clauses[] = "p.departamento = :department_id";
-        $params[':department_id'] = $department_id;
-    }
-    if (!empty($search_term)) {
-        $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
-        $params[':search_term'] = '%' . $search_term . '%';
-        $params[':search_term_code'] = '%' . $search_term . '%';
-    }
-    
-    // --- LÓGICA DE FILTRADO DE OFERTAS CORREGIDA ---
-    if ($ofertas_only) {
-        $base_offer_condition = "(p.precio_oferta IS NOT NULL AND p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW()))";
-        
-        if ($is_user_logged_in) {
-            // Si está logueado, puede ver ofertas públicas, exclusivas para registrados, o para su tipo de cliente.
-            $where_clauses[] = "{$base_offer_condition} AND (p.oferta_exclusiva = 0 OR p.oferta_exclusiva = 1) AND (p.oferta_tipo_cliente_id IS NULL OR p.oferta_tipo_cliente_id = " . ($client_type_id ?: '0') . ")";
-        } else {
-            // Si no está logueado, solo puede ver ofertas públicas (no exclusivas y no por tipo).
-            $where_clauses[] = "{$base_offer_condition} AND p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL";
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Si se especifica un ID de producto, este filtro tiene la máxima prioridad.
+    if ($product_id !== null && $product_id > 0) {
+        $where_clauses = ["p.id_producto = :product_id"]; // Resetea otros filtros
+        $params[':product_id'] = $product_id;
+        $limit = 1; // Solo queremos un producto
+    } else {
+    // --- FIN DE LA MODIFICACIÓN ---
+        if ($hide_no_image) {
+            $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
         }
-        $filter_name = "Productos en Oferta";
-    }
+        if ($department_id !== null && $department_id > 0) {
+            $where_clauses[] = "p.departamento = :department_id";
+            $params[':department_id'] = $department_id;
+        }
+        if (!empty($search_term)) {
+            $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
+            $params[':search_term'] = '%' . $search_term . '%';
+            $params[':search_term_code'] = '%' . $search_term . '%';
+        }
+        
+        if ($ofertas_only) {
+            $base_offer_condition = "(p.precio_oferta IS NOT NULL AND p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW()))";
+            
+            if ($is_user_logged_in) {
+                $where_clauses[] = "{$base_offer_condition} AND (p.oferta_exclusiva = 0 OR p.oferta_exclusiva = 1) AND (p.oferta_tipo_cliente_id IS NULL OR p.oferta_tipo_cliente_id = " . ($client_type_id ?: '0') . ")";
+            } else {
+                $where_clauses[] = "{$base_offer_condition} AND p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL";
+            }
+            $filter_name = "Productos en Oferta";
+        }
+    } // --- Se cierra el "else" de la modificación ---
 
     $where_sql = " WHERE " . implode(" AND ", $where_clauses);
     
-    // El resto de la función (paginación y ejecución) no necesita cambios.
     $countSql = "SELECT COUNT(*) " . $base_sql . $where_sql;
     $stmtCount = $pdo->prepare($countSql);
     $stmtCount->execute($params);
@@ -6097,6 +6104,9 @@ function handleProductsRequest(PDO $pdo) {
     
     echo json_encode([ 'products' => $products, 'total_products' => (int)$total_products, 'total_pages' => $total_pages, 'current_page' => $page, 'limit' => $limit, 'filter_name' => $filter_name ]);
 }
+
+// ... (resto del código de tu API)
+?>
 
 
 function handleDepartmentsRequest(PDO $pdo) {

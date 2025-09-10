@@ -26,6 +26,16 @@ if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
 if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
     $page_title = "Ofertas del Departamento";
 }
+// Si viene un ID de producto, se ajusta el título principal de la página.
+// La lógica de las metaetiquetas se gestiona en el include.
+if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
+    require_once __DIR__ . '/../config/config.php';
+    $stmt_title = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
+    $stmt_title->execute([':id' => (int)$_GET['product_id']]);
+    if($product_name = $stmt_title->fetchColumn()){
+        $page_title = $product_name;
+    }
+}
 
 ?>
 <!DOCTYPE html>
@@ -36,6 +46,7 @@ if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
     <title><?php echo htmlspecialchars($page_title); ?> - Variedades 10 y 15</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="shortcut icon" href="img/favicon.png">
+    <?php include 'includes/og_meta_handler.php'; ?>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
