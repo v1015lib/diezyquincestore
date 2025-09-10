@@ -5998,11 +5998,6 @@ function handleCheckUsernameRequest(PDO $pdo) {
 
 
 
-
-
-
-
-
 function handleProductsRequest(PDO $pdo) {
     $is_user_logged_in = isset($_SESSION['id_cliente']);
     $client_type_id = null;
@@ -6107,6 +6102,39 @@ function handleProductsRequest(PDO $pdo) {
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([ 'products' => $products, 'total_products' => (int)$total_products, 'total_pages' => $total_pages, 'current_page' => $page, 'limit' => $limit, 'filter_name' => $filter_name ]);
+}
+
+
+
+
+function handleDepartmentsRequest(PDO $pdo) {
+    // 1. Lee la configuración actual desde el archivo.
+    $configFile = __DIR__ . '/../config/layout_config.php';
+    $config = file_exists($configFile) ? include($configFile) : [];
+    $hide_no_image = isset($config['hide_products_without_image']) && $config['hide_products_without_image'];
+
+    // 2. Si la opción de ocultar no está activa, simplemente devuelve todos los departamentos.
+    //    Esto es idéntico a tu código original y soluciona el problema.
+    if (!$hide_no_image) {
+        $stmt = $pdo->query("SELECT id_departamento, codigo_departamento, departamento FROM departamentos ORDER BY departamento ASC");
+        $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode($departments);
+        return;
+    }
+
+    // 3. Si la opción SÍ está activa, ejecuta la consulta que filtra por productos con imagen.
+    $sql = "
+        SELECT DISTINCT d.id_departamento, d.departamento, d.codigo_departamento
+        FROM departamentos d
+        JOIN productos p ON d.id_departamento = p.departamento
+        WHERE p.estado = 1 
+          AND (p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')
+        ORDER BY d.departamento ASC
+    ";
+    
+    $stmt = $pdo->query($sql);
+    $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode($departments);
 }
 
 function handleClearCartRequest(PDO $pdo) {

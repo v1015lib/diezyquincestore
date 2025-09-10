@@ -30,16 +30,33 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeProductCarousels();
 
     // Lógica para cargar productos (sin cambios)
-    const urlParams = new URLSearchParams(window.location.search);
+
+   const urlParams = new URLSearchParams(window.location.search);
     const searchTermFromUrl = urlParams.get('search');
-    if (searchTermFromUrl) {
+    const productIdFromUrl = urlParams.get('product_id'); // Lee el ID del producto de la URL
+
+    // Prioridad 1: Si hay un ID de producto, muestra solo ese.
+    if (productIdFromUrl) {
+        // Ocultamos los carruseles y controles de ordenamiento para enfocar la vista.
+        document.querySelectorAll('.product-carousel-section, .product-list-controls').forEach(el => el.style.display = 'none');
+        
+        loadProducts('product-list', 'pagination-controls', {
+            apiBaseUrl: API_BASE_URL,
+            product_id: productIdFromUrl,
+            hide_no_image: layoutSettings.hide_products_without_image
+        });
+    } 
+    // Prioridad 2: Si hay un término de búsqueda, realiza la búsqueda.
+    else if (searchTermFromUrl) {
         document.getElementById('search-input').value = searchTermFromUrl;
         loadProducts('product-list', 'pagination-controls', {
             apiBaseUrl: API_BASE_URL,
             search: searchTermFromUrl,
             hide_no_image: layoutSettings.hide_products_without_image
         });
-    } else {    
+    } 
+    // Por defecto: Carga los productos de forma normal.
+    else {    
         loadProducts('product-list', 'pagination-controls', {
             sortBy: 'random',
             apiBaseUrl: API_BASE_URL,
