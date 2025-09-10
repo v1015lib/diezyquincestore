@@ -133,6 +133,18 @@ try {
     <title>Finalizar Compra</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+    'analytics_storage': 'denied'
+  });
+  gtag('js', new Date());
+
+  gtag('config', 'G-HBEVFQFD8Q');
+</script>
 </head>
 <body class="page-checkout"> 
     <?php include 'includes/header.php'; ?>

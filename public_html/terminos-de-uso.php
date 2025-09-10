@@ -13,6 +13,17 @@ $page_type = 'simplified';
     <title>Términos de Uso de Tarjeta Recargable - Variedades 10 y 15</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="shortcut icon" href="img/favicon.png">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+    'analytics_storage': 'denied'
+  });
+  gtag('js', new Date());
+
+  gtag('config', 'G-HBEVFQFD8Q');
+</script>
 </head>
 <body class="page-legal">
 

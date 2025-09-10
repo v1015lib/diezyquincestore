@@ -11,9 +11,10 @@ import { showLoginPrompt, initializeModals } from './modal_handler.js';
 import { initializeCarousel } from './carrousel.js';
 import { initializeProductCarousels } from './product_carousel_handler.js';
 import { initializeShareHandler } from './share_handler.js';
+import { initializeCookieBanner } from './cookie_handler.js';
 
 const API_BASE_URL = 'api/index.php';
-
+initializeCookieBanner();
 document.addEventListener('DOMContentLoaded', () => {
     // Inicialización de todos los módulos
     initializeShareHandler();

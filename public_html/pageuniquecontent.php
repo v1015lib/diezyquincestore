@@ -36,6 +36,17 @@ if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
     <title><?php echo htmlspecialchars($page_title); ?> - Variedades 10 y 15</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="shortcut icon" href="img/favicon.png">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+    'analytics_storage': 'denied'
+  });
+  gtag('js', new Date());
+
+  gtag('config', 'G-HBEVFQFD8Q');
+</script>
 </head>
 <body>
     <?php include 'includes/header.php'; ?>

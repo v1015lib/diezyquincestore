@@ -30,7 +30,21 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
 
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="css/style.css">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+    'analytics_storage': 'denied'
+  });
+  gtag('js', new Date());
+
+  gtag('config', 'G-HBEVFQFD8Q');
+</script>
 </head>
+
+
 <body>
     <?php include 'includes/header.php'; ?>
 
@@ -89,6 +103,9 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
                 </div>    
             
                 <?php include 'includes/footer.php'; ?>
+                <?php include 'includes/cookie_banner.php'; ?>
+
+
             </div>
     </div>
     
@@ -148,5 +165,7 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
     <script>
         const layoutSettings = <?php echo json_encode($layout_settings); ?>;
     </script>
+
+
 </body>
 </html>

@@ -21,6 +21,17 @@ try {
         <link rel="shortcut icon" href="img/favicon.png">    
 
     <link rel="stylesheet" href="css/style.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+    'analytics_storage': 'denied'
+  });
+  gtag('js', new Date());
+
+  gtag('config', 'G-HBEVFQFD8Q');
+</script>
 </head>
 <body class="page-register">
 
