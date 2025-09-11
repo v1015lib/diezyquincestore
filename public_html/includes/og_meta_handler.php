@@ -15,7 +15,7 @@ $og_description = "Busca en la variedad de productos disponibles, lo que buscas 
 $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
 $base_url = $protocol . "://" . $_SERVER['HTTP_HOST'];
 $base_path = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\');
-$og_image = $base_url . $base_path . '/img/logo.png';
+$og_image = $base_url . $base_path . '/img/logoinv.png';
 $og_url = $base_url . $_SERVER['REQUEST_URI'];
 $og_price_amount = '';
 $og_price_currency = 'USD';
