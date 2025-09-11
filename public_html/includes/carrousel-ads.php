@@ -1,16 +1,17 @@
+
 <div class="promo-section">
     
     <div class="promo-main-column">
         <div class="carousel-container">
             <div class="carousel-slides">
                 <div class="carousel-slide active">
-                    <a href="pageuniquecontent.php?department_id=18" target="_blank">
+                    <a href="pageuniquecontent.php?department_id=18&campaign=mes_patrio" target="_blank">
                         <img src="./img/add5.jpg" alt="Mes independencia">
                     </a>
                 </div>
                 <div class="carousel-slide">
-                    <a href="" >
-                        <img src="./img/add1.jpg" alt="Anuncio 2" >
+                    <a href="pageuniquecontent.php?campaign=listas_online">
+                        <img src="./img/add1.jpg" alt="Anuncio Listas Online" >
                     </a>
                 </div>
             </div>
@@ -21,19 +22,20 @@
 
     <div class="promo-sidebar-column">
         <div class="fixed-ad">
-            <a href="pageuniquecontent.php?ofertas=true">
+             <a href="pageuniquecontent.php?ofertas=true&campaign=ofertas_todas">
                 <img src="./img/add4.jpg" alt="Ofertas">
             </a>
         </div>
         <div class="fixed-ad">
-            <a href="#">
-                <img src="./img/add1.jpg" alt="Anuncio fijo 2">
+            <a href="pageuniquecontent.php?campaign=papeleria">
+                <img src="./img/add2.jpg" alt="Anuncio Papeleria">
             </a>
         </div>
     </div>
 
 </div>
-<?php 
+
+<?php
 /*
 ================================================================================
  GUÍA RÁPIDA PARA CONFIGURAR LOS ENLACES DE LOS ANUNCIOS

@@ -1,5 +1,5 @@
 <?php
-// public_html/includes/og_meta_handler.php
+// public_html/includes/og_meta_handler.php (VERSIÓN FINAL INTEGRADA)
 
 // Asegurarse de que la sesión esté iniciada y la configuración de la base de datos cargada.
 if (session_status() == PHP_SESSION_NONE) {
@@ -7,20 +7,55 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../../config/config.php';
 
-// --- LÓGICA CENTRALIZADA PARA METAETIQUETAS OPEN GRAPH ---
+// --- LÓGICA MEJORADA PARA METAETIQUETAS OPEN GRAPH ---
 
-// 1. Valores por defecto para las metaetiquetas
+// 1. Valores por defecto y construcción de URL base robusta
 $og_title = "Variedades 10 y 15";
 $og_description = "Busca en la variedad de productos disponibles, lo que buscas en un solo lugar.";
-// Construye una URL base segura para la imagen por defecto
-$base_url = "https://" . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['PHP_SELF']));
-$og_image = $base_url . '/img/logo.png';
-$og_url = "https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+$protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
+$base_url = $protocol . "://" . $_SERVER['HTTP_HOST'];
+$base_path = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\');
+$og_image = $base_url . $base_path . '/img/logo.png';
+$og_url = $base_url . $_SERVER['REQUEST_URI'];
 $og_price_amount = '';
 $og_price_currency = 'USD';
 
-// 2. Si se comparte un producto específico, obtenemos sus datos
-if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
+// 2. Comprobar si es un enlace de la campaña de "Ofertas"
+if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
+    $og_title = "¡Grandes Ofertas en Variedades 10 y 15!";
+    $og_description = "Descubre todos nuestros productos con descuentos especiales. ¡Exclusivo online!";
+    $og_image = $base_url . $base_path . '/img/add4.jpg'; // <-- Usa la imagen del banner de ofertas
+
+}
+// 3. Comprobar si es un enlace a un departamento específico
+else if (isset($_GET['department_id']) && is_numeric($_GET['department_id'])) {
+    $department_id = (int)$_GET['department_id'];
+    
+    // Hacemos una consulta rápida para obtener el nombre del departamento
+    $stmt_dept = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
+    $stmt_dept->execute([':id' => $department_id]);
+    $department_name = $stmt_dept->fetchColumn();
+
+    if ($department_name) {
+        $og_title = "Productos de " . htmlspecialchars($department_name) . " en Variedades 10 y 15";
+        $og_description = "Explora nuestra selección de productos en la categoría " . htmlspecialchars($department_name) . ".";
+        
+        // --- NUEVA LÓGICA PARA ASIGNAR IMAGEN DE ANUNCIO SEGÚN EL DEPARTAMENTO ---
+        switch ($department_id) {
+            case 18: // ID para "Mes Patrio"
+                $og_image = $base_url . $base_path . '/img/add5.jpg';
+                $og_title = "¡Productos del Mes Patrio ya disponibles!";
+                break;
+            case 2: // ID de ejemplo para "Papelería"
+                $og_image = $base_url . $base_path . '/img/add2.jpg';
+                $og_title = "Papelería, escolar, oficina y mucho más";
+                break;
+            // Puedes añadir más 'case' para otros anuncios de departamentos
+        }
+    }
+}
+// 4. Si no es ninguna campaña, busca un producto específico (lógica original)
+else if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
     $product_id = (int)$_GET['product_id'];
     
     $is_user_logged_in = isset($_SESSION['id_cliente']);

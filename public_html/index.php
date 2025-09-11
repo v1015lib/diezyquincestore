@@ -31,6 +31,7 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
     <meta name="description" content="Busca en la variedad de productos disponibles, lo que buscas en un solo lugar, y horarios de atencion unicos.">
 
     <link rel="manifest" href="/manifest.json">
+    <meta name="robots" content="index, follow">
     <link rel="stylesheet" href="css/style.css">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
