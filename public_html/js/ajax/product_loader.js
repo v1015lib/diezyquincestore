@@ -1,3 +1,5 @@
+// REEMPLAZA EL CONTENIDO COMPLETO de public_html/js/ajax/product_loader.js
+
 
 // public_html/js/ajax/product_loader.js
 export let currentProductParams = {};
@@ -47,16 +49,19 @@ export async function getUserFavorites() {
 // public_html/js/ajax/product_loader.js
 
 // REEMPLAZA la función createProductCardHTML completa para asegurar la clase correcta
+
+
 export function createProductCardHTML(product, cartQuantity = 0, isFavorite = false) {
     const precioVenta = parseFloat(product.precio_venta);
     const precioOferta = parseFloat(product.precio_oferta);
+    const isOutOfStock = product.nombre_estado === 'Agotado';
 
     const isLoggedIn = document.querySelector('.my-account-link');
     const canShowDetails = !layoutSettings.details_for_logged_in_only || isLoggedIn;
     
     let priceContainerContent = '';
     let departmentHtml = '';
-
+    
     if (canShowDetails) {
         let priceHtml = '';
         let codeHtml = '';
@@ -84,15 +89,28 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         priceContainerContent = '<p class="login-prompt-message">Regístrese o inicie sesión para ver la informacion</p>';
     }
     
-    let discountBadgeHtml = '';
+    const disabledAttribute = isOutOfStock ? 'disabled' : '';
 
-    if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
+    const quantitySelectorHtml = `
+        <div class="quantity-selector ${isOutOfStock ? 'disabled' : ''}">
+            <button class="quantity-btn minus" data-action="decrease" ${disabledAttribute}>-</button>
+            <input type="number" class="quantity-input" value="${cartQuantity}" min="0" max="99" data-product-id="${product.id_producto}" aria-label="Cantidad" ${disabledAttribute}>
+            <button class="quantity-btn plus" data-action="increase" ${disabledAttribute}>+</button>
+        </div>
+    `;
+    
+    let badgeHtml = '';
+    if (isOutOfStock) {
+        badgeHtml = `<div class="out-of-stock-badge">Agotado</div>`;
+    } else if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
         const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
-        discountBadgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
+        badgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
     }
 
+    const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card'; // <-- AQUI EL CAMBIO
+
     return `
-        <div class="product-card" data-product-id="${product.id_producto}">
+        <div class="${cardClass}" data-product-id="${product.id_producto}">
             <div class="product-card-actions">
                 <button class="favorite-btn ${isFavorite ? 'is-favorite' : ''}" data-product-id="${product.id_producto}" aria-label="Añadir a favoritos">&#10084;</button>
                 <button class="share-btn" data-product-id="${product.id_producto}" aria-label="Compartir">
@@ -102,7 +120,7 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
             
             <div class="product-image-container product-image-preview-trigger">
                 <img src="${product.url_imagen || 'https://via.placeholder.com/200'}" alt="${product.nombre_producto}" loading="lazy">
-                ${discountBadgeHtml}
+                ${badgeHtml}
             </div>
 
             <div class="product-info">
@@ -111,15 +129,15 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
                 <div class="price-container">
                     ${priceContainerContent}
                 </div>
-                <div class="quantity-selector">
-                    <button class="quantity-btn minus" data-action="decrease">-</button>
-                    <input type="number" class="quantity-input" value="${cartQuantity}" min="0" max="99" data-product-id="${product.id_producto}" aria-label="Cantidad">
-                    <button class="quantity-btn plus" data-action="increase">+</button>
-                </div>
+                ${quantitySelectorHtml}
             </div>
         </div>
     `;
 }
+
+
+
+
 export async function loadProducts(productListId, paginationControlsId, params = {}) {
     currentProductParams = { ...currentProductParams, ...params };
     currentProductParams.page = params.page || 1;
@@ -231,4 +249,3 @@ function createPageButton(text, page, productListId, paginationControlsId, isAct
     
     return button;
 }
-

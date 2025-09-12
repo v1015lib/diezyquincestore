@@ -6012,9 +6012,7 @@ function handleProductsRequest(PDO $pdo) {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
     $offset = ($page - 1) * $limit;
     
-    // --- INICIO DE LA MODIFICACIÓN ---
     $product_id = isset($_GET['product_id']) ? (int)$_GET['product_id'] : null;
-    // --- FIN DE LA MODIFICACIÓN ---
 
     $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -6037,20 +6035,22 @@ function handleProductsRequest(PDO $pdo) {
                           WHEN p.oferta_exclusiva = 1 AND " . ($is_user_logged_in ? "1=1" : "1=0") . " THEN p.precio_oferta
                           WHEN p.oferta_exclusiva = 0 THEN p.precio_oferta
                           ELSE 0
-                      END AS precio_oferta";
+                      END AS precio_oferta, e.nombre_estado"; // <-- Se añade el nombre del estado
 
-    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento";
-    $where_clauses = ["p.estado = 1"];
+    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento LEFT JOIN estados e ON p.estado = e.id_estado"; // <-- Se une con la tabla estados
+    
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    // Ahora se permiten los estados 1 (Activo) y 4 (Agotado)
+    $where_clauses = ["p.estado IN (1, 4)"]; 
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
+
     $params = [];
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Si se especifica un ID de producto, este filtro tiene la máxima prioridad.
     if ($product_id !== null && $product_id > 0) {
-        $where_clauses = ["p.id_producto = :product_id"]; // Resetea otros filtros
+        $where_clauses = ["p.id_producto = :product_id"]; 
         $params[':product_id'] = $product_id;
-        $limit = 1; // Solo queremos un producto
+        $limit = 1; 
     } else {
-    // --- FIN DE LA MODIFICACIÓN ---
         if ($hide_no_image) {
             $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
         }
@@ -6074,7 +6074,7 @@ function handleProductsRequest(PDO $pdo) {
             }
             $filter_name = "Productos en Oferta";
         }
-    } // --- Se cierra el "else" de la modificación ---
+    } 
 
     $where_sql = " WHERE " . implode(" AND ", $where_clauses);
     
@@ -6103,8 +6103,6 @@ function handleProductsRequest(PDO $pdo) {
     
     echo json_encode([ 'products' => $products, 'total_products' => (int)$total_products, 'total_pages' => $total_pages, 'current_page' => $page, 'limit' => $limit, 'filter_name' => $filter_name ]);
 }
-
-
 
 
 function handleDepartmentsRequest(PDO $pdo) {

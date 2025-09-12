@@ -639,6 +639,13 @@ ul, li, a {
   height: -webkit-fit-content;
   height: -moz-fit-content;
   height: fit-content;
+  -webkit-transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease; /* Para una transición suave al opacar */
+  /* --- NUEVO: ESTILO PARA TARJETA AGOTADA --- */
+}
+.product-card.out-of-stock-card {
+  opacity: 0.6; /* Atenúa toda la tarjeta */
+  pointer-events: none; /* Deshabilita interacciones de ratón */
 }
 .product-card .share-btn {
   position: absolute;
@@ -963,6 +970,33 @@ ul, li, a {
   border-radius: 4px;
   text-align: center;
   margin-top: 1rem;
+}
+
+.out-of-stock-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -webkit-transform: translate(-50%, -50%) rotate(-15deg);
+          transform: translate(-50%, -50%) rotate(-15deg);
+  /* --- CAMBIO DE COLOR DEL BADGE A ROJO --- */
+  background-color: rgba(220, 53, 69, 0.9); /* Un rojo fuerte y visible */
+  color: white;
+  padding: 0.5rem 2rem;
+  font-weight: bold;
+  font-size: 1.2rem;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.quantity-selector.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.quantity-selector.disabled button, .quantity-selector.disabled input {
+  pointer-events: none;
 }
 
 .cart-overlay {
