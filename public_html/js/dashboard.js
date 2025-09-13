@@ -10,6 +10,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuToggle = document.getElementById('dashboard-menu-toggle');
     const sidemenu = document.getElementById('dashboard-sidemenu');
 
+
+
+
+    const updateNotificationBadge = async () => {
+        const badge = document.getElementById('notification-count-badge');
+        if (!badge) return;
+
+        try {
+            const response = await fetch('api/index.php?resource=notifications/unread-count');
+            const result = await response.json();
+            if (result.success && result.count > 0) {
+                badge.textContent = result.count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error al obtener contador de notificaciones.');
+        }
+    };
+
+    updateNotificationBadge();
     // Lógica para el menú lateral del dashboard
     if (menuToggle && sidemenu) {
         menuToggle.addEventListener('click', () => {

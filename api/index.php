@@ -34,6 +34,40 @@ try {
     switch ($resource) {
 
 /***********************************************************/
+case 'notifications':
+    if (!isset($_SESSION['id_cliente'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'No autorizado.']);
+        break;
+    }
+    $client_id = (int)$_SESSION['id_cliente'];
+    try {
+        // Al obtener las notificaciones, las marcamos como leídas
+        $stmt_mark_read = $pdo->prepare("UPDATE notificaciones SET leida = 1 WHERE id_cliente = :client_id AND leida = 0");
+        $stmt_mark_read->execute([':client_id' => $client_id]);
+
+        $stmt_get = $pdo->prepare("SELECT * FROM notificaciones WHERE id_cliente = :client_id ORDER BY fecha_creacion DESC LIMIT 50");
+        $stmt_get->execute([':client_id' => $client_id]);
+        $notifications = $stmt_get->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'notifications' => $notifications]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener notificaciones.']);
+    }
+    break;
+
+case 'notifications/unread-count':
+    if (!isset($_SESSION['id_cliente'])) {
+        echo json_encode(['success' => true, 'count' => 0]);
+        break;
+    }
+    $client_id = (int)$_SESSION['id_cliente'];
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM notificaciones WHERE id_cliente = :client_id AND leida = 0");
+    $stmt->execute([':client_id' => $client_id]);
+    $count = $stmt->fetchColumn();
+    echo json_encode(['success' => true, 'count' => (int)$count]);
+    break;
 
 
 
@@ -1549,6 +1583,17 @@ case 'admin/updateOrderStatus':
 
         logActivity($pdo, $userId, 'Gestión de Pedido Web', "El pedido web #${cartId} se marcó como '${statusName}'.");
         
+        $statusNameLower = strtolower($statusName);
+        if ($statusNameLower === 'entregado' || $statusNameLower === 'finalizado' || $statusNameLower === 'cancelado') {
+            $stmt_cliente = $pdo->prepare("SELECT id_cliente FROM carritos_compra WHERE id_carrito = :cart_id");
+            $stmt_cliente->execute([':cart_id' => $cartId]);
+            $clienteId = $stmt_cliente->fetchColumn();
+            if ($clienteId) {
+                $mensaje = "Tu pedido #${cartId} ha sido  '${statusName}'.";
+                crearNotificacion($pdo, $clienteId, 'pedido', $mensaje, 'dashboard.php?view=pedidos');
+            }
+        }
+          
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Estado del pedido actualizado.']);
     } catch (Exception $e) {
@@ -3006,6 +3051,13 @@ case 'admin/rechargeCard':
         ]);
         
         $pdo->commit();
+        $stmt_cliente_tarjeta = $pdo->prepare("SELECT id_cliente FROM tarjetas_recargables WHERE id_tarjeta = :card_id");
+        $stmt_cliente_tarjeta->execute([':card_id' => $card_id]);
+        $clienteId = $stmt_cliente_tarjeta->fetchColumn();
+        if($clienteId) {
+            $mensaje = '¡Tu tarjeta ha sido recargada con $' . number_format($amount, 2) . '!';
+            crearNotificacion($pdo, $clienteId, 'tarjeta', $mensaje, 'dashboard.php?view=tarjeta');
+        }
         echo json_encode(['success' => true, 'message' => 'Recarga de $' . number_format($amount, 2) . ' aplicada correctamente.']);
 
     } catch (Exception $e) {
@@ -3875,6 +3927,20 @@ case 'admin/manageOffer':
         // El logging de actividad no se modifica, pero se podría mejorar si se desea.
         
         $pdo->commit();
+        if ($final_precio_oferta > 0 && $final_precio_oferta < $originalData['precio_venta']) {
+            $stmt_favs = $pdo->prepare("SELECT id_cliente FROM favoritos WHERE id_producto = :pid");
+            $stmt_favs->execute([':pid' => $productId]);
+            $clientes_a_notificar = $stmt_favs->fetchAll(PDO::FETCH_COLUMN);
+
+            $stmt_prod_name = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :pid");
+            $stmt_prod_name->execute([':pid' => $productId]);
+            $productName = $stmt_prod_name->fetchColumn();
+
+            foreach ($clientes_a_notificar as $clienteId) {
+                $mensaje = "¡Oferta! Tu producto favorito '${productName}' ahora cuesta $" . number_format($final_precio_oferta, 2) . ".";
+                crearNotificacion($pdo, $clienteId, 'favorito', $mensaje, 'index.php?product_id=' . $productId);
+            }
+        }
         $message = ($final_precio_oferta > 0) ? 'Oferta guardada correctamente.' : 'Oferta eliminada correctamente.';
         echo json_encode(['success' => true, 'message' => $message]);
 
@@ -6133,6 +6199,23 @@ function handleDepartmentsRequest(PDO $pdo) {
     $stmt = $pdo->query($sql);
     $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($departments);
+}
+
+function crearNotificacion(PDO $pdo, int $id_cliente, string $tipo, string $mensaje, ?string $url = null) {
+    try {
+        $stmt = $pdo->prepare(
+            "INSERT INTO notificaciones (id_cliente, tipo_notificacion, mensaje, url_destino)
+             VALUES (:id_cliente, :tipo, :mensaje, :url)"
+        );
+        $stmt->execute([
+            ':id_cliente' => $id_cliente,
+            ':tipo' => $tipo,
+            ':mensaje' => $mensaje,
+            ':url' => $url
+        ]);
+    } catch (Exception $e) {
+        error_log("Error al crear notificación: " . $e->getMessage());
+    }
 }
 
 function handleClearCartRequest(PDO $pdo) {
