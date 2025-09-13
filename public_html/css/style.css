@@ -3064,6 +3064,41 @@ body.page-checkout {
             justify-content: space-between;
   }
 }
+/* ... (al final del archivo) ... */
+/* ==========================================================================
+   ESTILOS PARA PEDIDOS CANCELADOS
+   ========================================================================== */
+.order-card.is-cancelled {
+  background-color: #f8f9fa; /* Un fondo gris claro */
+  position: relative; /* Necesario para la marca de agua */
+  overflow: hidden; /* Evita que la marca de agua se salga */
+  /* Marca de agua */
+  /* Botón de factura deshabilitado */
+}
+.order-card.is-cancelled .order-card-header,
+.order-card.is-cancelled .order-card-body {
+  opacity: 0.6; /* Atenúa el contenido */
+}
+.order-card.is-cancelled::after {
+  content: "CANCELADO";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -webkit-transform: translate(-50%, -50%) rotate(-30deg);
+          transform: translate(-50%, -50%) rotate(-30deg);
+  font-size: 3rem;
+  font-weight: 900;
+  color: rgba(220, 53, 69, 0.15); /* Rojo muy transparente */
+  pointer-events: none; /* Permite hacer clic a través del texto */
+  z-index: 1;
+}
+.order-card.is-cancelled .submit-btn.disabled {
+  background-color: #6c757d; /* Gris secundario */
+  cursor: not-allowed;
+  pointer-events: none;
+  color: #e9ecef;
+}
+
 .page-legal {
   overflow-y: auto;
 }

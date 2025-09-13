@@ -21,56 +21,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // public_html/js/dashboard_orders.js
-
-const renderOrderHistory = (orders) => {
-    container.innerHTML = '';
-    orders.forEach(order => {
-        const itemsHtml = order.items.map(item => `
-            <li class="order-item">
-                <span class="order-item-qty">${item.cantidad}x</span>
-                <span class="order-item-name">${item.nombre_producto}</span>
-                <span class="order-item-price">$${parseFloat(item.precio_unitario).toFixed(2)}</span>
-            </li>
-        `).join('');
-
-        const isCanceled = order.status_name === 'Cancelado';
-        
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se añade un nuevo botón/enlace para la factura
-        const reorderButtonHtml = `
-            <a href="api/index.php?resource=generate-invoice&order_id=${order.id_pedido}" class="submit-btn" target="_blank">Descargar Factura</a>
-            <button class="submit-btn reorder-btn" data-order-id="${order.id_pedido}" ${isCanceled ? 'disabled' : ''}>
-                ${isCanceled ? 'Pedido Cancelado' : 'Repetir Pedido'}
-            </button>
-        `;
-        // --- FIN DE LA MODIFICACIÓN ---
-
-        const orderCardHtml = `
-            <div class="order-card">
-                <div class="order-card-header">
-                    <div class="order-summary">
-                        <strong>Orden #${order.id_pedido}</strong>
-                        <small>${order.fecha}</small>
+    const renderOrderHistory = (orders) => {
+        container.innerHTML = '';
+        orders.forEach(order => {
+            const itemsHtml = order.items.map(item => `
+                <li class="order-item">
+                    <span class="order-item-qty">${item.cantidad}x</span>
+                    <span class="order-item-name">${item.nombre_producto}</span>
+                    <span class="order-item-price">$${parseFloat(item.precio_unitario).toFixed(2)}</span>
+                </li>
+            `).join('');
+    
+            const status = order.status_name;
+            let actionButtonsHtml = '';
+            let cardClass = 'order-card';
+    
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // Lógica para renderizar el botón de Factura solo si el estado es 'Entregado'
+            if (status === 'Entregado') {
+                actionButtonsHtml += `<a href="api/index.php?resource=generate-invoice&order_id=${order.id_pedido}" class="submit-btn" target="_blank">Descargar Factura</a>`;
+            }
+    
+            // Lógica para el botón de Repetir Pedido
+            if (status === 'Cancelado') {
+                cardClass = 'order-card is-cancelled';
+                actionButtonsHtml += `<button class="submit-btn reorder-btn" data-order-id="${order.id_pedido}" disabled>Pedido Cancelado</button>`;
+            } else {
+                actionButtonsHtml += `<button class="submit-btn reorder-btn" data-order-id="${order.id_pedido}">Repetir Pedido</button>`;
+            }
+            // --- FIN DE LA MODIFICACIÓN ---
+    
+            const orderCardHtml = `
+                <div class="${cardClass}">
+                    <div class="order-card-header">
+                        <div class="order-summary">
+                            <strong>Orden #${order.id_pedido}</strong>
+                            <small>${order.fecha}</small>
+                        </div>
+                        <div class="order-card-actions">
+                            <span class="order-status-badge">${order.status_name}</span>
+                            <span class="order-card-total">Total: <strong>$${order.total}</strong></span>
+                            <button class="details-btn toggle-details-btn">Detalles</button>
+                        </div>
                     </div>
-                    <div class="order-card-actions">
-                        <span class="order-status-badge">${order.status_name}</span>
-                        <span class="order-card-total">Total: <strong>$${order.total}</strong></span>
-                        <button class="details-btn toggle-details-btn">Detalles</button>
+                    <div class="order-card-body">
+                        <ul class="order-items-list">${itemsHtml}</ul>
+                        <div class="order-card-footer">
+                            ${actionButtonsHtml}
+                        </div>
                     </div>
                 </div>
-                <div class="order-card-body">
-                    <ul class="order-items-list">${itemsHtml}</ul>
-                    <div class="order-card-footer">
-                        ${reorderButtonHtml}
-                    </div>
-                </div>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', orderCardHtml);
-    });
-};
-
+            `;
+            container.insertAdjacentHTML('beforeend', orderCardHtml);
+        });
+    };
 
     const handleReorder = async (target) => {
         if (!target.classList.contains('reorder-btn')) return;
