@@ -3,9 +3,11 @@ date_default_timezone_set('America/El_Salvador');
 
 session_start();
 require_once __DIR__ . '/../vendor/autoload.php'; 
-
+use Minishlink\WebPush\WebPush;
+use Minishlink\WebPush\Subscription;
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 require_once __DIR__ . '/../config/config.php'; 
 
@@ -32,6 +34,34 @@ $inputData = json_decode(file_get_contents('php://input'), true);
 try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
+
+case 'save-push-subscription':
+    if ($method === 'POST') {
+        if (!isset($_SESSION['id_cliente'])) {
+            throw new Exception("No autorizado.", 401);
+        }
+        $clientId = (int)$_SESSION['id_cliente'];
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        // Insertar o actualizar la suscripción para evitar duplicados
+        $stmt = $pdo->prepare(
+            "INSERT INTO push_subscriptions (id_cliente, endpoint, p256dh, auth) 
+             VALUES (:client_id, :endpoint, :p256dh, :auth)
+             ON DUPLICATE KEY UPDATE id_cliente = :client_id, p256dh = :p256dh, auth = :auth"
+        );
+        $stmt->execute([
+            ':client_id' => $clientId,
+            ':endpoint'  => $data['endpoint'],
+            ':p256dh'    => $data['keys']['p256dh'],
+            ':auth'      => $data['keys']['auth']
+        ]);
+        echo json_encode(['success' => true]);
+    }
+    break;
+
+case 'get-vapid-public-key':
+    echo json_encode(['publicKey' => VAPID_PUBLIC_KEY]);
+    break;
 
 /***********************************************************/
 case 'notifications':
@@ -3003,12 +3033,14 @@ case 'admin/getCardDetails':
     }
     break;
 
+
+
 case 'admin/rechargeCard':
     // require_admin();
     $data = json_decode(file_get_contents('php://input'), true);
     $card_id = filter_var($data['card_id'] ?? 0, FILTER_VALIDATE_INT);
     $amount = filter_var($data['amount'] ?? 0, FILTER_VALIDATE_FLOAT);
-    $userId = $_SESSION['id_usuario'] ?? null; // Captura el ID del usuario admin
+    $userId = $_SESSION['id_usuario'] ?? null;
 
     if (!$card_id || $amount <= 0 || !$userId) {
         http_response_code(400);
@@ -3018,54 +3050,56 @@ case 'admin/rechargeCard':
 
     $pdo->beginTransaction();
     try {
-        // 1. Obtenemos la información de la tarjeta y el cliente para el log
+        // --- 1. Lógica de recarga (sin cambios) ---
         $stmt_info = $pdo->prepare(
-            "SELECT tr.numero_tarjeta, c.nombre_usuario 
+            "SELECT tr.numero_tarjeta, c.nombre_usuario, c.id_cliente 
              FROM tarjetas_recargables tr 
              JOIN clientes c ON tr.id_cliente = c.id_cliente 
              WHERE tr.id_tarjeta = :card_id"
         );
         $stmt_info->execute([':card_id' => $card_id]);
         $cardInfo = $stmt_info->fetch(PDO::FETCH_ASSOC);
+        if (!$cardInfo) throw new Exception("La tarjeta o el cliente no existen.");
 
-        if (!$cardInfo) {
-            throw new Exception("La tarjeta o el cliente asociado no existen.");
-        }
-
-        // 2. Aplicamos la recarga (sumamos el monto al saldo actual)
         $stmt_update = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = saldo + :amount WHERE id_tarjeta = :card_id");
         $stmt_update->execute([':amount' => $amount, ':card_id' => $card_id]);
         
-        // 3. Insertamos el registro de la actividad en la tabla 'registros_actividad'
-        $stmt_log = $pdo->prepare(
-            "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion, fecha) 
-             VALUES (:id_usuario, :tipo_accion, :descripcion, NOW())"
-        );
-        
         $description = 'Recarga de $' . number_format($amount, 2) . ' a la tarjeta ' . $cardInfo['numero_tarjeta'] . ' (Cliente: ' . $cardInfo['nombre_usuario'] . ')';
+        logActivity($pdo, $userId, 'Recarga de Tarjeta', $description);
         
-        $stmt_log->execute([
-            ':id_usuario'   => $userId,
-            ':tipo_accion'  => 'Recarga de Tarjeta',
-            ':descripcion'  => $description
-        ]);
-        
-        $pdo->commit();
-        $stmt_cliente_tarjeta = $pdo->prepare("SELECT id_cliente FROM tarjetas_recargables WHERE id_tarjeta = :card_id");
-        $stmt_cliente_tarjeta->execute([':card_id' => $card_id]);
-        $clienteId = $stmt_cliente_tarjeta->fetchColumn();
-        if($clienteId) {
+        $pdo->commit(); // Guardamos la recarga ANTES de intentar enviar la notificación.
+
+        // --- 2. LÍNEA DE DEPURACIÓN ---
+        // Se intenta enviar la notificación dentro de un bloque try-catch separado.
+        try {
             $mensaje = '¡Tu tarjeta ha sido recargada con $' . number_format($amount, 2) . '!';
-            crearNotificacion($pdo, $clienteId, 'tarjeta', $mensaje, 'dashboard.php?view=tarjeta');
+            crearNotificacion($pdo, $cardInfo['id_cliente'], 'tarjeta', $mensaje, 'dashboard.php?view=tarjeta');
+            
+            // Si todo va bien, se envía el mensaje de éxito.
+            echo json_encode(['success' => true, 'message' => 'Recarga aplicada y notificación enviada con éxito.']);
+
+        } catch (Throwable $e) {
+            // Si la función crearNotificacion falla, capturamos el error fatal aquí.
+            // En lugar de romper la respuesta, enviamos el error como un JSON válido.
+            http_response_code(500); // Internal Server Error
+            echo json_encode([
+                'success' => false, 
+                'error' => 'La recarga se guardó, pero la notificación PUSH falló. Error: ' . $e->getMessage(),
+                'trace' => $e->getTraceAsString() // Esto te dará aún más detalles del error.
+            ]);
         }
-        echo json_encode(['success' => true, 'message' => 'Recarga de $' . number_format($amount, 2) . ' aplicada correctamente.']);
+        // --- FIN DE LA DEPURACIÓN ---
 
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'No se pudo completar la recarga: ' . $e->getMessage()]);
     }
     break;
+
+
+
+
 
 
 case 'admin/getCards':
@@ -6201,8 +6235,11 @@ function handleDepartmentsRequest(PDO $pdo) {
     echo json_encode($departments);
 }
 
+
+
 function crearNotificacion(PDO $pdo, int $id_cliente, string $tipo, string $mensaje, ?string $url = null) {
     try {
+        // --- 1. Guardar en la base de datos (sin cambios) ---
         $stmt = $pdo->prepare(
             "INSERT INTO notificaciones (id_cliente, tipo_notificacion, mensaje, url_destino)
              VALUES (:id_cliente, :tipo, :mensaje, :url)"
@@ -6213,8 +6250,59 @@ function crearNotificacion(PDO $pdo, int $id_cliente, string $tipo, string $mens
             ':mensaje' => $mensaje,
             ':url' => $url
         ]);
+
+        // --- 2. Enviar notificación PUSH (CON VERIFICACIÓN AÑADIDA) ---
+
+        // Verificación robusta de que las constantes VAPID están definidas
+        if (!defined('VAPID_SUBJECT') || !defined('VAPID_PUBLIC_KEY') || !defined('VAPID_PRIVATE_KEY')) {
+            // En lugar de un error de PHP, registramos un error claro y continuamos sin fallar.
+            error_log("Error Crítico: Las constantes VAPID no están definidas en config.php. La notificación no se pudo enviar.");
+            return; // Detiene la función de envío de push pero no rompe la respuesta JSON.
+        }
+
+        $stmt_subs = $pdo->prepare("SELECT * FROM push_subscriptions WHERE id_cliente = :client_id");
+        $stmt_subs->execute([':client_id' => $id_cliente]);
+        $subscriptions_data = $stmt_subs->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($subscriptions_data)) {
+            return; 
+        }
+
+        $auth = [
+            'VAPID' => [
+                'subject' => VAPID_SUBJECT,
+                'publicKey' => VAPID_PUBLIC_KEY,
+                'privateKey' => VAPID_PRIVATE_KEY,
+            ],
+        ];
+
+        $webPush = new Minishlink\WebPush\WebPush($auth);
+        $payload = json_encode([
+            'title' => 'Variedades 10 y 15',
+            'body' => $mensaje,
+            'icon' => 'img/favicon.png',
+            'data' => ['url' => $url]
+        ]);
+
+        foreach ($subscriptions_data as $sub_data) {
+            $subscription = Minishlink\WebPush\Subscription::create([
+                'endpoint' => $sub_data['endpoint'],
+                'publicKey' => $sub_data['p256dh'],
+                'authToken' => $sub_data['auth'],
+            ]);
+            $webPush->queueNotification($subscription, $payload);
+        }
+
+        foreach ($webPush->flush() as $report) {
+            if (!$report->isSuccess() && $report->isSubscriptionExpired()) {
+                $endpoint = $report->getEndpoint();
+                $stmt_delete = $pdo->prepare("DELETE FROM push_subscriptions WHERE endpoint = :endpoint");
+                $stmt_delete->execute([':endpoint' => $endpoint]);
+            }
+        }
+
     } catch (Exception $e) {
-        error_log("Error al crear notificación: " . $e->getMessage());
+        error_log("Error al crear/enviar notificación: " . $e->getMessage());
     }
 }
 

@@ -1,6 +1,7 @@
 {
     "require": {
         "google/cloud-storage": "^1.48",
-        "picqer/php-barcode-generator": "^3.2"
+        "picqer/php-barcode-generator": "^3.2",
+        "minishlink/web-push": "^9.0"
     }
 }

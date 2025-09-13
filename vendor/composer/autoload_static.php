@@ -14,6 +14,10 @@ class ComposerStaticInit27552009b83b40e557cfcb9647b15f68
     );
 
     public static $prefixLengthsPsr4 = array (
+        'S' => 
+        array (
+            'SpomkyLabs\\Pki\\' => 15,
+        ),
         'R' => 
         array (
             'Rize\\' => 5,
@@ -25,12 +29,18 @@ class ComposerStaticInit27552009b83b40e557cfcb9647b15f68
             'Psr\\Log\\' => 8,
             'Psr\\Http\\Message\\' => 17,
             'Psr\\Http\\Client\\' => 16,
+            'Psr\\Clock\\' => 10,
             'Psr\\Cache\\' => 10,
             'Picqer\\Barcode\\' => 15,
         ),
         'M' => 
         array (
             'Monolog\\' => 8,
+            'Minishlink\\WebPush\\' => 19,
+        ),
+        'J' => 
+        array (
+            'Jose\\Component\\' => 15,
         ),
         'G' => 
         array (
@@ -68,10 +78,15 @@ class ComposerStaticInit27552009b83b40e557cfcb9647b15f68
         'B' => 
         array (
             'Brick\\Math\\' => 11,
+            'Base64Url\\' => 10,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'SpomkyLabs\\Pki\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/spomky-labs/pki-framework/src',
+        ),
         'Rize\\' => 
         array (
             0 => __DIR__ . '/..' . '/rize/uri-template/src/Rize',
@@ -97,6 +112,10 @@ class ComposerStaticInit27552009b83b40e557cfcb9647b15f68
         array (
             0 => __DIR__ . '/..' . '/psr/http-client/src',
         ),
+        'Psr\\Clock\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/psr/clock/src',
+        ),
         'Psr\\Cache\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/cache/src',
@@ -108,6 +127,14 @@ class ComposerStaticInit27552009b83b40e557cfcb9647b15f68
         'Monolog\\' => 
         array (
             0 => __DIR__ . '/..' . '/monolog/monolog/src/Monolog',
+        ),
+        'Minishlink\\WebPush\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/minishlink/web-push/src',
+        ),
+        'Jose\\Component\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/web-token/jwt-library',
         ),
         'GuzzleHttp\\Psr7\\' => 
         array (
@@ -220,6 +247,10 @@ class ComposerStaticInit27552009b83b40e557cfcb9647b15f68
         'Brick\\Math\\' => 
         array (
             0 => __DIR__ . '/..' . '/brick/math/src',
+        ),
+        'Base64Url\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/spomky-labs/base64url/src',
         ),
     );
 

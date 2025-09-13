@@ -2,7 +2,9 @@
 <?php
 
 date_default_timezone_set('America/El_Salvador');
-
+define('VAPID_PUBLIC_KEY', 'BDG5Cf1H8iUEROSWsaD8IEB0WGX9bm1Vu34wTvos4Grwe2Qwcdq3s-SH4CrAAbmOvYF7ryRLgR27404IqcV2Zsg');
+define('VAPID_PRIVATE_KEY', '3t3Al6iRekyVieDXqfDqN4SzPBDTptqHBwMZJ7TercA');
+define('VAPID_SUBJECT', 'mailto:businesscatalogolibreria@gmail.com'); // Cambia esto por tu email
 define('DB_HOST', 'localhost');
 define('DB_PORT', '3306'); 
 

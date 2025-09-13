@@ -12,9 +12,13 @@ import { initializeCarousel } from './carrousel.js';
 import { initializeProductCarousels } from './product_carousel_handler.js';
 import { initializeShareHandler } from './share_handler.js';
 import { initializeCookieBanner } from './cookie_handler.js';
+import { initializePushNotifications } from './push_manager.js';
 
 const API_BASE_URL = 'api/index.php';
-initializeCookieBanner();
+// Se quita la llamada de aquí para moverla adentro.
+
+initializeCookieBanner(); // El banner de cookies sí puede ir aquí.
+
 document.addEventListener('DOMContentLoaded', () => {
     // Inicialización de todos los módulos
     initializeShareHandler();
@@ -24,29 +28,34 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCartHeader();
     initializeQuantityHandlers();
     initializeFavoritesHandler();
-    // Esta única función ahora manejará TODOS los modales, incluyendo el de la imagen.
     initializeModals(); 
     initializeCarousel('.carousel-container');
     initializeProductCarousels();
 
-    // Lógica para cargar productos (sin cambios)
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Verificamos si existe un enlace a "Mi Cuenta", lo que indica que el usuario inició sesión.
+    const isLoggedIn = document.querySelector('a[href="dashboard.php"]');
+    if (isLoggedIn) {
+        // Si el usuario SÍ ha iniciado sesión, llamamos a la función aquí.
+        // Esto asegura que solo los usuarios registrados reciban la solicitud de permiso.
+        console.log("Usuario logueado, inicializando notificaciones PUSH...");
+        initializePushNotifications();
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 
-   const urlParams = new URLSearchParams(window.location.search);
+    // El resto de tu código para cargar productos no cambia...
+    const urlParams = new URLSearchParams(window.location.search);
     const searchTermFromUrl = urlParams.get('search');
-    const productIdFromUrl = urlParams.get('product_id'); // Lee el ID del producto de la URL
+    const productIdFromUrl = urlParams.get('product_id');
 
-    // Prioridad 1: Si hay un ID de producto, muestra solo ese.
     if (productIdFromUrl) {
-        // Ocultamos los carruseles y controles de ordenamiento para enfocar la vista.
         document.querySelectorAll('.product-carousel-section, .product-list-controls').forEach(el => el.style.display = 'none');
-        
         loadProducts('product-list', 'pagination-controls', {
             apiBaseUrl: API_BASE_URL,
             product_id: productIdFromUrl,
             hide_no_image: layoutSettings.hide_products_without_image
         });
     } 
-    // Prioridad 2: Si hay un término de búsqueda, realiza la búsqueda.
     else if (searchTermFromUrl) {
         document.getElementById('search-input').value = searchTermFromUrl;
         loadProducts('product-list', 'pagination-controls', {
@@ -55,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hide_no_image: layoutSettings.hide_products_without_image
         });
     } 
-    // Por defecto: Carga los productos de forma normal.
     else {    
         loadProducts('product-list', 'pagination-controls', {
             sortBy: 'random',
@@ -65,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     initializeSearch('search-input', 'search-button', 'product-list', 'pagination-controls', API_BASE_URL);
 
-    // Lógica de ordenamiento (sin cambios)
     const sortBySelect = document.getElementById('sort-by');
     if (sortBySelect) {
         sortBySelect.addEventListener('change', () => {
@@ -87,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Lógica de menú de departamentos (sin cambios)
     document.getElementById('sidemenu').addEventListener('click', (event) => {
         const target = event.target;
         if (target.matches('.department-link')) {
@@ -111,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Función para cargar departamentos (sin cambios)
 export async function loadDepartments() {
     try {
         const response = await fetch(`${API_BASE_URL}?resource=departments`);

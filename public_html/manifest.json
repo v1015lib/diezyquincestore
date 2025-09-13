@@ -1,6 +1,6 @@
 {
   "short_name": "Variedades 10 y 15",
-  "start_url": "/login.php",
+  "start_url": "/index.php",
   "display": "standalone",
   "background_color": "#0C0A4E",
   "icons": [

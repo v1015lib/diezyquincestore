@@ -5,8 +5,10 @@ import { initializeCartView } from './cart_view_handler.js';
 import { initializeQuantityHandlers } from './cart_quantity_handler.js';
 import { initializeFavoritesHandler } from './favorites_handler.js'; // <-- AÑADIDO
 import { initializeModals } from './modal_handler.js';             // <-- AÑADIDO
+import { initializePushNotifications } from './push_manager.js'; // <-- AÑADIR ESTA LÍNEA
 
 document.addEventListener('DOMContentLoaded', () => {
+    initializePushNotifications();
     const menuToggle = document.getElementById('dashboard-menu-toggle');
     const sidemenu = document.getElementById('dashboard-sidemenu');
 
