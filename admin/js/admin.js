@@ -1836,6 +1836,60 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
 
+    if (target.classList.contains('processed-file-checkbox')) {
+        // Se usa un pequeño retraso para asegurar que el estado 'checked' se actualice antes de la validación.
+        setTimeout(updateProcessorButtons, 50); 
+        return; // No es necesario que continúe con el resto de la función de clics.
+    }
+    
+// --- LÓGICA PARA SUBIR IMÁGENES PROCESADAS DESDE "UTILIDADES" ---
+    if (target.id === 'upload-to-gallery-btn') {
+        const selectedFiles = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
+                                   .map(cb => cb.closest('.processed-file-item').dataset.fileName);
+        
+        const feedbackDiv = document.getElementById('results-feedback');
+
+        if (selectedFiles.length === 0) {
+            feedbackDiv.textContent = 'Por favor, selecciona al menos una imagen.';
+            feedbackDiv.style.color = 'red';
+            return;
+        }
+
+        target.disabled = true;
+        target.textContent = 'Subiendo...';
+        feedbackDiv.textContent = '';
+
+        try {
+            // Llama al 'case' que ahora usa DigitalOcean Spaces
+            const response = await fetch(`${API_BASE_URL}?resource=admin/uploadProcessedToBucket`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files: selectedFiles })
+            });
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+            
+            feedbackDiv.textContent = result.message;
+            feedbackDiv.style.color = 'green';
+            
+            document.querySelectorAll('.processed-file-checkbox:checked').forEach(cb => cb.checked = false);
+            updateProcessorButtons();
+
+        } catch (error) {
+            feedbackDiv.textContent = `Error: ${error.message}`;
+            feedbackDiv.style.color = 'red';
+        } finally {
+            target.disabled = false;
+            target.textContent = 'Subir a Galería';
+        }
+        return; 
+    }
+    // --- FIN DEL BLOQUE AÑADIDO ---
+
+
 
         const departmentSortableHeader = event.target.closest('#departments-list-container th.sortable');
     if (departmentSortableHeader) {

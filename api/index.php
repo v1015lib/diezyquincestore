@@ -2,9 +2,13 @@
 date_default_timezone_set('America/El_Salvador');
 
 session_start();
-require_once __DIR__ . '/../vendor/autoload.php'; 
+require_once __DIR__ . '/../vendor/autoload.php';
+use Aws\S3\S3Client; 
+use Aws\Exception\AwsException;
+
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
+
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -4403,53 +4407,60 @@ case 'get_processed_images':
 
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
-case 'admin/uploadProcessedToBucket':
-    // Lógica para subir los archivos procesados al bucket
-    try {
-        $input = json_decode(file_get_contents('php://input'), true);
-        $filesToUpload = $input['files'] ?? [];
 
-        if (empty($filesToUpload)) {
-            throw new Exception('No se seleccionaron archivos para subir.');
-        }
+        case 'admin/uploadProcessedToBucket':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $filesToUpload = $data['files'] ?? [];
 
-        // Reutilizamos la misma lógica de conexión a Google Cloud Storage
-        require_once __DIR__ . '/../vendor/autoload.php';
-        $keyFilePath = __DIR__ . '/../keygcs.json';
-        $bucketName = 'libreria-web-imagenes';
-        $cdnDomain = "https://cdngcs.diezyquince.store"; // Tu dominio de CDN
+                if (empty($filesToUpload)) {
+                    throw new Exception('No se seleccionaron archivos para subir.');
+                }
 
-        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
-        $bucket = $storage->bucket($bucketName);
-        
-        $sourceDir = __DIR__ . '/../admin/scripts/salida_ia/';
-        $uploadedUrls = [];
+                // --- CONFIGURACIÓN DE DIGITALOCEAN SPACES ---
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'sfo3', // Tu región
+                    'endpoint' => 'https://sfo3.digitaloceanspaces.com', // El endpoint regional
+                    'credentials' => [
+                        'key'    => 'DO801V37HGWVHA8LZ92L',    // Pega aquí tu Key
+                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg', // Pega aquí tu Secret
+                    ],
+                ]);
 
-        foreach ($filesToUpload as $fileName) {
-            $localFilePath = realpath($sourceDir . $fileName);
+                $bucketName = 'libreria-web-imagenes'; // El nombre de tu Space
+                $sourceDir = __DIR__ . '/../admin/scripts/salida_ia/'; // Directorio local donde están los archivos
+                $uploadedCount = 0;
 
-            if ($localFilePath && file_exists($localFilePath)) {
-                // Define la ruta y el nombre del archivo en el bucket
-                $gcsPath = 'productos/' . $fileName;
+                foreach ($filesToUpload as $fileName) {
+                    $localFilePath = realpath($sourceDir . $fileName);
 
-                // Sube el archivo
-                $bucket->upload(
-                    fopen($localFilePath, 'r'),
-                    ['name' => $gcsPath]
-                );
+                    // Verifica que el archivo exista en el servidor antes de subirlo
+                    if ($localFilePath && file_exists($localFilePath)) {
+                        $objectKey = 'productos/' . $fileName; // Ruta dentro del Space
+
+                        // Sube el archivo al Space
+                        $s3Client->putObject([
+                            'Bucket' => $bucketName,
+                            'Key'    => $objectKey,
+                            'Body'   => fopen($localFilePath, 'r'),
+                            'ACL'    => 'public-read', // Hace el archivo públicamente visible
+                        ]);
+                        $uploadedCount++;
+                    }
+                }
                 
-                // Guarda la URL pública para devolverla si es necesario
-                $uploadedUrls[] = $cdnDomain . '/' . $gcsPath;
-            }
-        }
-        
-        echo json_encode(['success' => true, 'message' => '¡Imágenes subidas a la galería con éxito!', 'urls' => $uploadedUrls]);
+                if ($uploadedCount == 0) {
+                    throw new Exception('Ninguno de los archivos seleccionados pudo ser encontrado en el servidor.');
+                }
 
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error al subir a GCS: ' . $e->getMessage()]);
-    }
-    break;
+                echo json_encode(['success' => true, 'message' => "{$uploadedCount} imágenes subidas a la galería con éxito."]);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error al subir las imágenes procesadas: ' . $e->getMessage()]);
+            }
+            break;
 
 
 case 'download_processed_images':
@@ -4489,8 +4500,136 @@ case 'download_processed_images':
 
 
 
-//Productos y Bucket e Google para imagenes
+//Productos y Bucket de Google para imagenes
 
+        case 'admin/uploadImage':
+            try {
+                if (!isset($_FILES['url_imagen']) || !is_array($_FILES['url_imagen']['name'])) {
+                    throw new Exception('No se recibieron archivos o el formato es incorrecto.');
+                }
+                
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'sfo3', // La región de tu Space
+                    'endpoint' => 'https://sfo3.digitaloceanspaces.com', // El endpoint de tu Space
+                    'credentials' => [
+                        'key'    => 'DO801V37HGWVHA8LZ92L',
+                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg',
+                    ],
+                ]);
+
+                $bucketName = 'libreria-web-imagenes';
+                $uploadCount = 0;
+                $totalFiles = count($_FILES['url_imagen']['name']);
+
+                for ($i = 0; $i < $totalFiles; $i++) {
+                    if ($_FILES['url_imagen']['error'][$i] === UPLOAD_ERR_OK) {
+                        $fileTmpPath = $_FILES['url_imagen']['tmp_name'][$i];
+                        $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'][$i], PATHINFO_EXTENSION));
+                        $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
+                        $objectKey = 'productos/' . $newFileName;
+
+                        $s3Client->putObject([
+                            'Bucket' => $bucketName,
+                            'Key'    => $objectKey,
+                            'Body'   => fopen($fileTmpPath, 'r'),
+                            'ACL'    => 'public-read',
+                        ]);
+                        $uploadCount++;
+                    }
+                }
+
+                if ($uploadCount == 0) {
+                     throw new Exception('Ninguna de las imágenes pudo ser procesada.');
+                }
+
+                echo json_encode(['success' => true, 'message' => "$uploadCount de $totalFiles imágenes subidas correctamente."]);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'admin/getBucketImages':
+            try {
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'sfo3',
+                    'endpoint' => 'https://sfo3.digitaloceanspaces.com',
+                    'credentials' => [
+                        'key'    => 'DO801V37HGWVHA8LZ92L',
+                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg',
+                    ],
+                ]);
+
+                $bucketName = 'libreria-web-imagenes';
+                $cdnDomain = "https://libreria-web-imagenes.sfo3.cdn.digitaloceanspaces.com"; // TU CDN URL
+
+                $objects = $s3Client->listObjectsV2(['Bucket' => $bucketName, 'Prefix' => 'productos/']);
+                $all_images = [];
+
+                if (isset($objects['Contents'])) {
+                    foreach ($objects['Contents'] as $object) {
+                        if (substr($object['Key'], -1) === '/') continue;
+                        $all_images[] = [
+                            'url' => $cdnDomain . '/' . $object['Key'],
+                            'name' => $object['Key'],
+                            'updated' => $object['LastModified']->getTimestamp(),
+                        ];
+                    }
+                }
+
+                usort($all_images, fn($a, $b) => $b['updated'] - $a['updated']);
+                
+                $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+                $limit = 20;
+                $offset = ($page - 1) * $limit;
+                $paginated_images = array_slice($all_images, $offset, $limit);
+                $has_more = count($all_images) > ($offset + $limit);
+
+                echo json_encode(['success' => true, 'images' => $paginated_images, 'has_more' => $has_more]);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'No se pudieron listar las imágenes: ' . $e->getMessage()]);
+            }
+            break;
+
+        case 'admin/deleteBucketImage':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $objectName = $data['name'] ?? null;
+
+                if (!$objectName) {
+                    throw new Exception('No se proporcionó el nombre del objeto a eliminar.');
+                }
+
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'sfo3',
+                    'endpoint' => 'https://sfo3.digitaloceanspaces.com',
+                    'credentials' => [
+                        'key'    => 'DO801V37HGWVHA8LZ92L',
+                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg',
+                    ],
+                ]);
+
+                $bucketName = 'libreria-web-imagenes';
+
+                $s3Client->deleteObject(['Bucket' => $bucketName, 'Key' => $objectName]);
+                echo json_encode(['success' => true, 'message' => 'Imagen eliminada correctamente.']);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
+            }
+            break;
+
+
+
+
+////////////////////////////////////////
 case 'admin/deleteProduct':
     // require_admin();
     $data = json_decode(file_get_contents('php://input'), true);
@@ -4546,53 +4685,7 @@ case 'admin/deleteProduct':
     break;
 
 
-case 'admin/uploadImage':
-    try {
-        if (!isset($_FILES['url_imagen']) || !is_array($_FILES['url_imagen']['name'])) {
-            throw new Exception('No se recibieron archivos o el formato es incorrecto.');
-        }
 
-        require_once __DIR__ . '/../vendor/autoload.php';
-        $keyFilePath = __DIR__ . '/../keygcs.json';
-        $bucketName = 'libreria-web-imagenes';
-        
-        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
-        $bucket = $storage->bucket($bucketName);
-        
-        $uploadCount = 0;
-        $totalFiles = count($_FILES['url_imagen']['name']);
-
-        for ($i = 0; $i < $totalFiles; $i++) {
-            if ($_FILES['url_imagen']['error'][$i] === UPLOAD_ERR_OK) {
-                $fileTmpPath = $_FILES['url_imagen']['tmp_name'][$i];
-                $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'][$i], PATHINFO_EXTENSION));
-                $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
-                $gcsPath = 'productos/' . $newFileName;
-                
-                $bucket->upload(
-                    fopen($fileTmpPath, 'r'),
-                    ['name' => $gcsPath]
-                );
-                $uploadCount++;
-            }
-        }
-        
-        if ($uploadCount == 0) {
-             throw new Exception('Ninguna de las imágenes pudo ser procesada.');
-        }
-
-        echo json_encode(['success' => true, 'message' => "$uploadCount de $totalFiles imágenes subidas correctamente."]);
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-    break;
-
-
-// api/index.php
-
-// api/index.php
 
 case 'admin/getProductDetails':
     if (!isset($_SESSION['loggedin'])) {
@@ -4671,86 +4764,7 @@ case 'admin/getProductDetails':
 
 
 
-case 'admin/getBucketImages':
-    try {
-        require_once __DIR__ . '/../vendor/autoload.php';
-        $keyFilePath = __DIR__ . '/../keygcs.json';
-        $bucketName = 'libreria-web-imagenes';
-        $cdnDomain = "https://cdngcs.diezyquince.store";
 
-        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
-        $bucket = $storage->bucket($bucketName);
-        
-        $options = ['prefix' => 'productos/'];
-        
-        $all_images = [];
-        foreach ($bucket->objects($options) as $object) {
-            if (substr($object->name(), -1) === '/') continue;
-            
-            // Obtenemos la fecha de actualización para ordenar
-            $info = $object->info();
-            $last_updated = $info['updated'];
-
-            $all_images[] = [
-                'url' => $cdnDomain . '/' . $object->name(),
-                'name' => $object->name(),
-                'updated' => strtotime($last_updated) // Convertimos a timestamp para ordenar
-            ];
-        }
-
-        // Ordenamos todas las imágenes de más reciente a más antigua
-        usort($all_images, function($a, $b) {
-            return $b['updated'] - $a['updated'];
-        });
-        
-        // Lógica de Paginación
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit = 20; // Imágenes por página
-        $offset = ($page - 1) * $limit;
-        
-        $paginated_images = array_slice($all_images, $offset, $limit);
-        $has_more = count($all_images) > ($offset + $limit);
-
-        echo json_encode([
-            'success' => true, 
-            'images' => $paginated_images,
-            'has_more' => $has_more // Informamos al frontend si hay más páginas
-        ]);
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'No se pudieron listar las imágenes: ' . $e->getMessage()]);
-    }
-    break;
-
-case 'admin/deleteBucketImage':
-    // Lógica para eliminar una imagen específica del bucket
-    try {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $objectName = $data['name'] ?? null;
-
-        if (!$objectName) {
-            throw new Exception('No se proporcionó el nombre del objeto a eliminar.');
-        }
-
-        require_once __DIR__ . '/../vendor/autoload.php';
-        $keyFilePath = __DIR__ . '/../keygcs.json';
-        $bucketName = 'libreria-web-imagenes';
-
-        $storage = new \Google\Cloud\Storage\StorageClient(['keyFilePath' => $keyFilePath]);
-        $bucket = $storage->bucket($bucketName);
-        $object = $bucket->object($objectName);
-
-        $object->delete(); // Eliminamos el objeto
-
-        echo json_encode(['success' => true, 'message' => 'Imagen eliminada correctamente.']);
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
-    }
-
-    break;
 
 case 'admin/checkProductCode':
             $code = $_GET['code'] ?? '';
