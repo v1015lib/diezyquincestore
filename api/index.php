@@ -4408,7 +4408,7 @@ case 'get_processed_images':
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
 
-        case 'admin/uploadProcessedToBucket':
+case 'admin/uploadProcessedToBucket':
             try {
                 $data = json_decode(file_get_contents('php://input'), true);
                 $filesToUpload = $data['files'] ?? [];
@@ -4420,11 +4420,11 @@ case 'get_processed_images':
                 // --- CONFIGURACIÓN DE DIGITALOCEAN SPACES ---
                 $s3Client = new S3Client([
                     'version' => 'latest',
-                    'region'  => 'sfo3', // Tu región
-                    'endpoint' => 'https://sfo3.digitaloceanspaces.com', // El endpoint regional
+                    'region'  => 'auto', // Tu región
+                    'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com', // El endpoint regional
                     'credentials' => [
-                        'key'    => 'DO801V37HGWVHA8LZ92L',    // Pega aquí tu Key
-                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg', // Pega aquí tu Secret
+                        'key'    => 'c9ec80887e252cd42c4a84bfbc8daf89',    // Pega aquí tu Key
+                        'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577', // Pega aquí tu Secret
                     ],
                 ]);
 
@@ -4460,8 +4460,131 @@ case 'get_processed_images':
                 http_response_code(500);
                 echo json_encode(['success' => false, 'error' => 'Error al subir las imágenes procesadas: ' . $e->getMessage()]);
             }
-            break;
+break;
 
+case 'admin/uploadImage':
+            try {
+                if (!isset($_FILES['url_imagen']) || !is_array($_FILES['url_imagen']['name'])) {
+                    throw new Exception('No se recibieron archivos o el formato es incorrecto.');
+                }
+                
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'auto', // La región de tu Space
+                    'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com', // El endpoint de tu Space
+                    'credentials' => [
+                        'key'    => 'c9ec80887e252cd42c4a84bfbc8daf89',
+                        'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577',
+                    ],
+                ]);
+
+                $bucketName = 'libreria-web-imagenes';
+                $uploadCount = 0;
+                $totalFiles = count($_FILES['url_imagen']['name']);
+
+                for ($i = 0; $i < $totalFiles; $i++) {
+                    if ($_FILES['url_imagen']['error'][$i] === UPLOAD_ERR_OK) {
+                        $fileTmpPath = $_FILES['url_imagen']['tmp_name'][$i];
+                        $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'][$i], PATHINFO_EXTENSION));
+                        $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
+                        $objectKey = 'productos/' . $newFileName;
+
+                        $s3Client->putObject([
+                            'Bucket' => $bucketName,
+                            'Key'    => $objectKey,
+                            'Body'   => fopen($fileTmpPath, 'r'),
+                            'ACL'    => 'public-read',
+                        ]);
+                        $uploadCount++;
+                    }
+                }
+
+                if ($uploadCount == 0) {
+                     throw new Exception('Ninguna de las imágenes pudo ser procesada.');
+                }
+
+                echo json_encode(['success' => true, 'message' => "$uploadCount de $totalFiles imágenes subidas correctamente."]);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+break;
+
+case 'admin/getBucketImages':
+            try {
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'auto',
+                    'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com',
+                    'credentials' => [
+                        'key'    => 'c9ec80887e252cd42c4a84bfbc8daf89',
+                        'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577',
+                    ],
+                ]);
+
+                $bucketName = 'libreria-web-imagenes';
+                $cdnDomain = "https://pub-91131aea0d3a404eb911a098cf30c098.r2.dev"; // TU CDN URL
+
+                $objects = $s3Client->listObjectsV2(['Bucket' => $bucketName, 'Prefix' => 'productos/']);
+                $all_images = [];
+
+                if (isset($objects['Contents'])) {
+                    foreach ($objects['Contents'] as $object) {
+                        if (substr($object['Key'], -1) === '/') continue;
+                        $all_images[] = [
+                            'url' => $cdnDomain . '/' . $object['Key'],
+                            'name' => $object['Key'],
+                            'updated' => $object['LastModified']->getTimestamp(),
+                        ];
+                    }
+                }
+
+                usort($all_images, fn($a, $b) => $b['updated'] - $a['updated']);
+                
+                $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+                $limit = 20;
+                $offset = ($page - 1) * $limit;
+                $paginated_images = array_slice($all_images, $offset, $limit);
+                $has_more = count($all_images) > ($offset + $limit);
+
+                echo json_encode(['success' => true, 'images' => $paginated_images, 'has_more' => $has_more]);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'No se pudieron listar las imágenes: ' . $e->getMessage()]);
+            }
+ break;
+
+case 'admin/deleteBucketImage':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $objectName = $data['name'] ?? null;
+
+                if (!$objectName) {
+                    throw new Exception('No se proporcionó el nombre del objeto a eliminar.');
+                }
+
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'auto',
+                    'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com',
+                    'credentials' => [
+                        'key'    => 'c9ec80887e252cd42c4a84bfbc8daf89',
+                        'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577',
+                    ],
+                ]);
+
+                $bucketName = 'libreria-web-imagenes';
+
+                $s3Client->deleteObject(['Bucket' => $bucketName, 'Key' => $objectName]);
+                echo json_encode(['success' => true, 'message' => 'Imagen eliminada correctamente.']);
+
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
+            }
+            break;
 
 case 'download_processed_images':
     $input = json_decode(file_get_contents('php://input'), true);
@@ -4502,129 +4625,7 @@ case 'download_processed_images':
 
 //Productos y Bucket de Google para imagenes
 
-        case 'admin/uploadImage':
-            try {
-                if (!isset($_FILES['url_imagen']) || !is_array($_FILES['url_imagen']['name'])) {
-                    throw new Exception('No se recibieron archivos o el formato es incorrecto.');
-                }
-                
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region'  => 'sfo3', // La región de tu Space
-                    'endpoint' => 'https://sfo3.digitaloceanspaces.com', // El endpoint de tu Space
-                    'credentials' => [
-                        'key'    => 'DO801V37HGWVHA8LZ92L',
-                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg',
-                    ],
-                ]);
 
-                $bucketName = 'libreria-web-imagenes';
-                $uploadCount = 0;
-                $totalFiles = count($_FILES['url_imagen']['name']);
-
-                for ($i = 0; $i < $totalFiles; $i++) {
-                    if ($_FILES['url_imagen']['error'][$i] === UPLOAD_ERR_OK) {
-                        $fileTmpPath = $_FILES['url_imagen']['tmp_name'][$i];
-                        $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'][$i], PATHINFO_EXTENSION));
-                        $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
-                        $objectKey = 'productos/' . $newFileName;
-
-                        $s3Client->putObject([
-                            'Bucket' => $bucketName,
-                            'Key'    => $objectKey,
-                            'Body'   => fopen($fileTmpPath, 'r'),
-                            'ACL'    => 'public-read',
-                        ]);
-                        $uploadCount++;
-                    }
-                }
-
-                if ($uploadCount == 0) {
-                     throw new Exception('Ninguna de las imágenes pudo ser procesada.');
-                }
-
-                echo json_encode(['success' => true, 'message' => "$uploadCount de $totalFiles imágenes subidas correctamente."]);
-
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            }
-            break;
-
-        case 'admin/getBucketImages':
-            try {
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region'  => 'sfo3',
-                    'endpoint' => 'https://sfo3.digitaloceanspaces.com',
-                    'credentials' => [
-                        'key'    => 'DO801V37HGWVHA8LZ92L',
-                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg',
-                    ],
-                ]);
-
-                $bucketName = 'libreria-web-imagenes';
-                $cdnDomain = "https://libreria-web-imagenes.sfo3.cdn.digitaloceanspaces.com"; // TU CDN URL
-
-                $objects = $s3Client->listObjectsV2(['Bucket' => $bucketName, 'Prefix' => 'productos/']);
-                $all_images = [];
-
-                if (isset($objects['Contents'])) {
-                    foreach ($objects['Contents'] as $object) {
-                        if (substr($object['Key'], -1) === '/') continue;
-                        $all_images[] = [
-                            'url' => $cdnDomain . '/' . $object['Key'],
-                            'name' => $object['Key'],
-                            'updated' => $object['LastModified']->getTimestamp(),
-                        ];
-                    }
-                }
-
-                usort($all_images, fn($a, $b) => $b['updated'] - $a['updated']);
-                
-                $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-                $limit = 20;
-                $offset = ($page - 1) * $limit;
-                $paginated_images = array_slice($all_images, $offset, $limit);
-                $has_more = count($all_images) > ($offset + $limit);
-
-                echo json_encode(['success' => true, 'images' => $paginated_images, 'has_more' => $has_more]);
-
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'No se pudieron listar las imágenes: ' . $e->getMessage()]);
-            }
-            break;
-
-        case 'admin/deleteBucketImage':
-            try {
-                $data = json_decode(file_get_contents('php://input'), true);
-                $objectName = $data['name'] ?? null;
-
-                if (!$objectName) {
-                    throw new Exception('No se proporcionó el nombre del objeto a eliminar.');
-                }
-
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region'  => 'sfo3',
-                    'endpoint' => 'https://sfo3.digitaloceanspaces.com',
-                    'credentials' => [
-                        'key'    => 'DO801V37HGWVHA8LZ92L',
-                        'secret' => 'CDN7F6gGGZW+hSuv9wPC5cfkcrorlN+dJJeeiE1dBtg',
-                    ],
-                ]);
-
-                $bucketName = 'libreria-web-imagenes';
-
-                $s3Client->deleteObject(['Bucket' => $bucketName, 'Key' => $objectName]);
-                echo json_encode(['success' => true, 'message' => 'Imagen eliminada correctamente.']);
-
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
-            }
-            break;
 
 
 
