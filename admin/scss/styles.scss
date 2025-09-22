@@ -415,3 +415,30 @@
 
 
 
+// --- Estilos para la Zona de Drag & Drop ---
+
+#drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    transition: border-color 0.3s, background-color 0.3s;
+
+    // Estilo que se aplica cuando el usuario está arrastrando un archivo sobre la zona
+    &.drag-over {
+        border-color: $primary-color; // Usa la variable de color primario
+        background-color: #f0f8ff;   // Un color azul claro para resaltar
+    }
+
+    p {
+        // Asegura que el texto dentro de la zona no sea un enlace o tenga eventos de puntero
+        pointer-events: none; 
+    }
+}
+
+// Ocultamos el input de archivo original, ya que la zona de drop actúa como su reemplazo visual
+#image-upload-input {
+    display: none;
+}

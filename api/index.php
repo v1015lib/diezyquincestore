@@ -4408,6 +4408,137 @@ case 'get_processed_images':
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
 
+// AÑADE este nuevo 'case' en tu switch principal en api/index.php
+
+// AÑADE este nuevo 'case' en tu switch principal en api/index.php
+
+case 'download_processed_images':
+    $input = json_decode(file_get_contents('php://input'), true);
+    $filesToZip = $input['files'] ?? [];
+    $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
+
+    if (empty($filesToZip)) {
+        http_response_code(400);
+        die('No se seleccionaron archivos.');
+    }
+
+    $zip = new ZipArchive();
+    $zipFileName = 'imagenes_procesadas_' . date('Y-m-d_H-i-s') . '.zip';
+    $zipFilePath = sys_get_temp_dir() . '/' . $zipFileName;
+
+    if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+        http_response_code(500);
+        die('No se pudo crear el archivo ZIP.');
+    }
+
+    foreach ($filesToZip as $fileName) {
+        $filePath = realpath($outputDir . $fileName);
+        if ($filePath && file_exists($filePath)) {
+            $zip->addFile($filePath, $fileName);
+        }
+    }
+    $zip->close();
+
+    // Enviar el archivo al navegador
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $zipFileName . '"');
+    header('Content-Length: ' . filesize($zipFilePath));
+    readfile($zipFilePath);
+
+    // Limpiar el archivo temporal del servidor
+    unlink($zipFilePath);
+    break;
+
+
+
+
+
+case 'admin/clear_processor_folders':
+    try {
+        $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
+        $inputDir = __DIR__ . '/../admin/scripts/entrada/';
+        $deletedCount = 0;
+
+        // Limpiar carpeta de salida
+        if (is_dir($outputDir)) {
+            $files = glob($outputDir . '*'); 
+            foreach($files as $file){ 
+                if(is_file($file)) {
+                    unlink($file);
+                    $deletedCount++;
+                }
+            }
+        }
+
+        // Limpiar carpeta de entrada
+        if (is_dir($inputDir)) {
+            $files = glob($inputDir . '*');
+            foreach($files as $file){
+                if(is_file($file)) {
+                    unlink($file);
+                    $deletedCount++;
+                }
+            }
+        }
+
+        echo json_encode(['success' => true, 'message' => "Se limpiaron las carpetas y se eliminaron {$deletedCount} archivos."]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudieron limpiar las carpetas: ' . $e->getMessage()]);
+    }
+    break;
+
+
+case 'admin/upload_for_processing':
+    try {
+        if (empty($_FILES['images'])) {
+            throw new Exception('No se recibieron archivos.');
+        }
+
+        $inputDir = __DIR__ . '/../admin/scripts/entrada/';
+        if (!is_dir($inputDir)) {
+            mkdir($inputDir, 0777, true);
+        }
+
+        // Opcional: Limpiar la carpeta de entrada antes de subir nuevos archivos
+        $existingFiles = glob($inputDir . '*');
+        foreach ($existingFiles as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+
+        $fileCount = 0;
+        $errors = [];
+        
+        foreach ($_FILES['images']['tmp_name'] as $key => $tmpName) {
+            if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                $fileName = basename($_FILES['images']['name'][$key]);
+                $destination = $inputDir . $fileName;
+                if (move_uploaded_file($tmpName, $destination)) {
+                    $fileCount++;
+                } else {
+                    $errors[] = "No se pudo mover el archivo: " . htmlspecialchars($fileName);
+                }
+            } else {
+                $errors[] = "Error al subir el archivo: " . htmlspecialchars($_FILES['images']['name'][$key]);
+            }
+        }
+
+        if ($fileCount > 0) {
+            echo json_encode(['success' => true, 'message' => "Se subieron {$fileCount} imágenes correctamente."]);
+        } else {
+            throw new Exception("No se pudo procesar ningún archivo. Detalles: " . implode(", ", $errors));
+        }
+
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+
 case 'admin/uploadProcessedToBucket':
             try {
                 $data = json_decode(file_get_contents('php://input'), true);
@@ -4586,39 +4717,6 @@ case 'admin/deleteBucketImage':
             }
             break;
 
-case 'download_processed_images':
-    $input = json_decode(file_get_contents('php://input'), true);
-    $filesToZip = $input['files'] ?? [];
-    $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
-
-    if (empty($filesToZip)) {
-        http_response_code(400);
-        die('No se seleccionaron archivos.');
-    }
-
-    $zip = new ZipArchive();
-    $zipFileName = 'imagenes_procesadas_' . date('Y-m-d_H-i-s') . '.zip';
-    $zipFilePath = sys_get_temp_dir() . '/' . $zipFileName;
-
-    if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
-        http_response_code(500);
-        die('No se pudo crear el archivo ZIP.');
-    }
-
-    foreach ($filesToZip as $fileName) {
-        $filePath = realpath($outputDir . $fileName);
-        if ($filePath && file_exists($filePath)) {
-            $zip->addFile($filePath, $fileName);
-        }
-    }
-    $zip->close();
-
-    header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $zipFileName . '"');
-    header('Content-Length: ' . filesize($zipFilePath));
-    readfile($zipFilePath);
-    unlink($zipFilePath); // Limpia el archivo temporal
-    break;
 
 
 

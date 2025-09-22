@@ -2280,3 +2280,25 @@ tbody tr:hover > * {
   -ms-grid-columns: (1fr)[2];
   grid-template-columns: repeat(2, 1fr);
 }
+
+#drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  color: #666;
+  cursor: pointer;
+  -webkit-transition: border-color 0.3s, background-color 0.3s;
+  transition: border-color 0.3s, background-color 0.3s;
+}
+#drop-zone.drag-over {
+  border-color: #0C0A4E;
+  background-color: #f0f8ff;
+}
+#drop-zone p {
+  pointer-events: none;
+}
+
+#image-upload-input {
+  display: none;
+}

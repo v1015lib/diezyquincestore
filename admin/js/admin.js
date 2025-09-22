@@ -43,6 +43,9 @@ let galleryPage = 1;
 let isLoadingGallery = false;
 let galleryHasMore = true;
 
+// AÑADE este bloque dentro del listener de 'click' en mainContent en admin/js/admin.js
+
+
 
     async function updateHeaderUserInfo() {
         const adminInfoSpan = document.querySelector('.admin-info span');
@@ -505,6 +508,8 @@ async function renderEditCustomerForm(customer) {
 }
 
     // REEMPLAZA esta función completa en admin/js/admin.js
+
+// REEMPLAZA esta función completa en admin/js/admin.js
 
 async function showProcessedFiles() {
     const listContainer = document.getElementById('processed-files-list');
@@ -1102,7 +1107,63 @@ async function copyShoppingList(listId) {
 
 // --- FIN: MÓDULO LISTAS DE COMPRAS ---
 /*************************************************************************/
+function initializeImageProcessor() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('image-upload-input');
+    const startBtn = document.getElementById('start-processing-btn');
+    
+    // Si no estamos en la página del procesador, no hacemos nada.
+    if (!dropZone || !fileInput || !startBtn) {
+        return;
+    }
 
+    // Evento para cuando el usuario hace clic en la zona
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Eventos para el drag & drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault(); // Previene que el navegador abra el archivo
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        
+        // Asigna los archivos soltados al input de archivo
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            updateDropZoneFileList(fileInput.files);
+        }
+    });
+    
+    // Actualiza la UI cuando se seleccionan archivos de forma normal
+    fileInput.addEventListener('change', () => {
+        updateDropZoneFileList(fileInput.files);
+    });
+
+    // Función para mostrar los nombres de los archivos seleccionados
+    function updateDropZoneFileList(files) {
+        const p = dropZone.querySelector('p');
+        if (files.length > 0) {
+            let fileNames = Array.from(files).map(f => f.name).join(', ');
+            // Si la lista de nombres es muy larga, muestra un resumen
+            if(fileNames.length > 100) {
+                p.textContent = `${files.length} archivos seleccionados.`;
+            } else {
+                p.textContent = fileNames;
+            }
+        } else {
+            p.textContent = 'Arrastra y suelta tus imágenes aquí, o haz clic para seleccionarlas.';
+        }
+    }
+}
 
 /***********************************************************************/
 
@@ -1171,6 +1232,7 @@ async function loadActionContent(actionPath) {
             case 'listas_compras/ver_lista': initializeListasCompras(actionContent); break;
             case 'tiendas/gestion': initializeTiendaManagement(); break; 
             case 'proveedores/gestion': initializeProveedorManagement(); break;
+            case 'utilidades/procesador_imagenes': initializeImageProcessor(); break;
             case 'utilidades/generador_codigos': initializeBarcodeGenerator(); break;
         }
     } catch (error) {
@@ -2034,43 +2096,163 @@ mainContent.addEventListener('click', async (event) => {
         return; 
     }
 
-    if (target.id === 'start-processing-btn') {
-        const button = event.target;
-        const outputConsole = document.getElementById('processor-output');
-        const rotationOption = document.getElementById('rotation-option').value; 
-        
-        button.disabled = true;
-        button.textContent = 'Procesando...';
-        outputConsole.textContent = 'Iniciando...\n';
-        document.getElementById('results-container').classList.add('hidden');
-
-        try {
-            let apiUrl = '../api/index.php?resource=run_processor';
-            if (rotationOption) {
-                apiUrl += `&rotate=${rotationOption}`;
-            }
-
-            const response = await fetch(apiUrl);
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                outputConsole.textContent += decoder.decode(value, { stream: true });
-                outputConsole.scrollTop = outputConsole.scrollHeight;
-            }
-            
-            outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
-            await showProcessedFiles();
-
-        } catch (error) {
-            outputConsole.textContent += `\n\n--- ERROR ---\n${error.message}`;
-        } finally {
-            button.disabled = false;
-            button.textContent = 'Iniciar Proceso';
-        }
+if (target.id === 'start-processing-btn') {
+    const button = event.target;
+    const outputConsole = document.getElementById('processor-output');
+    const rotationOption = document.getElementById('rotation-option').value;
+    const fileInput = document.getElementById('image-upload-input');
+    
+    if (fileInput.files.length === 0) {
+        alert('Por favor, selecciona al menos una imagen para procesar.');
         return;
     }
+
+    button.disabled = true;
+    button.textContent = 'Subiendo imágenes...';
+    outputConsole.textContent = 'Iniciando subida...\n';
+    document.getElementById('results-container').classList.add('hidden');
+
+    // Paso 1: Subir los archivos al servidor
+    const formData = new FormData();
+    for (const file of fileInput.files) {
+        formData.append('images[]', file);
+    }
+
+    try {
+        const uploadResponse = await fetch(`${API_BASE_URL}?resource=admin/upload_for_processing`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const uploadResult = await uploadResponse.json();
+        if (!uploadResult.success) {
+            throw new Error(`Error en la subida: ${uploadResult.error}`);
+        }
+        
+        outputConsole.textContent += `${uploadResult.message}\nIniciando procesamiento...\n`;
+        button.textContent = 'Procesando...';
+
+        // Paso 2: Ejecutar el script de Python (si la subida fue exitosa)
+        let processApiUrl = `${API_BASE_URL}?resource=run_processor`;
+        if (rotationOption) {
+            processApiUrl += `&rotate=${rotationOption}`;
+        }
+
+        const processResponse = await fetch(processApiUrl);
+        const reader = processResponse.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            outputConsole.textContent += decoder.decode(value, { stream: true });
+            outputConsole.scrollTop = outputConsole.scrollHeight;
+        }
+        
+        outputConsole.textContent += '\n\n--- PROCESO FINALIZADO ---';
+        await showProcessedFiles();
+
+    } catch (error) {
+        outputConsole.textContent += `\n\n--- ERROR CRÍTICO ---\n${error.message}`;
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Subir y Procesar';
+        fileInput.value = ''; // Limpiar el selector de archivos
+    }
+    return;
+}
+
+
+
+if (target.id === 'clear-results-btn') {
+    if (!confirm('¿Estás seguro de que quieres limpiar todos los resultados? Esto eliminará los archivos procesados del servidor.')) {
+        return;
+    }
+
+    const feedbackDiv = document.getElementById('results-feedback');
+    target.disabled = true;
+    target.textContent = 'Limpiando...';
+    feedbackDiv.textContent = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/clear_processor_folders`, {
+            method: 'POST' 
+        });
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+        
+        // Limpiar la vista
+        document.getElementById('processed-files-list').innerHTML = '';
+        document.getElementById('results-container').classList.add('hidden');
+        document.getElementById('processor-output').textContent = 'Consola limpiada.';
+
+        // --- INICIO DE LA ADICIÓN ---
+        const dropZoneP = document.querySelector('#drop-zone p');
+        if (dropZoneP) {
+            dropZoneP.textContent = 'Arrastra y suelta tus imágenes aquí, o haz clic para seleccionarlas.';
+        }
+        document.getElementById('image-upload-input').value = ''; // Resetea el input de archivos
+        // --- FIN DE LA ADICIÓN ---
+
+        feedbackDiv.textContent = result.message;
+        feedbackDiv.style.color = 'green';
+        setTimeout(() => feedbackDiv.innerHTML = '', 4000);
+
+    } catch (error) {
+        feedbackDiv.textContent = `Error: ${error.message}`;
+        feedbackDiv.style.color = 'red';
+    } finally {
+        target.disabled = false;
+        target.textContent = 'Limpiar';
+    }
+    return;
+}
+
+
+
+// AÑADE este bloque dentro del listener de 'click' en mainContent en admin/js/admin.js
+
+// REEMPLAZA esta función en: admin/js/admin.js
+// REEMPLAZA este bloque completo en admin/js/admin.js
+
+if (target.id === 'download-zip-btn') {
+    const selectedFiles = Array.from(document.querySelectorAll('.processed-file-checkbox:checked'))
+                               .map(cb => cb.closest('.processed-file-item').dataset.fileName);
+    
+    if (selectedFiles.length === 0) {
+        alert('Por favor, selecciona al menos una imagen para descargar.');
+        return;
+    }
+
+    // Se crea un formulario invisible en la página.
+    const downloadForm = document.createElement('form');
+    downloadForm.method = 'POST';
+    // Apunta directamente a nuestro nuevo script de descarga.
+    downloadForm.action = '../api/download_images.php'; 
+    downloadForm.target = '_blank'; // Evita que la página actual se recargue.
+
+    // Se crea un campo oculto para enviar la lista de archivos.
+    const filesInput = document.createElement('input');
+    filesInput.type = 'hidden';
+    filesInput.name = 'files';
+    filesInput.value = JSON.stringify(selectedFiles);
+    downloadForm.appendChild(filesInput);
+
+    // Se añade el formulario a la página, se envía y se elimina inmediatamente.
+    document.body.appendChild(downloadForm);
+    downloadForm.submit();
+    document.body.removeChild(downloadForm);
+    
+    return; // Finaliza la ejecución del evento de clic.
+}
+
+// AÑADE esta nueva función completa en admin/js/admin.js
+
+
+/*********************************************************/
     
     if (target.classList.contains('delete-tienda-btn')) {
         const row = target.closest('tr');
@@ -2262,6 +2444,16 @@ mainContent.addEventListener('change', async (event) => {
         currentFilters.page = 1;
         await fetchAndRenderProducts();
     }
+
+
+    if (target.id === 'select-all-checkbox') {
+        document.querySelectorAll('.processed-file-checkbox').forEach(checkbox => {
+            checkbox.checked = target.checked;
+        });
+        // Actualizamos el estado de los botones de acción (Subir, ZIP, etc.)
+        updateProcessorButtons();
+    }
+    
 });
 
 
@@ -3493,7 +3685,7 @@ async function showProcessedFiles() {
 function updateProcessorButtons() {
     const checkedBoxes = document.querySelectorAll('.processed-file-checkbox:checked').length;
     const uploadBtn = document.getElementById('upload-to-gallery-btn');
-    const downloadBtn = document.getElementById('download-zip-btn');
+    const downloadBtn = document.getElementById('download-zip-btn'); // <-- LÍNEA AÑADIDA
 
     // Si no hay nada seleccionado, los botones se desactivan
     if (uploadBtn) uploadBtn.disabled = checkedBoxes === 0;
