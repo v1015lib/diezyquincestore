@@ -2193,7 +2193,7 @@ if (target.id === 'download-zip-btn') {
     const downloadForm = document.createElement('form');
     downloadForm.method = 'POST';
     // Apunta directamente a nuestro nuevo script de descarga.
-    downloadForm.action = '../api/download_images.php'; 
+    downloadForm.action = 'api/download_images.php'; 
     downloadForm.target = '_blank'; // Evita que la página actual se recargue.
 
     // Se crea un campo oculto para enviar la lista de archivos.
