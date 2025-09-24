@@ -3,8 +3,7 @@ date_default_timezone_set('America/El_Salvador');
 
 session_start();
 require_once __DIR__ . '/../vendor/autoload.php';
-use Aws\S3\S3Client; 
-use Aws\Exception\AwsException;
+
 
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
@@ -4355,57 +4354,8 @@ case 'admin/updateCustomer':
     break;
 //Procesador de imagenes con python
     
-case 'run_processor':
-    header('Content-Type: text/plain; charset=utf-8');
-    if (ob_get_level()) ob_end_clean();
-    
-    // Ruta a tu ejecutable de Python
-    $python_executable = 'C:\Users\LibreriaPc\AppData\Local\Programs\Python\Python313\python.exe';
-    
-    // Ruta al script de Python
-    $python_script_path = realpath(__DIR__ . '/../admin/scripts/procesador.py');
-    
-    // --- LÍNEA NUEVA: Obtenemos el parámetro de rotación ---
-    $rotation = $_GET['rotate'] ?? '';
 
-    // Verificaciones de seguridad (sin cambios)
-    if (!$python_script_path || !file_exists($python_script_path)) {
-        die("Error Crítico: No se pudo encontrar el script procesador.py.");
-    }
-    if (!file_exists($python_executable)) {
-        die("Error Crítico: No se pudo encontrar el ejecutable de Python en la ruta especificada.");
-    }
-    
-    // --- LÓGICA MODIFICADA: Se construye el comando con el argumento de rotación ---
-    $command = '"' . $python_executable . '" "' . $python_script_path . '"';
-    if ($rotation === 'left' || $rotation === 'right') {
-        $command .= ' --rotate ' . escapeshellarg($rotation);
-    }
-    $command .= ' 2>&1';
-    
-    passthru($command);
-    break;
 
-case 'get_processed_images':
-        header('Content-Type: application/json');
-        $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
-        $baseUrl = '../admin/scripts/salida_ia/'; // Ruta relativa para el src de la imagen
-        $files = [];
-        if (is_dir($outputDir)) {
-            $items = array_diff(scandir($outputDir), array('..', '.'));
-            foreach ($items as $item) {
-                if (!is_dir($outputDir . $item)) {
-                    $files[] = [
-                        'name' => $item,
-                        'url' => $baseUrl . $item
-                    ];
-                }
-            }
-        }
-        echo json_encode(['success' => true, 'files' => $files]);
-    break;
-
-    // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
 
 // AÑADE este nuevo 'case' en tu switch principal en api/index.php
@@ -4453,145 +4403,10 @@ case 'download_processed_images':
 
 
 
-case 'admin/clear_processor_folders':
-    try {
-        $outputDir = __DIR__ . '/../admin/scripts/salida_ia/';
-        $inputDir = __DIR__ . '/../admin/scripts/entrada/';
-        $deletedCount = 0;
-
-        // Limpiar carpeta de salida
-        if (is_dir($outputDir)) {
-            $files = glob($outputDir . '*'); 
-            foreach($files as $file){ 
-                if(is_file($file)) {
-                    unlink($file);
-                    $deletedCount++;
-                }
-            }
-        }
-
-        // Limpiar carpeta de entrada
-        if (is_dir($inputDir)) {
-            $files = glob($inputDir . '*');
-            foreach($files as $file){
-                if(is_file($file)) {
-                    unlink($file);
-                    $deletedCount++;
-                }
-            }
-        }
-
-        echo json_encode(['success' => true, 'message' => "Se limpiaron las carpetas y se eliminaron {$deletedCount} archivos."]);
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'No se pudieron limpiar las carpetas: ' . $e->getMessage()]);
-    }
-    break;
 
 
-case 'admin/upload_for_processing':
-    try {
-        if (empty($_FILES['images'])) {
-            throw new Exception('No se recibieron archivos.');
-        }
-
-        $inputDir = __DIR__ . '/../admin/scripts/entrada/';
-        if (!is_dir($inputDir)) {
-            mkdir($inputDir, 0777, true);
-        }
-
-        // Opcional: Limpiar la carpeta de entrada antes de subir nuevos archivos
-        $existingFiles = glob($inputDir . '*');
-        foreach ($existingFiles as $file) {
-            if (is_file($file)) {
-                unlink($file);
-            }
-        }
-
-        $fileCount = 0;
-        $errors = [];
-        
-        foreach ($_FILES['images']['tmp_name'] as $key => $tmpName) {
-            if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
-                $fileName = basename($_FILES['images']['name'][$key]);
-                $destination = $inputDir . $fileName;
-                if (move_uploaded_file($tmpName, $destination)) {
-                    $fileCount++;
-                } else {
-                    $errors[] = "No se pudo mover el archivo: " . htmlspecialchars($fileName);
-                }
-            } else {
-                $errors[] = "Error al subir el archivo: " . htmlspecialchars($_FILES['images']['name'][$key]);
-            }
-        }
-
-        if ($fileCount > 0) {
-            echo json_encode(['success' => true, 'message' => "Se subieron {$fileCount} imágenes correctamente."]);
-        } else {
-            throw new Exception("No se pudo procesar ningún archivo. Detalles: " . implode(", ", $errors));
-        }
-
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-    break;
 
 
-case 'admin/uploadProcessedToBucket':
-            try {
-                $data = json_decode(file_get_contents('php://input'), true);
-                $filesToUpload = $data['files'] ?? [];
-
-                if (empty($filesToUpload)) {
-                    throw new Exception('No se seleccionaron archivos para subir.');
-                }
-
-                // --- CONFIGURACIÓN DE DIGITALOCEAN SPACES ---
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region'  => 'auto', // Tu región
-                    'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com', // El endpoint regional
-                    'credentials' => [
-                        'key'    => 'c9ec80887e252cd42c4a84bfbc8daf89',    // Pega aquí tu Key
-                        'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577', // Pega aquí tu Secret
-                    ],
-                ]);
-
-                $bucketName = 'libreria-web-imagenes'; // El nombre de tu Space
-                $sourceDir = __DIR__ . '/../admin/scripts/salida_ia/'; // Directorio local donde están los archivos
-                $uploadedCount = 0;
-
-                foreach ($filesToUpload as $fileName) {
-                    $localFilePath = realpath($sourceDir . $fileName);
-
-                    // Verifica que el archivo exista en el servidor antes de subirlo
-                    if ($localFilePath && file_exists($localFilePath)) {
-                        $objectKey = 'productos/' . $fileName; // Ruta dentro del Space
-
-                        // Sube el archivo al Space
-                        $s3Client->putObject([
-                            'Bucket' => $bucketName,
-                            'Key'    => $objectKey,
-                            'Body'   => fopen($localFilePath, 'r'),
-                            'ACL'    => 'public-read', // Hace el archivo públicamente visible
-                        ]);
-                        $uploadedCount++;
-                    }
-                }
-                
-                if ($uploadedCount == 0) {
-                    throw new Exception('Ninguno de los archivos seleccionados pudo ser encontrado en el servidor.');
-                }
-
-                echo json_encode(['success' => true, 'message' => "{$uploadedCount} imágenes subidas a la galería con éxito."]);
-
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error al subir las imágenes procesadas: ' . $e->getMessage()]);
-            }
-break;
 
 case 'admin/uploadImage':
             try {

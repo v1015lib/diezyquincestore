@@ -511,45 +511,7 @@ async function renderEditCustomerForm(customer) {
 
 // REEMPLAZA esta función completa en admin/js/admin.js
 
-async function showProcessedFiles() {
-    const listContainer = document.getElementById('processed-files-list');
-    const resultsContainer = document.getElementById('results-container');
-    if (!listContainer || !resultsContainer) return;
 
-    try {
-        const response = await fetch(`${API_BASE_URL}?resource=get_processed_images`);
-        const data = await response.json();
-
-        listContainer.innerHTML = '';
-        if (data.success && data.files.length > 0) {
-            resultsContainer.classList.remove('hidden');
-            data.files.forEach(file => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'processed-file-item';
-                itemDiv.dataset.fileName = file.name;
-
-                // --- MEJORA: La imagen ya no es un enlace de descarga ---
-                // Ahora al hacer clic en la imagen, solo se seleccionará/deseleccionará.
-                itemDiv.innerHTML = `
-                    <img src="${file.url}?t=${new Date().getTime()}" alt="${file.name}" style="cursor: pointer;">
-                    <div class="file-info">
-                        <label>
-                            <input type="checkbox" class="processed-file-checkbox">
-                            ${file.name}
-                        </label>
-                        <a href="${file.url}" download="${file.name}" class="download-icon" title="Descargar ${file.name}">📥</a>
-                    </div>
-                `;
-                
-                listContainer.appendChild(itemDiv);
-            });
-        } else {
-            resultsContainer.classList.add('hidden');
-        }
-    } catch (error) {
-        console.error('Error al obtener archivos procesados:', error);
-    }
-}
 
     function updateProcessorButtons() {
         const checkedBoxes = document.querySelectorAll('.processed-file-checkbox:checked').length;
@@ -1923,7 +1885,7 @@ mainContent.addEventListener('click', async (event) => {
 
         try {
             // Llama al 'case' que ahora usa DigitalOcean Spaces
-            const response = await fetch(`${API_BASE_URL}?resource=admin/uploadProcessedToBucket`, {
+            const response = await fetch(`api/procesador_imagenes.php?resource=uploadProcessedToBucket`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ files: selectedFiles })
@@ -2119,7 +2081,7 @@ if (target.id === 'start-processing-btn') {
     }
 
     try {
-        const uploadResponse = await fetch(`${API_BASE_URL}?resource=admin/upload_for_processing`, {
+        const uploadResponse = await fetch(`api/procesador_imagenes.php?resource=upload_for_processing`, {
             method: 'POST',
             body: formData
         });
@@ -2133,7 +2095,7 @@ if (target.id === 'start-processing-btn') {
         button.textContent = 'Procesando...';
 
         // Paso 2: Ejecutar el script de Python (si la subida fue exitosa)
-        let processApiUrl = `${API_BASE_URL}?resource=run_processor`;
+        let processApiUrl = `api/procesador_imagenes.php?resource=run_processor`;
         if (rotationOption) {
             processApiUrl += `&rotate=${rotationOption}`;
         }
@@ -2175,7 +2137,7 @@ if (target.id === 'clear-results-btn') {
     feedbackDiv.textContent = '';
 
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/clear_processor_folders`, {
+        const response = await fetch(`api/procesador_imagenes.php?resource=clear_processor_folders`, {
             method: 'POST' 
         });
         const result = await response.json();
@@ -3648,7 +3610,7 @@ async function showProcessedFiles() {
 
     try {
         // Llama a tu API para obtener la lista de imágenes
-        const response = await fetch('../api/index.php?resource=get_processed_images');
+        const response = await fetch('api/procesador_imagenes.php?resource=get_processed_images');
         const data = await response.json();
 
         listContainer.innerHTML = ''; // Limpia la lista anterior
