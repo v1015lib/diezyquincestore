@@ -4,6 +4,8 @@ date_default_timezone_set('America/El_Salvador');
 session_start();
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Aws\S3\S3Client;
+use Aws\Exception\AwsException;
 
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;

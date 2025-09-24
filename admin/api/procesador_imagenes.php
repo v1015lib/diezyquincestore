@@ -1,5 +1,4 @@
 <?php
-// admin/api/procesador_imagenes.php
 session_start();
 require_once __DIR__ . '/../../vendor/autoload.php';
 
