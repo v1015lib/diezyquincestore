@@ -19,7 +19,97 @@ $resource = $_GET['resource'] ?? '';
 
 try {
     switch ($resource) {
+case 'get_bucket_images':
+    try {
+                    $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region'  => 'auto', // Tu región
+                    'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com', // El endpoint regional
+                    'credentials' => [
+                        'key'    => 'c9ec80887e252cd42c4a84bfbc8daf89',    // Pega aquí tu Key
+                        'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577', // Pega aquí tu Secret
+                    ],
+                ]);
 
+        $bucketName = 'libreria-web-imagenes';
+        $cdnDomain = "https://pub-91131aea0d3a404eb911a098cf30c098.r2.dev";
+
+        $objects = $s3Client->listObjectsV2(['Bucket' => $bucketName, 'Prefix' => 'productos/']);
+        $all_images = [];
+
+        if (isset($objects['Contents'])) {
+            foreach ($objects['Contents'] as $object) {
+                if (substr($object['Key'], -1) === '/') continue;
+                $all_images[] = [
+                    'url' => $cdnDomain . '/' . $object['Key'],
+                    'name' => $object['Key'],
+                    'updated' => $object['LastModified']->getTimestamp()
+                ];
+            }
+        }
+        usort($all_images, fn($a, $b) => $b['updated'] - $a['updated']);
+        
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = 50;
+        $offset = ($page - 1) * $limit;
+        $paginated_images = array_slice($all_images, $offset, $limit);
+        $has_more = count($all_images) > ($offset + $limit);
+
+        echo json_encode(['success' => true, 'images' => $paginated_images, 'has_more' => $has_more]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudieron listar las imágenes: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'delete_bucket_image':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $objectName = $data['name'] ?? null;
+        if (!$objectName) throw new Exception('Nombre de objeto no proporcionado.');
+
+        $s3Client = new S3Client([
+            'version' => 'latest', 'region' => 'auto',
+            'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com',
+            'credentials' => ['key' => 'c9ec80887e252cd42c4a84bfbc8daf89', 'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577']
+        ]);
+        $bucketName = 'libreria-web-imagenes';
+
+        $s3Client->deleteObject(['Bucket' => $bucketName, 'Key' => $objectName]);
+        echo json_encode(['success' => true, 'message' => 'Imagen eliminada del bucket.']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudo eliminar la imagen: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'rename_bucket_image':
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $oldName = $data['oldName'] ?? null;
+        $newName = $data['newName'] ?? null;
+        if (!$oldName || !$newName) throw new Exception('Faltan nombres para renombrar.');
+
+        $s3Client = new S3Client([
+            'version' => 'latest', 'region' => 'auto',
+            'endpoint' => 'https://7963f8687a4029e4f9b712e6a8418931.r2.cloudflarestorage.com',
+            'credentials' => ['key' => 'c9ec80887e252cd42c4a84bfbc8daf89', 'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577']
+        ]);
+        $bucketName = 'libreria-web-imagenes';
+
+        $s3Client->copyObject([
+            'Bucket' => $bucketName, 'Key' => 'productos/' . $newName,
+            'CopySource' => "{$bucketName}/{$oldName}", 'ACL' => 'public-read'
+        ]);
+        $s3Client->deleteObject(['Bucket' => $bucketName, 'Key' => $oldName]);
+
+        echo json_encode(['success' => true, 'message' => 'Imagen renombrada con éxito.']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al renombrar: ' . $e->getMessage()]);
+    }
+    break;
 
 
     	case 'upload_for_processing':
