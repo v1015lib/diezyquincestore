@@ -12,7 +12,7 @@ $filesToZip = json_decode($_POST['files'] ?? '[]', true);
 
 // --- CORRECCIÓN APLICADA ---
 // La ruta ahora apunta correctamente desde /api/ hacia /admin/scripts/salida_ia/
-$outputDir = __DIR__ . '../scripts/salida_ia/';
+$outputDir = __DIR__ . '/../scripts/salida_ia/';
 
 if (empty($filesToZip) || !is_array($filesToZip)) {
     http_response_code(400);
