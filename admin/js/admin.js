@@ -5182,7 +5182,6 @@ function initializeBarcodeGenerator() {
 
 
 
-
 // REEMPLAZA esta función completa en admin/js/admin.js
 
 function initializeBucketManager() {
@@ -5200,20 +5199,18 @@ function initializeBucketManager() {
         if (isLoading || !hasMore) return;
         isLoading = true;
         loadingIndicator.style.display = 'block';
+
         try {
             const response = await fetch(`api/procesador_imagenes.php?resource=get_bucket_images&page=${page}`);
             const result = await response.json();
+
             if (result.success && result.images.length > 0) {
                 result.images.forEach(image => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'bucket-item';
                     itemDiv.dataset.imageName = image.name;
-
-                    // --- INICIO DE LA CORRECCIÓN: Estructura HTML más simple y robusta ---
                     itemDiv.innerHTML = `
-                        <div class="bucket-item-header">
-                            <input type="checkbox" class="bucket-file-checkbox" title="Seleccionar imagen">
-                        </div>
+                        <input type="checkbox" class="file-selector bucket-file-checkbox">
                         <img src="${image.url}?t=${new Date().getTime()}" alt="${image.name}" loading="lazy">
                         <p class="file-name">${image.name.replace('productos/', '')}</p>
                         <div class="bucket-item-actions">
@@ -5222,18 +5219,18 @@ function initializeBucketManager() {
                             <button class="action-btn delete-btn" title="Eliminar">❌</button>
                         </div>
                     `;
-                    // --- FIN DE LA CORRECCIÓN ---
-
                     gridContainer.appendChild(itemDiv);
                 });
                 page++;
                 hasMore = result.has_more;
             } else {
                 hasMore = false;
-                if (page === 1) gridContainer.innerHTML = '<p>No se encontraron imágenes.</p>';
+                if (page === 1) {
+                    gridContainer.innerHTML = '<p style="padding: 1rem; text-align:center;">No se encontraron imágenes en el bucket.</p>';
+                }
             }
         } catch (error) {
-            feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
+            feedbackDiv.innerHTML = `<div class="message error">Error al cargar imágenes: ${error.message}</div>`;
         } finally {
             isLoading = false;
             loadingIndicator.style.display = 'none';
@@ -5245,38 +5242,99 @@ function initializeBucketManager() {
         downloadZipBtn.disabled = checkedCount === 0;
     }
 
-    // --- LÓGICA DE EVENTOS (Sin cambios) ---
-    gridContainer.addEventListener('scroll', () => { if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 150) { loadBucketImages(); } });
-    selectAllCheckbox.addEventListener('change', (e) => { gridContainer.querySelectorAll('.bucket-file-checkbox').forEach(cb => cb.checked = e.target.checked); updateBatchButtons(); });
-    downloadZipBtn.addEventListener('click', () => {
-        const selectedFiles = Array.from(gridContainer.querySelectorAll('.bucket-file-checkbox:checked')).map(cb => cb.closest('.bucket-item').dataset.imageName);
-        if (selectedFiles.length === 0) return;
-        const downloadForm = document.createElement('form');
-        downloadForm.method = 'POST';
-        downloadForm.action = 'api/download_images.php';
-        downloadForm.target = '_blank';
-        const filesInput = document.createElement('input');
-        filesInput.type = 'hidden';
-        filesInput.name = 'bucket_files';
-        filesInput.value = JSON.stringify(selectedFiles);
-        downloadForm.appendChild(filesInput);
-        document.body.appendChild(downloadForm);
-        downloadForm.submit();
-        document.body.removeChild(downloadForm);
+    // --- LÓGICA DE EVENTOS ---
+    gridContainer.addEventListener('scroll', () => {
+        if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 150) {
+            loadBucketImages();
+        }
     });
+
+    selectAllCheckbox.addEventListener('change', (e) => {
+        gridContainer.querySelectorAll('.bucket-file-checkbox').forEach(cb => cb.checked = e.target.checked);
+        updateBatchButtons();
+    });
+
+    downloadZipBtn.addEventListener('click', () => {
+        const selectedFiles = Array.from(gridContainer.querySelectorAll('.bucket-file-checkbox:checked'))
+            .map(cb => cb.closest('.bucket-item').dataset.imageName);
+        if (selectedFiles.length === 0) return;
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'api/download_images.php';
+        form.target = '_blank';
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'bucket_files';
+        input.value = JSON.stringify(selectedFiles);
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    });
+
     gridContainer.addEventListener('click', async (e) => {
         const target = e.target;
         const itemDiv = target.closest('.bucket-item');
         if (!itemDiv) return;
-        if (target.matches('.bucket-file-checkbox')) { updateBatchButtons(); return; }
-        if (target.matches('.rename-btn, .delete-btn')) {
+
+        if (target.matches('.bucket-file-checkbox')) {
+            updateBatchButtons();
+            return;
+        }
+        
+        const actionButton = target.closest('.action-btn');
+        if (actionButton) {
             const imageName = itemDiv.dataset.imageName;
-            // ... (la lógica de renombrar y eliminar que ya funcionaba va aquí) ...
+
+            // Lógica para ELIMINAR
+            if (actionButton.classList.contains('delete-btn')) {
+                if (!confirm(`¿Estás SEGURO de eliminar "${imageName.replace('productos/', '')}"? Esta acción es irreversible.`)) return;
+                try {
+                    const response = await fetch(`api/procesador_imagenes.php?resource=delete_bucket_image`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: imageName })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        itemDiv.remove();
+                        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                    } else { throw new Error(result.error); }
+                } catch (error) {
+                    feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
+                }
+            }
+
+            // Lógica para RENOMBRAR
+            if (actionButton.classList.contains('rename-btn')) {
+                const currentName = imageName.replace('productos/', '');
+                const newName = prompt('Introduce el nuevo nombre para la imagen (incluye la extensión):', currentName);
+                if (newName && newName !== currentName) {
+                    try {
+                        const response = await fetch(`api/procesador_imagenes.php?resource=rename_bucket_image`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ oldName: imageName, newName: newName })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                            gridContainer.innerHTML = '';
+                            page = 1; hasMore = true;
+                            loadBucketImages();
+                        } else { throw new Error(result.error); }
+                    } catch (error) {
+                        feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
+                    }
+                }
+            }
         }
     });
-    
+
     loadBucketImages();
 }
+
 
 
 
