@@ -2664,31 +2664,7 @@ mainContent.addEventListener('dblclick', (event) => {
     }
 });
 
-// 2. Detecta cuando se hace clic fuera del input para guardar
-mainContent.addEventListener('focusout', (event) => {
-    const input = event.target;
-    if (input.tagName === 'INPUT' && input.parentElement.classList.contains('editable')) {
-        const cell = input.parentElement;
-        const originalValue = input.dataset.originalValue;
-        const newValue = input.value.trim();
-        const row = cell.closest('tr');
 
-        // Solo guarda si el valor es nuevo y no está vacío
-        if (newValue !== originalValue && newValue !== '') {
-            // Verifica si es una fila de departamento
-            if (row.dataset.departmentId) {
-                const departmentId = row.dataset.departmentId;
-                const field = cell.dataset.field;
-                // Llama a la función que se comunica con la API
-                saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
-            }
-            // Aquí podrías añadir un 'else if (row.dataset.productId)' para editar productos
-        } else {
-            // Si no hay cambios, restaura el valor original
-            cell.textContent = originalValue;
-        }
-    }
-});
 
 // 3. Función que envía los datos a la API para guardar en la base de datos
 async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
@@ -2783,7 +2759,41 @@ async function initializeWebAdminControls() {
 }
 
 
+// PASO 2: REEMPLAZA CUALQUIER listener 'focusout' por este bloque único
+mainContent.addEventListener('focusout', (event) => {
+    if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
+        const input = event.target;
+        const cell = input.parentElement;
+        const originalValue = input.dataset.originalValue;
+        const newValue = input.value.trim();
+        
+        if (newValue === originalValue || newValue === '') {
+            cell.textContent = originalValue;
+            if (cell.dataset.field === 'precio_venta') {
+                cell.textContent = `$${parseFloat(originalValue).toFixed(2)}`;
+            }
+            return;
+        }
 
+        const row = cell.closest('tr');
+        const itemDiv = cell.closest('.bucket-item');
+
+        if (row) {
+            const productId = row.dataset.productId;
+            const departmentId = row.dataset.departmentId;
+            const tiendaId = row.dataset.tiendaId;
+            const proveedorId = row.dataset.proveedorId;
+            const field = cell.dataset.field;
+
+            if (productId) saveFieldUpdate(productId, field, newValue, cell);
+            else if (departmentId) saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
+            else if (tiendaId) saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
+            else if (proveedorId) saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
+        } else if (itemDiv) {
+            saveBucketImageRename(itemDiv, newValue, cell);
+        }
+    }
+});
 
 function initializeCardManagement() {
     const createForm = document.getElementById('create-cards-form');
@@ -3239,48 +3249,7 @@ async function saveDepartmentFieldUpdate(departmentId, field, value, cell) {
     }
 }
 
-// Sobrescribimos el listener de focusout para que también maneje la tabla de departamentos
-// EN admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN COMPLETA)
 
-mainContent.addEventListener('focusout', (event) => {
-    // Verifica si el elemento que perdió el foco es un input dentro de una celda editable
-    if (event.target.tagName === 'INPUT' && event.target.parentElement.classList.contains('editable')) {
-        const input = event.target;
-        const cell = input.parentElement;
-        const originalValue = input.dataset.originalValue;
-        const newValue = input.value.trim();
-        const row = cell.closest('tr');
-
-        // Si el valor no cambió o está vacío, simplemente revierte al texto original
-        if (newValue === originalValue || newValue === '') {
-            cell.textContent = originalValue;
-            // Si era un precio, añade el símbolo de dólar de nuevo
-            if (cell.dataset.field === 'precio_venta') {
-                cell.textContent = `$${parseFloat(originalValue).toFixed(2)}`;
-            }
-            return;
-        }
-
-        // Determina qué tipo de fila es (producto, departamento o tienda)
-        const productId = row.dataset.productId;
-        const departmentId = row.dataset.departmentId;
-        const tiendaId = row.dataset.tiendaId; // Se define la variable que faltaba
-        const proveedorId = row.dataset.proveedorId; // <-- AÑADIDO
-        
-        const field = cell.dataset.field;
-
-        // Llama a la función de guardado correspondiente
-        if (productId) {
-            saveFieldUpdate(productId, field, newValue, cell);
-        } else if (departmentId) {
-            saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
-        } else if (tiendaId) {
-            saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
-        }else if (proveedorId) { // <-- AÑADIDO
-            saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
-        }
-    }
-});
 
 
 
@@ -5255,8 +5224,7 @@ function initializeBarcodeGenerator() {
 
 
 
-// REEMPLAZA esta función completa en admin/js/admin.js
-
+// PASO 1: REEMPLAZA esta función en admin.js
 function initializeBucketManager() {
     const gridContainer = document.getElementById('bucket-image-grid');
     const loadingIndicator = document.getElementById('bucket-loading-indicator');
@@ -5266,56 +5234,55 @@ function initializeBucketManager() {
 
     if (!gridContainer) return;
 
-    let isLoading = false, page = 1, hasMore = true;
+    const bucketCache = { images: [], page: 1, hasMore: true, isLoading: false };
+    window.bucketCache = bucketCache; // <-- Hacemos la caché accesible globalmente
 
     async function loadBucketImages() {
-        if (isLoading || !hasMore) return;
-        isLoading = true;
+        if (bucketCache.isLoading || !bucketCache.hasMore) return;
+        bucketCache.isLoading = true;
         loadingIndicator.style.display = 'block';
 
         try {
-            const response = await fetch(`api/procesador_imagenes.php?resource=get_bucket_images&page=${page}`);
+            const response = await fetch(`api/procesador_imagenes.php?resource=get_bucket_images&page=${bucketCache.page}`);
             const result = await response.json();
 
             if (result.success && result.images.length > 0) {
                 result.images.forEach(image => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'bucket-item';
-                    itemDiv.dataset.imageName = image.name;
-                    itemDiv.innerHTML = `
-                        <input type="checkbox" class="file-selector bucket-file-checkbox">
-                        <img src="${image.url}?t=${new Date().getTime()}" alt="${image.name}" loading="lazy">
-                        <p class="file-name">${image.name.replace('productos/', '')}</p>
-                        <div class="bucket-item-actions">
-                            <button class="action-btn rename-btn" title="Renombrar">✏️</button>
-                            <a href="api/download_images.php?file=${encodeURIComponent(image.name)}" class="action-btn" title="Descargar">📥</a>
-                            <button class="action-btn delete-btn" title="Eliminar">❌</button>
-                        </div>
-                    `;
-                    gridContainer.appendChild(itemDiv);
+                    if (!bucketCache.images.some(img => img.name === image.name)) {
+                        bucketCache.images.push(image);
+                        gridContainer.appendChild(createBucketItemElement(image));
+                    }
                 });
-                page++;
-                hasMore = result.has_more;
+                bucketCache.page++;
+                bucketCache.hasMore = result.has_more;
             } else {
-                hasMore = false;
-                if (page === 1) {
-                    gridContainer.innerHTML = '<p style="padding: 1rem; text-align:center;">No se encontraron imágenes en el bucket.</p>';
-                }
+                bucketCache.hasMore = false;
+                if (bucketCache.page === 1) gridContainer.innerHTML = '<p style="text-align:center;">No hay imágenes.</p>';
             }
         } catch (error) {
-            feedbackDiv.innerHTML = `<div class="message error">Error al cargar imágenes: ${error.message}</div>`;
+            feedbackDiv.innerHTML = `<div class="message error">Error al cargar: ${error.message}</div>`;
         } finally {
-            isLoading = false;
+            bucketCache.isLoading = false;
             loadingIndicator.style.display = 'none';
         }
     }
 
-    function updateBatchButtons() {
-        const checkedCount = gridContainer.querySelectorAll('.bucket-file-checkbox:checked').length;
-        downloadZipBtn.disabled = checkedCount === 0;
+    function createBucketItemElement(image) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'bucket-item';
+        itemDiv.dataset.imageName = image.name;
+        itemDiv.innerHTML = `
+            <input type="checkbox" class="file-selector bucket-file-checkbox">
+            <img src="${image.url}" alt="${image.name}" loading="lazy">
+            <p class="file-name editable" data-field="name">${image.name.replace('productos/', '')}</p>
+            <div class="bucket-item-actions">
+                <a href="api/download_images.php?file=${encodeURIComponent(image.name)}" class="action-btn" title="Descargar">📥</a>
+                <button class="action-btn delete-btn" title="Eliminar">❌</button>
+            </div>
+        `;
+        return itemDiv;
     }
-
-    // --- LÓGICA DE EVENTOS ---
+    
     gridContainer.addEventListener('scroll', () => {
         if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 150) {
             loadBucketImages();
@@ -5324,7 +5291,7 @@ function initializeBucketManager() {
 
     selectAllCheckbox.addEventListener('change', (e) => {
         gridContainer.querySelectorAll('.bucket-file-checkbox').forEach(cb => cb.checked = e.target.checked);
-        updateBatchButtons();
+        downloadZipBtn.disabled = gridContainer.querySelectorAll('.bucket-file-checkbox:checked').length === 0;
     });
 
     downloadZipBtn.addEventListener('click', () => {
@@ -5346,70 +5313,58 @@ function initializeBucketManager() {
         document.body.removeChild(form);
     });
 
-    gridContainer.addEventListener('click', async (e) => {
-        const target = e.target;
-        const itemDiv = target.closest('.bucket-item');
-        if (!itemDiv) return;
-
-        if (target.matches('.bucket-file-checkbox')) {
-            updateBatchButtons();
-            return;
-        }
-        
-        const actionButton = target.closest('.action-btn');
-        if (actionButton) {
-            const imageName = itemDiv.dataset.imageName;
-
-            // Lógica para ELIMINAR
-            if (actionButton.classList.contains('delete-btn')) {
-                if (!confirm(`¿Estás SEGURO de eliminar "${imageName.replace('productos/', '')}"? Esta acción es irreversible.`)) return;
-                try {
-                    const response = await fetch(`api/procesador_imagenes.php?resource=delete_bucket_image`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: imageName })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        itemDiv.remove();
-                        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-                    } else { throw new Error(result.error); }
-                } catch (error) {
-                    feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
-                }
-            }
-
-            // Lógica para RENOMBRAR
-            if (actionButton.classList.contains('rename-btn')) {
-                const currentName = imageName.replace('productos/', '');
-                const newName = prompt('Introduce el nuevo nombre para la imagen (incluye la extensión):', currentName);
-                if (newName && newName !== currentName) {
-                    try {
-                        const response = await fetch(`api/procesador_imagenes.php?resource=rename_bucket_image`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ oldName: imageName, newName: newName })
-                        });
-                        const result = await response.json();
-                        if (result.success) {
-                            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-                            gridContainer.innerHTML = '';
-                            page = 1; hasMore = true;
-                            loadBucketImages();
-                        } else { throw new Error(result.error); }
-                    } catch (error) {
-                        feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
-                    }
-                }
-            }
-        }
-    });
-
     loadBucketImages();
 }
 
 
 
+// PASO 3: AGREGA esta nueva función a admin.js (y elimina cualquier versión vieja)
+async function saveBucketImageRename(itemDiv, newValue, cell) {
+    const feedbackDiv = document.getElementById('bucket-manager-feedback');
+    const originalText = cell.querySelector('input').dataset.originalValue;
+    const oldName = itemDiv.dataset.imageName;
+    cell.textContent = 'Guardando...';
+
+    try {
+        const response = await fetch(`api/procesador_imagenes.php?resource=rename_bucket_image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldName: oldName, newName: newValue })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        const newObjectKey = result.newName;
+        const newBaseName = newObjectKey.replace('productos/', '');
+
+        cell.textContent = newBaseName;
+        itemDiv.dataset.imageName = newObjectKey;
+        
+        const img = itemDiv.querySelector('img');
+        if (img) {
+            const oldUrl = new URL(img.src);
+            const newUrl = `${oldUrl.origin}/${newObjectKey}`;
+            img.src = `${newUrl}?t=${new Date().getTime()}`;
+        }
+        
+        const cachedImage = window.bucketCache.images.find(img => img.name === oldName);
+        if (cachedImage) {
+            cachedImage.name = newObjectKey;
+            if (cachedImage.url) {
+                 const cachedUrl = new URL(cachedImage.url);
+                 cachedImage.url = `${cachedUrl.origin}/${newObjectKey}`;
+            }
+        }
+        
+        const downloadLink = itemDiv.querySelector('a');
+        if (downloadLink) downloadLink.href = `api/download_images.php?file=${encodeURIComponent(newObjectKey)}`;
+
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+        cell.textContent = originalText;
+    }
+}
 
 
 });

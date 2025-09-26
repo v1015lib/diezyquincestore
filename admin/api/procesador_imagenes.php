@@ -84,12 +84,34 @@ case 'delete_bucket_image':
     }
     break;
 
+// REEMPLAZA este bloque en tu archivo: procesador_imagenes.php
+
 case 'rename_bucket_image':
+    header('Content-Type: application/json');
     try {
         $data = json_decode(file_get_contents('php://input'), true);
         $oldName = $data['oldName'] ?? null;
         $newName = $data['newName'] ?? null;
-        if (!$oldName || !$newName) throw new Exception('Faltan nombres para renombrar.');
+
+        if (!$oldName || !$newName) {
+            throw new Exception('Faltan nombres para renombrar.');
+        }
+
+        // --- INICIO DE LA LÓGICA MEJORADA ---
+        $oldExtension = pathinfo($oldName, PATHINFO_EXTENSION);
+        $newExtension = pathinfo($newName, PATHINFO_EXTENSION);
+
+        // Si el nuevo nombre no tiene extensión, se le añade la del archivo original.
+        if (empty($newExtension) && !empty($oldExtension)) {
+            $newName .= '.' . $oldExtension;
+        }
+        
+        // Sanitiza el nuevo nombre para seguridad.
+        $safeNewName = basename($newName);
+        if (empty($safeNewName)) {
+             throw new Exception('El nuevo nombre no es válido.');
+        }
+        // --- FIN DE LA LÓGICA MEJORADA ---
 
         $s3Client = new S3Client([
             'version' => 'latest', 'region' => 'auto',
@@ -97,14 +119,22 @@ case 'rename_bucket_image':
             'credentials' => ['key' => 'c9ec80887e252cd42c4a84bfbc8daf89', 'secret' => '668fe85245509d9e6f7cbe5c0357872b59584eafaa584678fbdb5a4015f68577']
         ]);
         $bucketName = 'libreria-web-imagenes';
+        $newObjectKey = 'productos/' . $safeNewName;
+
+        // Se usa el formato 'Bucket/Key' que es el estándar y más compatible.
+        $copySource = $bucketName . '/' . $oldName;
 
         $s3Client->copyObject([
-            'Bucket' => $bucketName, 'Key' => 'productos/' . $newName,
-            'CopySource' => "{$bucketName}/{$oldName}", 'ACL' => 'public-read'
+            'Bucket'     => $bucketName,
+            'Key'        => $newObjectKey,
+            'CopySource' => $copySource,
+            'ACL'        => 'public-read'
         ]);
+        
         $s3Client->deleteObject(['Bucket' => $bucketName, 'Key' => $oldName]);
 
-        echo json_encode(['success' => true, 'message' => 'Imagen renombrada con éxito.']);
+        echo json_encode(['success' => true, 'message' => 'Imagen renombrada con éxito.', 'newName' => $newObjectKey]);
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Error al renombrar: ' . $e->getMessage()]);
