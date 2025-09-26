@@ -18,6 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
         searchTerm: '' // Guardará el último término de búsqueda
     };
     let isLoadingGallery = false;
+    const bucketCache = { images: [], 
+        page: 1, 
+        hasMore: true, 
+        isLoading: false 
+    };
+    window.bucketCache = bucketCache; // <-- Hacemos la caché accesible globalmente
 
     const API_BASE_URL = '../api/index.php';
 
@@ -5224,97 +5230,106 @@ function initializeBarcodeGenerator() {
 
 
 
-// PASO 1: REEMPLAZA esta función en admin.js
-function initializeBucketManager() {
-    const gridContainer = document.getElementById('bucket-image-grid');
-    const loadingIndicator = document.getElementById('bucket-loading-indicator');
-    const feedbackDiv = document.getElementById('bucket-manager-feedback');
-    const selectAllCheckbox = document.getElementById('select-all-bucket-images');
-    const downloadZipBtn = document.getElementById('download-bucket-zip-btn');
+    function initializeBucketManager() {
+        const gridContainer = document.getElementById('bucket-image-grid');
+        const loadingIndicator = document.getElementById('bucket-loading-indicator');
+        const feedbackDiv = document.getElementById('bucket-manager-feedback');
+        const selectAllCheckbox = document.getElementById('select-all-bucket-images');
+        const downloadZipBtn = document.getElementById('download-bucket-zip-btn');
 
-    if (!gridContainer) return;
+        if (!gridContainer) return;
+        
+        // Esta función ahora usará la variable 'bucketCache' que definimos arriba.
+        async function loadBucketImages() {
+            if (bucketCache.isLoading || !bucketCache.hasMore) return;
+            bucketCache.isLoading = true;
+            loadingIndicator.style.display = 'block';
 
-    const bucketCache = { images: [], page: 1, hasMore: true, isLoading: false };
-    window.bucketCache = bucketCache; // <-- Hacemos la caché accesible globalmente
+            try {
+                const response = await fetch(`api/procesador_imagenes.php?resource=get_bucket_images&page=${bucketCache.page}`);
+                const result = await response.json();
 
-    async function loadBucketImages() {
-        if (bucketCache.isLoading || !bucketCache.hasMore) return;
-        bucketCache.isLoading = true;
-        loadingIndicator.style.display = 'block';
-
-        try {
-            const response = await fetch(`api/procesador_imagenes.php?resource=get_bucket_images&page=${bucketCache.page}`);
-            const result = await response.json();
-
-            if (result.success && result.images.length > 0) {
-                result.images.forEach(image => {
-                    if (!bucketCache.images.some(img => img.name === image.name)) {
-                        bucketCache.images.push(image);
-                        gridContainer.appendChild(createBucketItemElement(image));
-                    }
-                });
-                bucketCache.page++;
-                bucketCache.hasMore = result.has_more;
-            } else {
-                bucketCache.hasMore = false;
-                if (bucketCache.page === 1) gridContainer.innerHTML = '<p style="text-align:center;">No hay imágenes.</p>';
+                if (result.success && result.images.length > 0) {
+                    result.images.forEach(image => {
+                        // Evita duplicados si la función se llama accidentalmente
+                        if (!bucketCache.images.some(img => img.name === image.name)) {
+                            bucketCache.images.push(image);
+                            gridContainer.appendChild(createBucketItemElement(image));
+                        }
+                    });
+                    bucketCache.page++;
+                    bucketCache.hasMore = result.has_more;
+                } else {
+                    bucketCache.hasMore = false;
+                    if (bucketCache.page === 1) gridContainer.innerHTML = '<p style="text-align:center;">No hay imágenes.</p>';
+                }
+            } catch (error) {
+                feedbackDiv.innerHTML = `<div class="message error">Error al cargar: ${error.message}</div>`;
+            } finally {
+                bucketCache.isLoading = false;
+                loadingIndicator.style.display = 'none';
             }
-        } catch (error) {
-            feedbackDiv.innerHTML = `<div class="message error">Error al cargar: ${error.message}</div>`;
-        } finally {
-            bucketCache.isLoading = false;
-            loadingIndicator.style.display = 'none';
         }
-    }
-
-    function createBucketItemElement(image) {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'bucket-item';
-        itemDiv.dataset.imageName = image.name;
-        itemDiv.innerHTML = `
-            <input type="checkbox" class="file-selector bucket-file-checkbox">
-            <img src="${image.url}" alt="${image.name}" loading="lazy">
-            <p class="file-name editable" data-field="name">${image.name.replace('productos/', '')}</p>
-            <div class="bucket-item-actions">
-                <a href="api/download_images.php?file=${encodeURIComponent(image.name)}" class="action-btn" title="Descargar">📥</a>
-                <button class="action-btn delete-btn" title="Eliminar">❌</button>
-            </div>
-        `;
-        return itemDiv;
-    }
-    
-    gridContainer.addEventListener('scroll', () => {
-        if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 150) {
+        
+        function createBucketItemElement(image) {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'bucket-item';
+            itemDiv.dataset.imageName = image.name;
+            itemDiv.innerHTML = `
+                <input type="checkbox" class="file-selector bucket-file-checkbox">
+                <img src="${image.url}" alt="${image.name}" loading="lazy">
+                <p class="file-name editable" data-field="name">${image.name.replace('productos/', '')}</p>
+                <div class="bucket-item-actions">
+                    <a href="api/download_images.php?file=${encodeURIComponent(image.name)}" class="action-btn" title="Descargar">📥</a>
+                    <button class="action-btn delete-btn" title="Eliminar">❌</button>
+                </div>
+            `;
+            return itemDiv;
+        }
+        
+        // Limpia la vista y la reconstruye desde la caché si ya hay imágenes
+        gridContainer.innerHTML = '';
+        if (bucketCache.images.length > 0) {
+            bucketCache.images.forEach(image => {
+                gridContainer.appendChild(createBucketItemElement(image));
+            });
+        }
+        
+        // Si no hay nada en caché, carga la primera página
+        if (bucketCache.images.length === 0) {
             loadBucketImages();
         }
-    });
 
-    selectAllCheckbox.addEventListener('change', (e) => {
-        gridContainer.querySelectorAll('.bucket-file-checkbox').forEach(cb => cb.checked = e.target.checked);
-        downloadZipBtn.disabled = gridContainer.querySelectorAll('.bucket-file-checkbox:checked').length === 0;
-    });
+        gridContainer.addEventListener('scroll', () => {
+            if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 150) {
+                loadBucketImages();
+            }
+        });
 
-    downloadZipBtn.addEventListener('click', () => {
-        const selectedFiles = Array.from(gridContainer.querySelectorAll('.bucket-file-checkbox:checked'))
-            .map(cb => cb.closest('.bucket-item').dataset.imageName);
-        if (selectedFiles.length === 0) return;
-        
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'api/download_images.php';
-        form.target = '_blank';
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'bucket_files';
-        input.value = JSON.stringify(selectedFiles);
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
-    });
+        selectAllCheckbox.addEventListener('change', (e) => {
+            gridContainer.querySelectorAll('.bucket-file-checkbox').forEach(cb => cb.checked = e.target.checked);
+            downloadZipBtn.disabled = gridContainer.querySelectorAll('.bucket-file-checkbox:checked').length === 0;
+        });
 
-    loadBucketImages();
-}
+        downloadZipBtn.addEventListener('click', () => {
+            const selectedFiles = Array.from(gridContainer.querySelectorAll('.bucket-file-checkbox:checked'))
+                .map(cb => cb.closest('.bucket-item').dataset.imageName);
+            if (selectedFiles.length === 0) return;
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'api/download_images.php';
+            form.target = '_blank';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'bucket_files';
+            input.value = JSON.stringify(selectedFiles);
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        });
+    }
 
 
 
