@@ -1937,9 +1937,46 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
 
 
 
-// admin/js/admin.js (PARTE 2 DE 2 - VERSIÓN COMPLETA Y FINAL)
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
+
+
+
+
+
+        if (target.classList.contains('delete-btn') && target.closest('.bucket-item')) {
+        event.stopPropagation(); // Evita que se disparen otros eventos
+        const itemToDelete = target.closest('.bucket-item');
+        const imageName = itemToDelete.dataset.imageName;
+        const feedbackDiv = document.getElementById('bucket-manager-feedback');
+
+        if (confirm(`¿Estás seguro de que quieres eliminar esta imagen PERMANENTEMENTE del bucket?\n\nArchivo: ${imageName.replace('productos/', '')}`)) {
+            feedbackDiv.innerHTML = '';
+            try {
+                const response = await fetch(`api/procesador_imagenes.php?resource=delete_bucket_image`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: imageName })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                // Elimina la imagen de la vista y de la caché
+                itemToDelete.remove();
+                const indexInCache = bucketCache.images.findIndex(img => img.name === imageName);
+                if (indexInCache > -1) {
+                    bucketCache.images.splice(indexInCache, 1);
+                }
+
+                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+                setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+
+            } catch (error) {
+                feedbackDiv.innerHTML = `<div class="message error">Error al eliminar: ${error.message}</div>`;
+            }
+        }
+        return; // Detiene la ejecución para no interferir con otros listeners
+    }
 
     if (target.classList.contains('processed-file-checkbox')) {
         // Se usa un pequeño retraso para asegurar que el estado 'checked' se actualice antes de la validación.
@@ -2597,13 +2634,14 @@ mainContent.addEventListener('change', async (event) => {
                     closeImageGallery();
                 }
             }
+
 if (target.id === 'gallery-upload-btn') {
     const fileInput = galleryModal.querySelector('#gallery-upload-input');
     const feedbackDiv = galleryModal.querySelector('#gallery-upload-feedback');
-    
+    const gridContainer = galleryModal.querySelector('.image-grid-container');
+
     if (fileInput.files.length > 0) {
         const formData = new FormData();
-        // Añadimos todos los archivos seleccionados al FormData
         for (let i = 0; i < fileInput.files.length; i++) {
             formData.append('url_imagen[]', fileInput.files[i]);
         }
@@ -2623,11 +2661,32 @@ if (target.id === 'gallery-upload-btn') {
             
             feedbackDiv.textContent = result.message;
             feedbackDiv.style.color = 'green';
-            fileInput.value = ''; // Limpiamos el input
-            
-            // Recargamos la galería desde cero para ver las nuevas imágenes al principio
-            openImageGallery(); 
+            fileInput.value = '';
+
+            // --- INICIO DE LA LÓGICA MEJORADA ---
+            // Añadir las nuevas imágenes al principio del caché y de la vista
+            if (result.uploaded_images && result.uploaded_images.length > 0) {
+                // Añadimos las nuevas imágenes al inicio del array del caché
+                galleryCache.images.unshift(...result.uploaded_images);
+
+                // Creamos y añadimos los elementos HTML al inicio de la galería
+                result.uploaded_images.reverse().forEach(image => {
+                    const item = document.createElement('div');
+                    item.className = 'image-grid-item';
+                    item.dataset.imageUrl = image.url;
+                    item.dataset.imageName = image.name;
+                    item.innerHTML = `
+                        <img src="${image.url}" alt="${image.name}" loading="lazy">
+                        <p class="file-name">${image.name.replace('productos/', '')}</p> 
+                        <button class="delete-image-btn" title="Eliminar del bucket">&times;</button>
+                    `;
+                    gridContainer.prepend(item); // prepend lo añade al inicio
+                });
+            }
+
+            // Cambiar a la pestaña de selección para ver la imagen subida
             galleryModal.querySelector('.gallery-tab-btn[data-tab="select"]').click();
+            // --- FIN DE LA LÓGICA MEJORADA ---
 
         } catch (error) {
             feedbackDiv.textContent = `Error: ${error.message}`;
@@ -2640,7 +2699,11 @@ if (target.id === 'gallery-upload-btn') {
         feedbackDiv.textContent = 'Selecciona uno o más archivos primero.';
     }
 }
-            if (target.matches('.modal-close-btn') || target.id === 'gallery-cancel-btn') {
+
+
+
+
+if (target.matches('.modal-close-btn') || target.id === 'gallery-cancel-btn') {
                 closeImageGallery();
             }
         });

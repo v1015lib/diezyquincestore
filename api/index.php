@@ -4423,11 +4423,6 @@ case 'download_processed_images':
 
 
 
-
-
-
-
-
 case 'admin/uploadImage':
             try {
                 if (!isset($_FILES['url_imagen']) || !is_array($_FILES['url_imagen']['name'])) {
@@ -4445,14 +4440,18 @@ case 'admin/uploadImage':
                 ]);
 
                 $bucketName = 'libreria-web-imagenes';
-                $uploadCount = 0;
+                $cdnDomain = "https://pub-91131aea0d3a404eb911a098cf30c098.r2.dev";
+                $uploaded_files_data = [];
                 $totalFiles = count($_FILES['url_imagen']['name']);
 
                 for ($i = 0; $i < $totalFiles; $i++) {
                     if ($_FILES['url_imagen']['error'][$i] === UPLOAD_ERR_OK) {
                         $fileTmpPath = $_FILES['url_imagen']['tmp_name'][$i];
-                        $fileExt = strtolower(pathinfo($_FILES['url_imagen']['name'][$i], PATHINFO_EXTENSION));
-                        $newFileName = md5(uniqid(rand(), true)) . '.' . $fileExt;
+                        $originalFileName = $_FILES['url_imagen']['name'][$i];
+                        $fileExt = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
+                        
+                        // Generar un nombre único para evitar colisiones
+                        $newFileName = pathinfo($originalFileName, PATHINFO_FILENAME) . '_' . uniqid() . '.' . $fileExt;
                         $objectKey = 'productos/' . $newFileName;
 
                         $s3Client->putObject([
@@ -4461,21 +4460,29 @@ case 'admin/uploadImage':
                             'Body'   => fopen($fileTmpPath, 'r'),
                             'ACL'    => 'public-read',
                         ]);
-                        $uploadCount++;
+                        
+                        // Guardar la información de la imagen subida para devolverla
+                        $uploaded_files_data[] = [
+                            'url' => $cdnDomain . '/' . $objectKey,
+                            'name' => $objectKey,
+                            'updated' => time() // Timestamp actual
+                        ];
                     }
                 }
 
-                if ($uploadCount == 0) {
+                if (empty($uploaded_files_data)) {
                      throw new Exception('Ninguna de las imágenes pudo ser procesada.');
                 }
 
-                echo json_encode(['success' => true, 'message' => "$uploadCount de $totalFiles imágenes subidas correctamente."]);
+                echo json_encode(['success' => true, 'message' => count($uploaded_files_data) . " de $totalFiles imágenes subidas.", 'uploaded_images' => $uploaded_files_data]);
 
             } catch (Exception $e) {
                 http_response_code(500);
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
 break;
+
+
 
 case 'admin/getBucketImages':
             try {
