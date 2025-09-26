@@ -68,9 +68,13 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
             </div>
             <div id="gallery-select-tab" class="gallery-tab-content active">
                 
-                <div class="gallery-search-container" style="margin-bottom: 1rem;">
-                    <input type="text" id="gallery-search-input" class="form-control" placeholder="Buscar por nombre de archivo...">
-                </div>
+
+<div class="gallery-search-container" style="margin-bottom: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+    <input type="text" id="gallery-search-input" class="form-control" placeholder="Buscar por nombre de archivo..." style="flex-grow: 1;">
+    <button id="refresh-gallery-btn" class="modal-btn modal-btn-secondary" style="padding: 0.5rem 1rem;" title="Actualizar galería">🔄</button>
+</div>
+
+
                 <div class="image-grid-container"></div>
             </div>
             <div id="gallery-upload-tab" class="gallery-tab-content">

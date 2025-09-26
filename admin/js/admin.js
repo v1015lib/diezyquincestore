@@ -1767,6 +1767,10 @@ async function loadImageGrid(searchTerm = '') {
     const grid = galleryModal.querySelector('.image-grid-container');
     const loadingIndicator = document.createElement('p');
     loadingIndicator.textContent = 'Cargando imágenes...';
+
+    if (galleryCache.page === 1) {
+        grid.innerHTML = '';
+    }
     if (grid.innerHTML === '') {
         grid.appendChild(loadingIndicator);
     }
@@ -1829,6 +1833,33 @@ if (galleryModal) {
             loadImageGrid();
         }
     });
+
+    // --- LÓGICA PARA EL BOTÓN DE ACTUALIZAR GALERÍA ---
+const refreshBtn = document.getElementById('refresh-gallery-btn');
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+        const grid = galleryModal.querySelector('.image-grid-container');
+        const searchInput = document.getElementById('gallery-search-input');
+        
+        // 1. Mostrar feedback visual al usuario
+        refreshBtn.textContent = '🔄...';
+        refreshBtn.disabled = true;
+        grid.innerHTML = '<p>Actualizando...</p>';
+
+        // 2. Limpiar completamente la caché para forzar la recarga
+        galleryCache.images = [];
+        galleryCache.page = 1;
+        galleryCache.hasMore = true;
+        galleryCache.searchTerm = searchInput.value.trim(); // Mantiene el término de búsqueda actual
+
+        // 3. Volver a cargar la galería desde la primera página
+        await loadImageGrid(galleryCache.searchTerm);
+
+        // 4. Restaurar el estado del botón
+        refreshBtn.textContent = '🔄';
+        refreshBtn.disabled = false;
+    });
+}
 }
 
     // --- MANEJADORES DE EVENTOS GLOBALES ---
@@ -2589,6 +2620,10 @@ mainContent.addEventListener('change', async (event) => {
     }
 
     if (galleryModal) {
+
+
+
+
         galleryModal.addEventListener('click', async (event) => {
             const target = event.target;
             const confirmBtn = galleryModal.querySelector('#gallery-confirm-btn');
