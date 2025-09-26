@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelector = document.getElementById('selector-imagen');
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
+    const galleryCache = {
+        images: [], // Almacenará todas las imágenes cargadas
+        hasMore: true, // Recordará si quedan más imágenes por cargar
+        page: 1, // Recordará la página siguiente a cargar
+        searchTerm: '' // Guardará el último término de búsqueda
+    };
+    let isLoadingGallery = false;
 
     const API_BASE_URL = '../api/index.php';
 
@@ -39,9 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
 let isLoading = false;       
 
 
-let galleryPage = 1;
-let isLoadingGallery = false;
-let galleryHasMore = true;
+
+
+
 
 // AÑADE este bloque dentro del listener de 'click' en mainContent en admin/js/admin.js
 
@@ -1681,86 +1688,117 @@ function initializeEditProductFormSubmit(form) {
         }
     }
 
+
+
+
 /*****************************************************************************************/
+
+// admin/js/admin.js
+
 async function openImageGallery() {
     if (!galleryModal) return;
-    galleryModal.style.display = 'flex';
-    
-    // Reseteamos el estado de la galería cada vez que se abre
-    galleryPage = 1;
-    galleryHasMore = true;
+
     const grid = galleryModal.querySelector('.image-grid-container');
-    grid.innerHTML = ''; // Limpiamos el contenido anterior
     const searchInput = document.getElementById('gallery-search-input');
-    searchInput.value = ''; // Limpiamos el buscador
 
+    // Si el término de búsqueda actual es diferente al que está guardado en caché,
+    // significa que es una nueva búsqueda y debemos reiniciar el caché.
+    const newSearchTerm = searchInput.value.trim();
+    if (galleryCache.searchTerm !== newSearchTerm) {
+        galleryCache.images = [];
+        galleryCache.page = 1;
+        galleryCache.hasMore = true;
+        galleryCache.searchTerm = newSearchTerm;
+    }
 
+    grid.innerHTML = ''; // Limpiamos la vista para redibujarla desde el caché
 
+    // Si hay imágenes en el caché, las mostramos todas.
+    if (galleryCache.images.length > 0) {
+        galleryCache.images.forEach(image => {
+            const item = document.createElement('div');
+            item.className = 'image-grid-item';
+            item.dataset.imageUrl = image.url;
+            item.dataset.imageName = image.name;
+            // LÍNEA CORREGIDA: Se elimina el timestamp
+            item.innerHTML = `
+                <img src="${image.url}" alt="${image.name}" loading="lazy">
+                <p class="file-name">${image.name.replace('productos/', '')}</p> 
+                <button class="delete-image-btn" title="Eliminar del bucket">&times;</button>
+            `;
+            grid.appendChild(item);
+        });
+    }
 
-    await loadImageGrid();
+    // Si el caché está vacío Y aún hay imágenes por cargar, hacemos la primera petición.
+    if (galleryCache.images.length === 0 && galleryCache.hasMore) {
+        await loadImageGrid(galleryCache.searchTerm);
+    }
 
+    galleryModal.style.display = 'flex';
+
+    // Re-inicializamos el listener de búsqueda por si se cerró antes.
     let searchDebounce;
     searchInput.addEventListener('input', () => {
         clearTimeout(searchDebounce);
         searchDebounce = setTimeout(() => {
-            galleryPage = 1;
-            galleryHasMore = true;
+            // Al buscar, se resetea todo para la nueva búsqueda
+            galleryCache.images = [];
+            galleryCache.page = 1;
+            galleryCache.hasMore = true;
+            galleryCache.searchTerm = searchInput.value.trim();
             grid.innerHTML = '';
-            loadImageGrid(searchInput.value);
+            loadImageGrid(galleryCache.searchTerm);
         }, 300);
     });
 }
-    
-    function closeImageGallery() {
-        if (galleryModal) galleryModal.style.display = 'none';
-    }
-
 
 async function loadImageGrid(searchTerm = '') {
-    if (isLoadingGallery || !galleryHasMore) return;
+    // Verificamos el estado desde el objeto caché
+    if (isLoadingGallery || !galleryCache.hasMore) return;
     isLoadingGallery = true;
-    
+
     const grid = galleryModal.querySelector('.image-grid-container');
     const loadingIndicator = document.createElement('p');
     loadingIndicator.textContent = 'Cargando imágenes...';
-    // Si la cuadrícula está vacía, se añade el indicador
     if (grid.innerHTML === '') {
         grid.appendChild(loadingIndicator);
     }
 
     try {
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se añade el parámetro de búsqueda a la URL de la API
-        const apiUrl = `${API_BASE_URL}?resource=admin/getBucketImages&page=${galleryPage}&search=${encodeURIComponent(searchTerm)}`;
+        // Usamos la página guardada en el caché para la petición
+        const apiUrl = `${API_BASE_URL}?resource=admin/getBucketImages&page=${galleryCache.page}&search=${encodeURIComponent(searchTerm)}`;
         const response = await fetch(apiUrl);
-        // --- FIN DE LA MODIFICACIÓN ---
-
         const result = await response.json();
-        
-        // Se elimina el indicador de carga si existía
+
         if (grid.contains(loadingIndicator)) {
             loadingIndicator.remove();
         }
 
         if (result.success && result.images.length > 0) {
+            // Añadimos las nuevas imágenes al caché y a la vista.
+            galleryCache.images.push(...result.images);
+
             result.images.forEach(image => {
                 const item = document.createElement('div');
                 item.className = 'image-grid-item';
                 item.dataset.imageUrl = image.url;
                 item.dataset.imageName = image.name;
+                 // LÍNEA CORREGIDA: Se elimina el timestamp
                 item.innerHTML = `
-                    <img src="${image.url}?t=${new Date().getTime()}" alt="${image.name}" loading="lazy">
+                    <img src="${image.url}" alt="${image.name}" loading="lazy">
                     <p class="file-name">${image.name.replace('productos/', '')}</p> 
                     <button class="delete-image-btn" title="Eliminar del bucket">&times;</button>
                 `;
                 grid.appendChild(item);
             });
-            galleryPage++;
-            galleryHasMore = result.has_more;
+            // Actualizamos el estado del caché para la siguiente paginación
+            galleryCache.page++;
+            galleryCache.hasMore = result.has_more;
         } else {
-            galleryHasMore = false;
-            if (page === 1) { // Solo muestra el mensaje si es la primera carga y no hay resultados
-                 grid.innerHTML = '<p style="padding: 1rem; text-align:center;">No hay imágenes que coincidan con tu búsqueda.</p>';
+            galleryCache.hasMore = false; // Ya no hay más imágenes que cargar
+            if (galleryCache.page === 1) { 
+                 grid.innerHTML = '<p style="padding: 1rem; text-align:center;">No hay imágenes que coincidan.</p>';
             }
         }
     } catch (error) {
@@ -1770,6 +1808,10 @@ async function loadImageGrid(searchTerm = '') {
     }
 }
 
+    
+    function closeImageGallery() {
+        if (galleryModal) galleryModal.style.display = 'none';
+    }
 
 
 
