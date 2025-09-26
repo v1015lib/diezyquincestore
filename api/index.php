@@ -4491,6 +4491,7 @@ case 'admin/getBucketImages':
 
                 $bucketName = 'libreria-web-imagenes';
                 $cdnDomain = "https://pub-91131aea0d3a404eb911a098cf30c098.r2.dev"; // TU CDN URL
+                $searchTerm = $_GET['search'] ?? '';
 
                 $objects = $s3Client->listObjectsV2(['Bucket' => $bucketName, 'Prefix' => 'productos/']);
                 $all_images = [];
@@ -4498,6 +4499,10 @@ case 'admin/getBucketImages':
                 if (isset($objects['Contents'])) {
                     foreach ($objects['Contents'] as $object) {
                         if (substr($object['Key'], -1) === '/') continue;
+                        // Si hay un término de búsqueda, filtramos aquí
+                        if (!empty($searchTerm) && stripos(basename($object['Key']), $searchTerm) === false) {
+                            continue; // Si el nombre no coincide, saltamos a la siguiente imagen
+                        }
                         $all_images[] = [
                             'url' => $cdnDomain . '/' . $object['Key'],
                             'name' => $object['Key'],

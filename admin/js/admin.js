@@ -1681,7 +1681,7 @@ function initializeEditProductFormSubmit(form) {
         }
     }
 
-    // --- ⭐ FUNCIONES DE LA GALERÍA RESTAURADAS ⭐ ---
+/*****************************************************************************************/
 async function openImageGallery() {
     if (!galleryModal) return;
     galleryModal.style.display = 'flex';
@@ -1691,8 +1691,24 @@ async function openImageGallery() {
     galleryHasMore = true;
     const grid = galleryModal.querySelector('.image-grid-container');
     grid.innerHTML = ''; // Limpiamos el contenido anterior
-    
+    const searchInput = document.getElementById('gallery-search-input');
+    searchInput.value = ''; // Limpiamos el buscador
+
+
+
+
     await loadImageGrid();
+
+    let searchDebounce;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            galleryPage = 1;
+            galleryHasMore = true;
+            grid.innerHTML = '';
+            loadImageGrid(searchInput.value);
+        }, 300);
+    });
 }
     
     function closeImageGallery() {
@@ -1700,20 +1716,31 @@ async function openImageGallery() {
     }
 
 
-async function loadImageGrid() {
+async function loadImageGrid(searchTerm = '') {
     if (isLoadingGallery || !galleryHasMore) return;
     isLoadingGallery = true;
     
     const grid = galleryModal.querySelector('.image-grid-container');
     const loadingIndicator = document.createElement('p');
-    loadingIndicator.textContent = 'Cargando más imágenes...';
-    grid.appendChild(loadingIndicator);
+    loadingIndicator.textContent = 'Cargando imágenes...';
+    // Si la cuadrícula está vacía, se añade el indicador
+    if (grid.innerHTML === '') {
+        grid.appendChild(loadingIndicator);
+    }
 
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getBucketImages&page=${galleryPage}`);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se añade el parámetro de búsqueda a la URL de la API
+        const apiUrl = `${API_BASE_URL}?resource=admin/getBucketImages&page=${galleryPage}&search=${encodeURIComponent(searchTerm)}`;
+        const response = await fetch(apiUrl);
+        // --- FIN DE LA MODIFICACIÓN ---
+
         const result = await response.json();
         
-        loadingIndicator.remove(); // Quitamos el indicador de carga
+        // Se elimina el indicador de carga si existía
+        if (grid.contains(loadingIndicator)) {
+            loadingIndicator.remove();
+        }
 
         if (result.success && result.images.length > 0) {
             result.images.forEach(image => {
@@ -1721,19 +1748,19 @@ async function loadImageGrid() {
                 item.className = 'image-grid-item';
                 item.dataset.imageUrl = image.url;
                 item.dataset.imageName = image.name;
-                                item.innerHTML = `
+                item.innerHTML = `
                     <img src="${image.url}?t=${new Date().getTime()}" alt="${image.name}" loading="lazy">
                     <p class="file-name">${image.name.replace('productos/', '')}</p> 
                     <button class="delete-image-btn" title="Eliminar del bucket">&times;</button>
                 `;
                 grid.appendChild(item);
             });
-            galleryPage++; // Preparamos para la siguiente página
+            galleryPage++;
             galleryHasMore = result.has_more;
         } else {
-            galleryHasMore = false; // No hay más imágenes
-            if (grid.innerHTML === '') {
-                 grid.innerHTML = '<p>No hay imágenes en el bucket.</p>';
+            galleryHasMore = false;
+            if (page === 1) { // Solo muestra el mensaje si es la primera carga y no hay resultados
+                 grid.innerHTML = '<p style="padding: 1rem; text-align:center;">No hay imágenes que coincidan con tu búsqueda.</p>';
             }
         }
     } catch (error) {

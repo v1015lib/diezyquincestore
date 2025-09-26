@@ -55,36 +55,40 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
         </div>
     </div>
 
-    <div id="image-gallery-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <h3>Galería de Imágenes</h3>
-                <button class="modal-close-btn">&times;</button>
+<div id="image-gallery-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>Galería de Imágenes</h3>
+            <button class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="gallery-tabs">
+                <button class="gallery-tab-btn active" data-tab="select">Seleccionar Existente</button>
+                <button class="gallery-tab-btn" data-tab="upload">Subir Nueva</button>
             </div>
-            <div class="modal-body">
-                <div class="gallery-tabs">
-                    <button class="gallery-tab-btn active" data-tab="select">Seleccionar Existente</button>
-                    <button class="gallery-tab-btn" data-tab="upload">Subir Nueva</button>
+            <div id="gallery-select-tab" class="gallery-tab-content active">
+                
+                <div class="gallery-search-container" style="margin-bottom: 1rem;">
+                    <input type="text" id="gallery-search-input" class="form-control" placeholder="Buscar por nombre de archivo...">
                 </div>
-                <div id="gallery-select-tab" class="gallery-tab-content active">
-                    <div class="image-grid-container"></div>
-                </div>
-                <div id="gallery-upload-tab" class="gallery-tab-content">
-                    <p>Sube una o varias imágenes al bucket. Se añadirán a la galería para usos futuros.</p>
-                    
-                    <input type="file" id="gallery-upload-input" name="url_imagen[]" accept="image/*" multiple> 
-                    
-                    <button id="gallery-upload-btn" class="modal-btn modal-btn-primary">Subir Imágenes</button>
-                    <div id="gallery-upload-feedback"></div>
-                </div>
+                <div class="image-grid-container"></div>
+            </div>
+            <div id="gallery-upload-tab" class="gallery-tab-content">
+                <p>Sube una o varias imágenes al bucket. Se añadirán a la galería para usos futuros.</p>
+                
+                <input type="file" id="gallery-upload-input" name="url_imagen[]" accept="image/*" multiple> 
+                
+                <button id="gallery-upload-btn" class="modal-btn modal-btn-primary">Subir Imágenes</button>
+                <div id="gallery-upload-feedback"></div>
+            </div>
 
-            </div>
-            <div class="modal-footer">
-                <button id="gallery-cancel-btn" class="modal-btn modal-btn-secondary">Cancelar</button>
-                <button id="gallery-confirm-btn" class="modal-btn modal-btn-primary" disabled>Confirmar Selección</button>
-            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="gallery-cancel-btn" class="modal-btn modal-btn-secondary">Cancelar</button>
+            <button id="gallery-confirm-btn" class="modal-btn modal-btn-primary" disabled>Confirmar Selección</button>
         </div>
     </div>
+</div>
 
     <script>
 
