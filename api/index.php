@@ -766,7 +766,7 @@ case 'generate-invoice':
         $pdf->Cell(40, 10, 'Cliente:');
         $pdf->Ln(8);
         $pdf->SetFont('Arial', '', 12);
-        $pdf->Cell(40, 10, utf8_decode($sale_data['nombre'] . ' ' . $sale_data['apellido']));
+        $pdf->Cell(40, 10, $sale_data['nombre'] . ' ' . $sale_data['apellido']);
         $pdf->Ln(5);
         $pdf->Cell(40, 10, 'Usuario: ' . $sale_data['nombre_usuario']);
         $pdf->Ln(5);
@@ -782,7 +782,7 @@ case 'generate-invoice':
             $pdf->Ln(5);
             $pdf->Cell(40, 10, 'NRC: ' . $sale_data['n_registro']);
             $pdf->Ln(5);
-            $pdf->Cell(40, 10, utf8_decode('Razón Social: ' . $sale_data['razon_social']));
+            $pdf->Cell(40, 10, 'Razón Social: ' . $sale_data['razon_social']);
         }
         
         $pdf->Ln(15);
@@ -797,7 +797,7 @@ case 'generate-invoice':
 
         $total_final = 0;
         foreach ($items as $item) {
-            $pdf->Cell(110, 5, utf8_decode($item['nombre_producto']), 1);
+            $pdf->Cell(110, 5, $item['nombre_producto'], 1);
             $pdf->Cell(20, 5, $item['cantidad'], 1, 0, 'C');
             $pdf->Cell(30, 5, '$' . number_format($item['precio_unitario'], 2), 1, 0, 'R');
             $pdf->Cell(30, 5, '$' . number_format($item['subtotal'], 2), 1, 0, 'R');
