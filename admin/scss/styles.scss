@@ -442,3 +442,31 @@
 #image-upload-input {
     display: none;
 }
+
+.image-grid-item {
+    position: relative;
+    cursor: pointer;
+    border: 3px solid transparent;
+    border-radius: 4px;
+    overflow: hidden;
+    /* --- INICIO DE NUEVOS ESTILOS --- */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+    /* --- FIN DE NUEVOS ESTILOS --- */
+}
+.image-grid-item img {
+    width: 100%;
+    height: 120px; /* Se ajusta la altura para dar espacio al texto */
+    object-fit: cover;
+    display: block;
+}
+
+/* --- INICIO DE NUEVOS ESTILOS --- */
+.image-grid-item .file-name {
+    font-size: 0.8rem;
+    word-break: break-all;
+    margin: 0.5rem 0;
+    flex-grow: 1; /* Permite que el nombre ocupe el espacio sobrante */
+}

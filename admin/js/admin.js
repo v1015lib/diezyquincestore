@@ -735,7 +735,7 @@ async function loadModule(moduleName) {
             case 'productos': defaultAction = 'productos/todos_los_productos'; break;
             case 'clientes': defaultAction = 'clientes/todos_los_clientes'; break;
             case 'departamentos': defaultAction = 'departamentos/gestion'; break;
-            case 'utilidades': defaultAction = 'utilidades/copia_seguridad'; break;
+            case 'utilidades': defaultAction = 'utilidades/generador_codigos'; break;
             case 'tarjetas': defaultAction = 'tarjetas/gestion'; break;
             case 'inventario': defaultAction = 'inventario/agregar_stock'; break;
             case 'estadisticas': defaultAction = 'estadisticas/resumen'; break;
@@ -1721,7 +1721,11 @@ async function loadImageGrid() {
                 item.className = 'image-grid-item';
                 item.dataset.imageUrl = image.url;
                 item.dataset.imageName = image.name;
-                item.innerHTML = `<img src="${image.url}" alt="${image.name}" loading="lazy"><button class="delete-image-btn" title="Eliminar del bucket">&times;</button>`;
+                                item.innerHTML = `
+                    <img src="${image.url}?t=${new Date().getTime()}" alt="${image.name}" loading="lazy">
+                    <p class="file-name">${image.name.replace('productos/', '')}</p> 
+                    <button class="delete-image-btn" title="Eliminar del bucket">&times;</button>
+                `;
                 grid.appendChild(item);
             });
             galleryPage++; // Preparamos para la siguiente página
