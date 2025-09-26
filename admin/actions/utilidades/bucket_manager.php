@@ -18,7 +18,7 @@
 </div>
 
 <style>
-	 .bucket-batch-actions {
+     .bucket-batch-actions {
         display: flex;
         align-items: center;
         gap: 1.5rem;
@@ -36,9 +36,6 @@
         cursor: pointer;
     }
     
-    .bucket-item img {
-        position: relative; /* Necesario para el selector */
-    }
     #bucket-image-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -48,6 +45,8 @@
         padding: 1rem;
     }
     .bucket-item {
+        /* ▼▼▼ LA LÍNEA CORREGIDA ESTÁ AQUÍ ▼▼▼ */
+        position: relative; /* Esta línea es la corrección clave */
         border: 1px solid #dee2e6;
         border-radius: 4px;
         padding: 0.5rem;
@@ -74,26 +73,19 @@
         margin-top: 0.5rem;
     }
 
-    /* --- INICIO DE NUEVOS ESTILOS PARA ÍCONOS --- */
     .bucket-item-actions .action-btn {
-        /* Reset de estilos para que se vean como íconos */
         all: unset; 
         box-sizing: border-box;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        
-        /* Apariencia circular */
         width: 32px;
         height: 32px;
         border-radius: 50%;
         border: 1px solid #dee2e6;
         background-color: #f8f9fa;
         cursor: pointer;
-        
-        /* Tamaño del ícono */
         font-size: 1rem;
-        
         transition: all 0.2s ease;
     }
 
@@ -102,16 +94,15 @@
         border-color: #adb5bd;
     }
     
-    /* Estilo específico para el botón de eliminar */
     .bucket-item-actions .delete-btn {
-        color: #dc3545; /* Rojo para el ícono */
+        color: #dc3545;
     }
     
     .bucket-item-actions .delete-btn:hover {
-        background-color: #dc3545; /* Fondo rojo al pasar el mouse */
-        color: white; /* Ícono blanco */
+        background-color: #dc3545;
+        color: white;
     }
-       .bucket-batch-actions {
+         .bucket-batch-actions {
         display: flex;
         align-items: center;
         gap: 1.5rem;
@@ -129,8 +120,70 @@
         cursor: pointer;
     }
     
-    .bucket-item img {
-        position: relative;
+    #bucket-image-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 1rem;
     }
-    /* --- FIN DE NUEVOS ESTILOS --- */
+    .bucket-item {
+        /* ▼▼▼ LA LÍNEA CORREGIDA ESTÁ AQUÍ ▼▼▼ */
+        position: relative; /* Esta línea es la corrección clave */
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 0.5rem;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .bucket-item img {
+        max-width: 100%;
+        height: 120px;
+        object-fit: cover;
+    }
+    .bucket-item .file-name {
+        font-size: 0.8rem;
+        word-break: break-all;
+        margin: 0.5rem 0;
+        flex-grow: 1;
+    }
+    .bucket-item-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-top: 0.5rem;
+    }
+
+    .bucket-item-actions .action-btn {
+        all: unset; 
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .bucket-item-actions .action-btn:hover {
+        background-color: #e2e6ea;
+        border-color: #adb5bd;
+    }
+    
+    .bucket-item-actions .delete-btn {
+        color: #dc3545;
+    }
+    
+    .bucket-item-actions .delete-btn:hover {
+        background-color: #dc3545;
+        color: white;
+    }
 </style>
