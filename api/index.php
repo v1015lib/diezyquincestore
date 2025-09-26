@@ -2571,6 +2571,7 @@ case 'pos_add_item':
 // api/index.php
 
 
+
 case 'pos_finalize_sale':
     if ($method === 'POST' && isset($inputData['sale_id'])) {
         $saleId = $inputData['sale_id'];
@@ -2579,14 +2580,15 @@ case 'pos_finalize_sale':
         $totalAmount = $inputData['total_amount'];
         $cardNumber = $inputData['card_number'] ?? null;
         $userId = $_SESSION['id_usuario'];
+        
+        // Variable para guardar el ID de la tarjeta si se usa
+        $cardIdToStore = null;
 
         $pdo->beginTransaction();
 
         try {
-            // ================== INICIO DE LA CORRECCIÓN CLAVE ==================
             // Se obtiene el ID de la tienda directamente desde el registro de la venta
-            // para asegurar que el inventario se descuente de la tienda correcta,
-            // evitando inconsistencias de sesión.
+            // para asegurar que el inventario se descuente de la tienda correcta.
             $stmt_get_store = $pdo->prepare("SELECT id_tienda FROM ventas WHERE id_venta = :sale_id");
             $stmt_get_store->execute([':sale_id' => $saleId]);
             $id_tienda_de_la_venta = $stmt_get_store->fetchColumn();
@@ -2594,11 +2596,6 @@ case 'pos_finalize_sale':
             if (!$id_tienda_de_la_venta) {
                 throw new Exception("Error Crítico: No se pudo determinar la tienda de origen de la venta para finalizarla.");
             }
-            // =================== FIN DE LA CORRECCIÓN CLAVE ====================
-
-            // Actualizar la venta principal
-            $stmt_update_venta = $pdo->prepare("UPDATE ventas SET id_cliente = :id_cliente, id_metodo_pago = :id_metodo_pago, monto_total = :monto_total, estado_id = 29, id_usuario_venta = :id_usuario_venta WHERE id_venta = :id_venta");
-            $stmt_update_venta->execute([':id_cliente' => $clientId, ':id_metodo_pago' => $paymentMethodId, ':monto_total' => $totalAmount, ':id_venta' => $saleId, ':id_usuario_venta' => $userId]);
 
             // Lógica de pago con tarjeta (si aplica)
             if ($paymentMethodId == 2 && !empty($cardNumber)) {
@@ -2610,10 +2607,33 @@ case 'pos_finalize_sale':
                     throw new Exception("Saldo insuficiente en la tarjeta.");
                 }
 
+                // Guardamos el ID de la tarjeta para registrarlo en la venta
+                $cardIdToStore = $tarjeta['id_tarjeta'];
+
                 $nuevo_saldo = (float)$tarjeta['saldo'] - $totalAmount;
                 $stmt_update_saldo = $pdo->prepare("UPDATE tarjetas_recargables SET saldo = :nuevo_saldo WHERE id_tarjeta = :id_tarjeta");
                 $stmt_update_saldo->execute([':nuevo_saldo' => $nuevo_saldo, ':id_tarjeta' => $tarjeta['id_tarjeta']]);
             }
+
+            // Actualizar la venta principal, incluyendo el ID de la tarjeta
+            $stmt_update_venta = $pdo->prepare(
+                "UPDATE ventas SET 
+                    id_cliente = :id_cliente, 
+                    id_metodo_pago = :id_metodo_pago, 
+                    monto_total = :monto_total, 
+                    estado_id = 29, 
+                    id_usuario_venta = :id_usuario_venta,
+                    id_tarjeta_recargable = :id_tarjeta_recargable
+                 WHERE id_venta = :id_venta"
+            );
+            $stmt_update_venta->execute([
+                ':id_cliente' => $clientId, 
+                ':id_metodo_pago' => $paymentMethodId, 
+                ':monto_total' => $totalAmount, 
+                ':id_venta' => $saleId, 
+                ':id_usuario_venta' => $userId,
+                ':id_tarjeta_recargable' => $cardIdToStore // Aquí se guarda el ID
+            ]);
 
             // Lógica de inventario
             $stmt_items = $pdo->prepare("
@@ -2665,8 +2685,6 @@ case 'pos_finalize_sale':
         }
     }
     break;
-
-
 
 
 
