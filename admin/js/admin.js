@@ -1059,7 +1059,6 @@ async function removeProductFromList(itemId, rowElement) {
         alert("Error al eliminar el producto: " + error.message);
     }
 }
-
 async function copyShoppingList(listId) {
     if (!confirm('¿Seguro que quieres copiar esta lista? Se creará una nueva lista para hoy con los mismos productos.')) return;
     try {
@@ -1080,6 +1079,30 @@ async function copyShoppingList(listId) {
     }
 }
 
+
+
+async function deleteShoppingList(listId, rowElement) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta lista de compras? Esta acción es irreversible.')) {
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteShoppingList`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_lista: listId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            rowElement.remove();
+            // Opcional: mostrar una alerta de éxito
+            // alert(result.message); 
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        alert(`Error al eliminar la lista: ${error.message}`);
+    }
+}
 // --- FIN: MÓDULO LISTAS DE COMPRAS ---
 /*************************************************************************/
 function initializeImageProcessor() {
@@ -4848,14 +4871,15 @@ function initializeListViewInteractions(listId) {
     });
     // *** FIN DE LA CORRECCIÓN CLAVE ***
     
-    // Eliminar item de la lista
-    itemsTbody.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('remove-item-btn')) {
-            const row = e.target.closest('tr');
-            const itemId = row.dataset.itemId;
-            await removeProductFromList(itemId, row);
-        }
-    });
+// Eliminar item de la lista
+itemsTbody.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('remove-item-btn')) {
+        const row = e.target.closest('tr');
+        const itemId = row.dataset.itemId;
+        await removeProductFromList(itemId, row);
+    }
+});
+
     
     // Ocultar resultados de búsqueda si se hace clic fuera
     document.addEventListener('click', function(event) {
