@@ -875,18 +875,25 @@ case 'admin/deleteShoppingList':
 
 case 'admin/getShoppingLists':
     try {
-        $filter_date = $_GET['date'] ?? null;
-        
-        // Se añade el campo del proveedor a la consulta
+        $startDate = $_GET['startDate'] ?? null;
+        $endDate = $_GET['endDate'] ?? null;
+
         $sql = "SELECT lc.id_lista, lc.nombre_lista, lc.fecha_creacion, u.nombre_usuario, p.nombre_proveedor 
                 FROM listas_compras lc
                 JOIN usuarios u ON lc.id_usuario_creador = u.id_usuario
-                LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor"; // LEFT JOIN para no ocultar listas sin proveedor
+                LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor";
         
         $params = [];
-        if ($filter_date) {
-            $sql .= " WHERE lc.fecha_creacion = :filter_date";
-            $params[':filter_date'] = $filter_date;
+        if ($startDate && $endDate) {
+            $sql .= " WHERE lc.fecha_creacion BETWEEN :startDate AND :endDate";
+            $params[':startDate'] = $startDate;
+            $params[':endDate'] = $endDate;
+        } else if ($startDate) {
+            $sql .= " WHERE lc.fecha_creacion >= :startDate";
+            $params[':startDate'] = $startDate;
+        } else if ($endDate) {
+            $sql .= " WHERE lc.fecha_creacion <= :endDate";
+            $params[':endDate'] = $endDate;
         }
         
         $sql .= " ORDER BY lc.fecha_creacion DESC, lc.id_lista DESC";

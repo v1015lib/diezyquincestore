@@ -727,9 +727,7 @@ function initializeSidemenu() {
         }
     }
 
-// REEMPLAZA ESTA FUNCIÓN COMPLETA
-// REEMPLAZA ESTA FUNCIÓN EN admin.js
-// REEMPLAZA ESTA FUNCIÓN EN admin.js
+
 async function loadModule(moduleName) {
     mainContent.innerHTML = '<h2>Cargando...</h2>';
     try {
@@ -767,22 +765,28 @@ async function loadModule(moduleName) {
     }
 }
 
-/*************************************************************************/
-//Listas de compras funciones
 
-// REEMPLAZA TODO EL BLOQUE DE FUNCIONES DE LISTAS DE COMPRAS CON ESTO
 
-/*************************************************************************/
-// --- INICIO: MÓDULO LISTAS DE COMPRAS (BLOQUE CORREGIDO Y SIMPLIFICADO) ---
 
 function initializeShoppingListManagement() {
-    const dateFilter = document.getElementById('list-date-filter');
+    const startDateFilter = document.getElementById('list-start-date-filter');
+    const endDateFilter = document.getElementById('list-end-date-filter');
     const listsTbody = document.getElementById('shopping-lists-tbody');
-    if (!dateFilter || !listsTbody) return;
-    if (!dateFilter.value) dateFilter.valueAsDate = new Date();
+
+    if (!startDateFilter || !endDateFilter || !listsTbody) return;
+
+    const fetchLists = () => {
+        const startDate = startDateFilter.value;
+        const endDate = endDateFilter.value;
+        if (startDate && endDate) {
+            fetchAndRenderShoppingLists(startDate, endDate);
+        }
+    };
+
+    fetchLists(); // Carga inicial
     
-    fetchAndRenderShoppingLists(dateFilter.value);
-    dateFilter.addEventListener('change', () => fetchAndRenderShoppingLists(dateFilter.value));
+    startDateFilter.addEventListener('change', fetchLists);
+    endDateFilter.addEventListener('change', fetchLists);
 
     listsTbody.addEventListener('click', e => {
         const target = e.target.closest('button');
@@ -800,11 +804,11 @@ function initializeShoppingListManagement() {
     });
 }
 
-async function fetchAndRenderShoppingLists(date) {
+async function fetchAndRenderShoppingLists(startDate, endDate) {
     const tableBody = document.getElementById('shopping-lists-tbody');
     tableBody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
     try {
-        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingLists&date=${date}`);
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingLists&startDate=${startDate}&endDate=${endDate}`);
         const result = await response.json();
         tableBody.innerHTML = '';
         if (result.success && result.lists.length > 0) {
@@ -825,7 +829,7 @@ async function fetchAndRenderShoppingLists(date) {
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="5">No hay listas para la fecha seleccionada.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">No hay listas para el rango de fechas seleccionado.</td></tr>';
         }
     } catch (error) {
         tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error al cargar las listas.</td></tr>';
@@ -835,6 +839,29 @@ async function fetchAndRenderShoppingLists(date) {
 function initializeCreateShoppingListForm() {
     const form = document.getElementById('create-shopping-list-form');
     if (!form) return;
+
+
+        async function populateProviderSelect() {
+        const select = document.getElementById('id_proveedor');
+        if (!select) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProviders`);
+            const result = await response.json();
+            if (result.success && result.providers) {
+                result.providers.forEach(provider => {
+                    const option = document.createElement('option');
+                    option.value = provider.id_proveedor;
+                    option.textContent = provider.nombre_proveedor;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error al cargar proveedores:', error);
+        }
+    }
+    
+    populateProviderSelect();
     form.addEventListener('submit', async e => {
         e.preventDefault();
         const listName = document.getElementById('nombre_lista').value;

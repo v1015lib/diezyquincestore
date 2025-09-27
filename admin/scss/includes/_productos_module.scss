@@ -224,3 +224,17 @@
         padding: 0;
     }
 }
+ .file-name {
+        font-size: 11px; // Tamaño de fuente pequeño
+        padding: 4px 6px; // Espaciado interno
+        background-color: rgba(0, 0, 0, 0.6); // Fondo semitransparente
+        color: white; // Texto blanco
+        text-align: center;
+        position: absolute; // Posición sobre la imagen
+        bottom: 0; // Alineado abajo
+        left: 0;
+        right: 0;
+        white-space: nowrap; // Evita que el texto se parta en dos líneas
+        overflow: hidden; // Oculta el texto que no cabe
+        text-overflow: ellipsis; // Añade "..." si el texto es muy largo
+    }
