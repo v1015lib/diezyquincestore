@@ -2,6 +2,8 @@
 date_default_timezone_set('America/El_Salvador');
 
 session_start();
+
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Aws\S3\S3Client;
@@ -3369,6 +3371,9 @@ case 'admin/getCardReport':
 
 
 
+
+
+
 //Deparamentos
 case 'admin/getDepartments':
     // require_admin();
@@ -3405,28 +3410,76 @@ case 'admin/getDepartments':
         echo json_encode(['success' => false, 'error' => 'Error al obtener los departamentos.']);
     }
     break;
-case 'admin/createDepartment':
-            // require_admin();
-            // CORRECCIÓN: Se espera "departamento" desde el JavaScript.
-            $data = json_decode(file_get_contents('php://input'), true);
-            $name = trim($data['departamento'] ?? ''); 
-            $code = trim($data['codigo_departamento'] ?? '');
 
-            if (empty($name) || empty($code)) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'El nombre y el código del departamento son obligatorios.']);
-                break;
-            }
-            try {
-                // CORRECCIÓN: Se inserta en la columna "departamento".
-                $stmt = $pdo->prepare("INSERT INTO departamentos (departamento, codigo_departamento) VALUES (:name, :code)");
-                $stmt->execute([':name' => $name, ':code' => $code]);
-                echo json_encode(['success' => true, 'message' => 'Departamento creado con éxito.']);
-            } catch (PDOException $e) {
-                http_response_code(409); 
-                echo json_encode(['success' => false, 'error' => 'Ya existe un departamento con ese nombre o código.']);
-            }
-            break;
+case 'admin/getNextDepartmentCode':
+    // require_admin(); // Seguridad
+    try {
+        // 1. Busca el código más alto que sigue el patrón 'A' seguido de números.
+        $stmt = $pdo->query("SELECT MAX(CAST(SUBSTRING(codigo_departamento, 2) AS UNSIGNED)) as max_code FROM departamentos WHERE codigo_departamento LIKE 'A%'");
+        $max_code_num = $stmt->fetchColumn();
+        
+        // 2. Si no hay códigos o el resultado no es numérico, empieza desde 1.
+        $next_code_num = is_numeric($max_code_num) ? (int)$max_code_num + 1 : 1;
+        
+        // 3. Formatea el nuevo número para que tenga 4 dígitos (ej: 48 -> "0048").
+        $new_code = 'A' . str_pad($next_code_num, 3, '0', STR_PAD_LEFT);
+
+        echo json_encode(['success' => true, 'next_code' => $new_code]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'No se pudo generar el código: ' . $e->getMessage()]);
+    }
+    break;
+
+
+case 'admin/createDepartment':
+    // Intenta leer los datos JSON del cuerpo de la solicitud.
+    $inputData = json_decode(file_get_contents('php://input'), true);
+
+    // DIAGNÓSTICO DEFINITIVO: Si $inputData es null, el cuerpo de la solicitud está vacío.
+    if ($inputData === null) {
+        http_response_code(400); // Bad Request
+        echo json_encode(['success' => false, 'error' => 'Error Crítico: El servidor no recibió los datos del formulario. El cuerpo de la solicitud (php://input) está vacío.']);
+        break;
+    }
+
+    $name = trim($inputData['departamento'] ?? '');
+    $code = trim($inputData['codigo_departamento'] ?? '');
+    $userId = $_SESSION['id_usuario'] ?? null;
+
+    // La validación ahora es más específica.
+    if (empty($name) || empty($code)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'El nombre y el código del departamento son obligatorios.']);
+        break;
+    }
+    if (!$userId) {
+        http_response_code(403); // Forbidden
+        echo json_encode(['success' => false, 'error' => 'Error de sesión. Por favor, vuelve a iniciar sesión.']);
+        break;
+    }
+    
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("INSERT INTO departamentos (departamento, codigo_departamento, creado_por_usuario_id) VALUES (:name, :code, :user_id)");
+        $stmt->execute([
+            ':name' => $name, 
+            ':code' => $code,
+            ':user_id' => $userId
+        ]);
+        
+        logActivity($pdo, $userId, 'Departamento Creado', "Creó el nuevo departamento: '{$name}' (Código: {$code})");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Departamento creado con éxito.']);
+
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode(['success' => false, 'error' => 'Ya existe un departamento con ese nombre o código.']);
+    }
+    break;
 
 case 'admin/updateDepartment':
             // require_admin();

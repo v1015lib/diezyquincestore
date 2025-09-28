@@ -3316,52 +3316,91 @@ async function handleRechargeSubmit(event) {
         button.textContent = 'Aplicar Recarga';
     }
 }
-    
-    // --- LÓGICA DEL MÓDULO DE DEPARTAMENTOS ---
 
-// --- LÓGICA DEL MÓDULO DE DEPARTAMENTOS (CORREGIDA) ---
 
+// REEMPLAZA ESTA FUNCIÓN COMPLETA EN: admin/js/admin.js
 function initializeDepartmentManagement() {
-    fetchAndRenderDepartments();
-
     const createForm = document.getElementById('create-department-form');
-    if (createForm) {
-        createForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const feedbackDiv = document.getElementById('create-department-feedback');
-            // CORRECCIÓN: Se busca el id "departamento"
-            const nameInput = document.getElementById('departamento'); 
-            const codeInput = document.getElementById('codigo_departamento');
-            
-            const data = {
-                // CORRECCIÓN: La propiedad enviada a la API es "departamento"
-                departamento: nameInput.value.trim(), 
-                codigo_departamento: codeInput.value.trim()
-            };
-
-            feedbackDiv.textContent = 'Guardando...';
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/createDepartment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error);
-                
-                feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-                nameInput.value = '';
-                codeInput.value = '';
-                fetchAndRenderDepartments();
-                setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
-            } catch (error) {
-                feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
-            }
-        });
+    
+    if (!createForm) {
+        fetchAndRenderDepartments();
+        return;
     }
+
+    const nameInput = document.getElementById('departamento');
+    const codeInput = document.getElementById('codigo_departamento');
+    const feedbackDiv = document.getElementById('create-department-feedback');
+    // CORRECCIÓN CLAVE: El selector ahora busca un botón DENTRO del formulario
+    const submitButton = createForm.querySelector('button[type="submit"]');
+
+    async function preloadNextDepartmentCode() {
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getNextDepartmentCode`);
+            const result = await response.json();
+            if (result.success) {
+                codeInput.value = result.next_code;
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error("Error al obtener el siguiente código:", error);
+            if(feedbackDiv) feedbackDiv.innerHTML = `<div class="message error">No se pudo generar un código. Recarga la página.</div>`;
+        }
+    }
+
+    createForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); // ¡Previene la recarga!
+        
+        if (!submitButton) {
+            console.error("Error crítico: El botón de envío no fue encontrado.");
+            feedbackDiv.innerHTML = `<div class="message error">Error de interfaz: Botón no encontrado.</div>`;
+            return;
+        }
+
+        const data = {
+            departamento: nameInput.value.trim(),
+            codigo_departamento: codeInput.value.trim()
+        };
+
+        if (!data.departamento || !data.codigo_departamento) {
+            feedbackDiv.innerHTML = `<div class="message error">Error: El nombre es obligatorio y el código no se pudo generar.</div>`;
+            return;
+        }
+        
+        submitButton.disabled = true;
+        submitButton.textContent = 'Guardando...';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/createDepartment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+            
+            feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+            createForm.reset(); 
+            
+            await fetchAndRenderDepartments(); 
+            await preloadNextDepartmentCode(); 
+
+            setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+        } catch (error) {
+            feedbackDiv.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Crear Departamento';
+        }
+    });
+
+    // Carga inicial
+    fetchAndRenderDepartments();
+    preloadNextDepartmentCode();
 }
-
-
 
 
 
