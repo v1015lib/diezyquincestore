@@ -152,7 +152,25 @@ if (storeSelectionModal) {
 
 
     async function addProductToTicket(product) {
-        if (!currentSaleId) { return; }
+            if (!currentSaleId) {
+        try {
+            const response = await fetch(`${API_URL}?resource=pos_start_sale`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ store_id: selectedStoreId })
+            });
+            const data = await response.json();
+            if (data.success && data.sale_id) {
+                currentSaleId = data.sale_id;
+            } else {
+                showPOSNotificationModal('Error Crítico', data.error || 'No se pudo crear una nueva venta.', 'error');
+                return; // Detenemos si no se pudo crear la venta.
+            }
+        } catch (error) {
+            showPOSNotificationModal('Error de Conexión', 'No se pudo iniciar la venta.', 'error');
+            return;
+        }
+    }
         const existingProduct = currentTicket.find(item => item.id_producto === product.id_producto);
         
         if (existingProduct) {
@@ -558,30 +576,35 @@ setupPOSForRole();
 
 async function startOrResumeSale(storeId = null) {
     try {
-        const response = await fetch(`${API_URL}?resource=pos_start_sale`, {
+        // MODIFICACIÓN: Ahora solo intentará reanudar una venta, no crear una nueva.
+        const response = await fetch(`${API_URL}?resource=pos_resume_sale`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // Ahora enviamos el ID de la tienda en esta misma petición
-            body: JSON.stringify({ store_id: storeId }) 
+            body: JSON.stringify({ store_id: storeId })
         });
         const data = await response.json();
+        
+        // Si hay una venta activa para reanudar, la cargamos
         if (data.success && data.sale_id) {
             currentSaleId = data.sale_id;
             if (data.ticket_items && data.ticket_items.length > 0) {
-                currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
+                 currentTicket = data.ticket_items.map(item => ({...item, stock_actual_inicial: item.stock_actual, precio_venta_original: item.precio_venta, precio_oferta_original: item.precio_oferta, precio_mayoreo_original: item.precio_mayoreo, precio_activo: 'normal'}));
             } else {
                 currentTicket = [];
             }
-            currentClientId = 1;
-            currentClientName = 'Público en General';
-            resetPOS();
-            toggleCardPaymentFields();
         } else {
-            // Si la API devuelve un error (como que la tienda no se pudo establecer), lo mostramos
-            showPOSNotificationModal('Error', data.error || 'Error al iniciar una nueva venta.', 'error');
+            // Si no hay venta para reanudar, simplemente limpiamos el estado. NO SE CREA NADA.
+            currentSaleId = null;
+            currentTicket = [];
         }
+        
+        currentClientId = 1;
+        currentClientName = 'Público en General';
+        resetPOS();
+        toggleCardPaymentFields();
+
     } catch (error) {
-        showPOSNotificationModal('Error de Conexión', 'No se pudo iniciar la venta.', 'error');
+        showPOSNotificationModal('Error de Conexión', 'No se pudo iniciar/reanudar la venta.', 'error');
     }
 }
 
@@ -825,7 +848,9 @@ async function fetchAndRenderSalesHistory(date) {
     clearSaleDetails();
 
     try {
-        const response = await fetch(`${API_URL}?resource=pos_get_sales_history&date=${date}`);
+        const storeIdParam = selectedStoreId ? `&store_id=${selectedStoreId}` : '';
+        const response = await fetch(`${API_URL}?resource=pos_get_sales_history&date=${date}${storeIdParam}`);
+
         const result = await response.json();
         
         salesSummaryTbody.innerHTML = '';

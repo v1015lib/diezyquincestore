@@ -362,7 +362,42 @@ case 'admin/generateEan13Codes':
 
 
 
+case 'pos_resume_sale':
+    // Esta nueva lógica busca una venta en proceso pero NO CREA UNA NUEVA si no la encuentra.
+    if ($method == 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        
+        if (!isset($_SESSION['user_id'])) {
+            echo json_encode(['success' => false, 'error' => 'Usuario no autenticado.']);
+            exit;
+        }
+        
+        $userId = $_SESSION['user_id'];
+        $storeId = $data['store_id'] ?? $_SESSION['id_tienda'] ?? null;
 
+        if (!$storeId) {
+            echo json_encode(['success' => false, 'error' => 'No se ha seleccionado una tienda.']);
+            exit;
+        }
+
+        // Buscamos una venta 'En Proceso' (estado_id = 8) para este usuario Y esta tienda.
+        $stmt = $pdo->prepare("SELECT id_venta FROM ventas WHERE id_usuario_venta = ? AND id_tienda = ? AND estado_id = 8 ORDER BY fecha_venta DESC LIMIT 1");
+        $stmt->execute([$userId, $storeId]);
+        $ventaExistente = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($ventaExistente) {
+            $saleId = $ventaExistente['id_venta'];
+            // Si existe, obtenemos sus items para que el cajero continúe donde se quedó.
+            $stmtItems = $pdo->prepare("SELECT dv.*, p.nombre_producto, p.stock_actual, p.usa_inventario, p.precio_venta, p.precio_oferta, p.precio_mayoreo FROM detalle_ventas dv JOIN productos p ON dv.id_producto = p.id_producto WHERE dv.id_venta = ?");
+            $stmtItems->execute([$saleId]);
+            $ticketItems = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'sale_id' => $saleId, 'ticket_items' => $ticketItems]);
+        } else {
+            // Si no hay venta para reanudar, simplemente lo informamos. No se crea nada.
+            echo json_encode(['success' => false, 'error' => 'No hay venta activa para reanudar.']);
+        }
+    }
+    break;
 
 
 
@@ -1701,35 +1736,54 @@ case 'pos_get_sale_by_id':
     break;
 
 case 'pos_get_sales_history':
-    if ($method === 'GET' && isset($_GET['date'])) {
+    if ($method == 'GET' && isset($_GET['date'])) {
+        $storeIdToFilter = null;
+
+        // 1. LÓGICA PARA FILTRAR POR TIENDA SEGÚN EL ROL
+        if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador_global') {
+            // Si es admin global, usa la tienda seleccionada que viene en la URL
+            if (isset($_GET['store_id']) && !empty($_GET['store_id'])) {
+                $storeIdToFilter = $_GET['store_id'];
+            }
+        } else if (isset($_SESSION['id_tienda'])) {
+            // Para cualquier otro rol, se fuerza a usar la tienda de su sesión
+            $storeIdToFilter = $_SESSION['id_tienda'];
+        }
+
+        // 2. CONSTRUCCIÓN DE LA CONSULTA SQL
+        // Se añade la condición "AND v.estado_id != 8" para excluir las ventas "En Proceso".
+        $baseQuery = "SELECT v.id_venta, v.fecha_venta, v.monto_total, v.estado_id, COUNT(dv.id_detalle_venta) as cantidad_items 
+                      FROM ventas v 
+                      LEFT JOIN detalle_ventas dv ON v.id_venta = dv.id_venta 
+                      WHERE DATE(v.fecha_venta) = :p_date AND v.estado_id != 8";
+        
+        $params = [':p_date' => $_GET['date']];
+
+        // Se añade el filtro de la tienda si aplica
+        if ($storeIdToFilter) {
+            $baseQuery .= " AND v.id_tienda = :p_store_id";
+            $params[':p_store_id'] = $storeIdToFilter;
+        } else if (isset($_SESSION['rol']) && $_SESSION['rol'] !== 'administrador_global') {
+            // Medida de seguridad: Si no es admin y no tiene tienda, no ve nada.
+            $baseQuery .= " AND v.id_tienda IS NULL"; 
+        }
+        
+        $baseQuery .= " GROUP BY v.id_venta ORDER BY v.fecha_venta DESC";
+
         try {
-            $filter_date = $_GET['date'];
-            // MODIFICACIÓN: Se incluyen ventas finalizadas (29) y canceladas (16)
-            $stmt = $pdo->prepare("
-                SELECT 
-                    v.id_venta,
-                    v.fecha_venta,
-                    c.nombre_usuario AS nombre_cliente,
-                    (SELECT SUM(dv.cantidad) FROM detalle_ventas dv WHERE dv.id_venta = v.id_venta) AS cantidad_items,
-                    v.monto_total,
-                    v.estado_id 
-                FROM ventas v
-                JOIN clientes c ON v.id_cliente = c.id_cliente
-                WHERE DATE(v.fecha_venta) = :filter_date AND v.estado_id IN (29, 16)
-                ORDER BY v.fecha_venta DESC
-            ");
-
-
-            $stmt->execute([':filter_date' => $filter_date]);
+            $stmt = $pdo->prepare($baseQuery);
+            $stmt->execute($params);
             $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode(['success' => true, 'sales' => $sales]);
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Error al obtener el historial de ventas: ' . $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => 'Error al consultar la base de datos.']);
         }
+    } else {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Parámetros inválidos.']);
     }
     break;
-
 
 case 'pos_get_sale_details':
     if ($method === 'GET' && isset($_GET['sale_id'])) {
