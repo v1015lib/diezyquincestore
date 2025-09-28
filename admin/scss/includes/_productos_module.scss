@@ -24,7 +24,7 @@
     background-color: $primary-color;
     color: $tcolor2;
     cursor: pointer;
-    font-size: .75rem;
+
     outline: none;
     margin: 0;
     border: none;
@@ -44,7 +44,10 @@
     width: 3px;
     height: 10px;
   }
-
+  &::-webkit-scrollbar {
+    width: 3px;
+    height: 10px;
+  }
   &::-webkit-scrollbar-thumb {
     background: darken($primary-color, 5%);
   }
@@ -59,7 +62,7 @@
   // Estilo base para celdas
   th,
   td {
-    padding:0 0.2rem;
+
     text-align: left;
     border-bottom: .1rem solid $border-color;
     font-size: clamp(.5rem, 4vw, .75rem);
@@ -71,7 +74,7 @@
   thead {
     tr {
       th {
-        font-weight: 600;
+        font-weight: 400;
         color: $secondary-color;
         background-color: #f8f9fa;
 
@@ -117,17 +120,16 @@
   }
 
   // Celda específica para nombre de producto
-  td[data-field="nombre_producto"] {
-    max-width: 350px;
-  }
+
 
   // Inputs en edición
   input[type="text"],
   input[type="number"] {
-    width: 100%;
-    padding: 0.2rem;
+    width: fit-content;
+
     border: 1px solid $primary-color;
     border-radius: 4px;
+
   }
 
   // Icono en editables
@@ -164,14 +166,45 @@
 
 // Ajustes de ancho
 .product-table td {
-  max-width: 250px;
+  max-width: 100px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .product-table td[data-field="nombre_producto"] {
-  max-width: 300px;
+  max-width: 100px;
+}
+.product-table td[data-field="nombre_estado"] {
+  width: 50px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  text-align: center;
+}
+.product-table td[data-field="stock_minimo"] {
+  width: 50px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  text-align: center;
+}
+.product-table td[data-field="codigo_producto"] {
+  width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  text-align: left;
+}
+.product-table td[data-field="nombre_departamento"] {
+  width: 60px;
+  min-width: 40px;
+    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .product-table td:not([data-field="nombre_producto"]) {
@@ -201,7 +234,7 @@
         background: $primary-color;
         color: $tcolor2;
         font-weight: 600;
-        padding: .5rem;
+
         & > *{
             color: inherit;
         }
@@ -226,7 +259,7 @@
 }
  .file-name {
         font-size: 11px; // Tamaño de fuente pequeño
-        padding: 4px 6px; // Espaciado interno
+
         background-color: rgba(0, 0, 0, 0.6); // Fondo semitransparente
         color: white; // Texto blanco
         text-align: center;
@@ -238,3 +271,138 @@
         overflow: hidden; // Oculta el texto que no cabe
         text-overflow: ellipsis; // Añade "..." si el texto es muy largo
     }
+
+
+    .product-table th.product-image-col,
+.product-table td.product-image-col {
+    hei: 60px; // Ancho fijo para la columna de la imagen
+    text-align: center;
+}
+
+.product-table-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover; // Asegura que la imagen no se deforme
+    border-radius: 4px;
+    vertical-align: middle; // Centra la imagen verticalmente
+}
+
+/* --- ESTILOS PARA IMAGEN EN TABLA DE PRODUCTOS --- */
+.product-table {
+  th.product-image-col,
+  td.product-image-col {
+    width: 60px;
+
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .product-table-img-container {
+    width: 45px;
+    height: 45px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+  }
+
+  .product-table-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.product-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: .75rem;
+    margin-bottom: 1rem;
+
+    .filters-container {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    // Resetea estilos heredados que causan problemas
+    .filters-container .form-group {
+        margin: 0;
+        padding: 0;
+
+        label {
+            flex-basis: auto;
+            text-align: left;
+
+            font-weight: 600;
+            color: $text-color;
+        }
+        input[type="checkbox"]{
+            background: none; // Quita el fondo azul del checkbox
+        }
+    }
+    
+    // Estilos unificados para todos los controles del header
+    input, select, button {
+        all: unset;
+        box-sizing: border-box;
+        margin: 0;
+        background: $primary-color;
+        color: $tcolor2;
+        font-weight: 600;
+        padding: 0.5rem;
+        border-radius: 4px;
+
+        &::placeholder {
+            color: lighten($tcolor2, 20%);
+        }
+    }
+
+    .batch-actions-container button, .filters-container button {
+        cursor: pointer;
+    }
+    
+    button:disabled {
+        background: grey;
+        color: white;
+        cursor: not-allowed;
+    }
+
+    .batch-actions-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+}
+
+/* --- AJUSTES DE ANCHO PARA CELDAS DE LA TABLA --- */
+.product-table {
+    td {
+        // Estilo general para todas las celdas
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // Anchos específicos para cada columna
+    td[data-field="codigo_producto"] { max-width: 130px; }
+    td[data-field="nombre_producto"] { max-width: 85px; }
+
+    td[data-field="stock_actual"],
+    td[data-field="stock_minimo"],
+    td[data-field="stock_maximo"] {
+
+        text-align: center;
+    }
+    td[data-field="nombre_estado"] {
+        max-width: 100px;
+        text-align: center;
+    }
+}

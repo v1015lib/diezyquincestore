@@ -541,7 +541,6 @@ async function renderEditCustomerForm(customer) {
 
 
 
-// EN: admin/js/admin.js
 
 async function fetchAndRenderProducts() {
     if (isLoading || currentFilters.page === -1) return;
@@ -549,28 +548,33 @@ async function fetchAndRenderProducts() {
 
     const tableBody = document.getElementById('product-table-body');
     const loadingIndicator = document.getElementById('loading-indicator');
+    const showImagesCheckbox = document.getElementById('toggle-product-images');
+    const showImages = showImagesCheckbox ? showImagesCheckbox.checked : false;
+
+    document.querySelectorAll('.product-image-col').forEach(col => {
+        col.style.display = showImages ? '' : 'none';
+    });
+    
     if (!tableBody || !loadingIndicator) {
         isLoading = false;
         return;
     }
 
     if (currentFilters.page === 1) {
-        tableBody.innerHTML = ''; // Limpia la tabla solo si es una nueva búsqueda.
+        tableBody.innerHTML = ''; 
     }
 
-    // --- INICIO: Skeleton Loader ---
-    // Muestra filas de carga para mejorar la percepción de velocidad
     const skeletonRowCount = 10;
+    const skeletonColCount = showImages ? 12 : 11;
     const skeletonRowHtml = `
         <tr class="skeleton-loader">
-            <td colspan="11" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
+            <td colspan="${skeletonColCount}" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
         </tr>
     `;
     for (let i = 0; i < skeletonRowCount; i++) {
         tableBody.insertAdjacentHTML('beforeend', skeletonRowHtml);
     }
     loadingIndicator.style.display = 'block';
-    // --- FIN: Skeleton Loader ---
 
     const { search, department, store, sort, page } = currentFilters;
     const apiUrl = `${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(search)}&department=${department}&store=${store}&sort_by=${sort.by}&order=${sort.order}&page=${page}`;
@@ -580,7 +584,6 @@ async function fetchAndRenderProducts() {
         if (!response.ok) throw new Error(`Error en la API: ${response.statusText}`);
         const data = await response.json();
 
-        // Elimina los skeletons antes de añadir los datos reales
         tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
 
         if (data.success && data.products.length > 0) {
@@ -594,17 +597,28 @@ async function fetchAndRenderProducts() {
                 const stockActual = parseInt(product.stock_actual, 10);
                 const stockClass = (product.usa_inventario == 1 && !isNaN(stockMinimo) && stockMinimo > 0 && stockActual < stockMinimo) ? 'stock-low' : '';
 
+                const imageUrl = (product.url_imagen && product.url_imagen !== '0') ? product.url_imagen : 'img/favicon.png';
+                
+                const imageCell = showImages ? 
+                    `<td class="product-image-col">
+                        <div class="product-table-img-container">
+                            <img src="${imageUrl}" class="product-table-img" alt="${product.nombre_producto}" loading="lazy">
+                        </div>
+                    </td>` : 
+                    '<td class="product-image-col" style="display: none;"></td>';
+
                 row.innerHTML = `
                     <td><input type="checkbox" class="product-checkbox"></td>
-                    <td>${product.codigo_producto}</td>
+                    ${imageCell}
+                    <td data-field="codigo_producto">${product.codigo_producto}</td>
                     <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
-                    <td>${product.nombre_departamento}</td>
+                    <td data-field="nombre_departamento">${product.nombre_departamento}</td>
                     <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
-                    <td class="${stockClass}">${product.stock_actual ?? 'N/A'}</td>
-                    <td>${product.stock_minimo ?? 'N/A'}</td>
-                    <td>${product.stock_maximo ?? 'N/A'}</td>
+                    <td class="${stockClass}" data-field="stock_actual">${product.stock_actual ?? 'N/A'}</td>
+                    <td data-field="stock_minimo">${product.stock_minimo ?? 'N/A'}</td>
+                    <td data-field="stock_maximo">${product.stock_maximo ?? 'N/A'}</td>
                     <td>${usaInventarioText}</td>
-                    <td><span class="status-badge ${statusClass}">${product.nombre_estado}</span></td>
+                    <td data-field="nombre_estado"><span class="status-badge ${statusClass}">${product.nombre_estado}</span></td>
                     <td><button class="action-btn edit-product-btn">Editar</button></td>
                 `;
                 tableBody.appendChild(row);
@@ -617,7 +631,8 @@ async function fetchAndRenderProducts() {
             }
         } else {
             if (page === 1) {
-                tableBody.innerHTML = `<tr><td colspan="11">No se encontraron productos.</td></tr>`;
+                const colspan = showImages ? 12 : 11;
+                tableBody.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
             }
             currentFilters.page = -1;
         }
@@ -626,7 +641,8 @@ async function fetchAndRenderProducts() {
     } catch (error) {
         tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
         if (page === 1) {
-            tableBody.innerHTML = `<tr><td colspan="11" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
+            const colspan = showImages ? 12 : 11;
+            tableBody.innerHTML = `<tr><td colspan="${colspan}" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
         }
     } finally {
         isLoading = false;
@@ -2513,7 +2529,7 @@ if (target.id === 'download-zip-btn') {
     }
 
     if (target.classList.contains('edit-product-btn')) {
-        const productCode = target.closest('tr').querySelector('td:nth-child(2)').textContent;
+        const productCode = target.closest('tr').querySelector('td[data-field="codigo_producto"]').textContent;
         mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
         mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
         await loadActionContent('productos/modificar_producto');
@@ -2577,7 +2593,11 @@ mainContent.addEventListener('input', (event) => {
 
 mainContent.addEventListener('change', async (event) => {
     const target = event.target; // <--- LÍNEA AÑADIDA
-
+    if (target.id === 'toggle-product-images') {
+        // Vuelve a renderizar la tabla con la nueva configuración de visibilidad de imágenes
+        currentFilters.page = 1; 
+        await fetchAndRenderProducts();
+    }
     if (target.id === 'activity-date-filter') {
         fetchAndRenderActivityLog();
         return;

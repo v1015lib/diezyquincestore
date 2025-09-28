@@ -6,6 +6,11 @@
     <div class="filters-container">
         <input type="text" id="product-search-input" class="form-control" placeholder="Buscar por nombre o código...">
         
+        <div class="form-group">
+            <input type="checkbox" id="toggle-product-images">
+            <label for="toggle-product-images">Mostrar Imágenes</label>
+        </div>
+
         <select id="department-filter" class="form-control">
             <option value="">Filtrar por departamento</option>
         </select>
@@ -32,7 +37,7 @@
         <thead>
             <tr>
                 <th><input type="checkbox" id="select-all-products"></th>
-                <th class="sortable" data-sort="p.codigo_producto">Código</th>
+                <th class="product-image-col" style="display: none;">Imagen</th> <th class="sortable" data-sort="p.codigo_producto">Código</th>
                 <th class="sortable" data-sort="p.nombre_producto">Nombre</th>
                 <th class="sortable" data-sort="d.departamento">Dept.</th>
                 <th class="sortable" data-sort="p.precio_venta">P. Venta</th>
