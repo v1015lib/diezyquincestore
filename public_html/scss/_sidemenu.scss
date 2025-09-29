@@ -2,13 +2,13 @@
 @import 'vars';
 
 .sidemenu {
-    width:20vw; // Ancho en PC
+    width:220px; // Ancho en PC
     flex-shrink: 0; // Evita que se encoja
     background-color: $primary-color;
 
 
     position: fiex; // Menú pegajoso en PC
-    top: 0px; // Ajustar esto según la altura final del header
+
     height: 100%; // Se ajusta a la altura de la ventana menos el header
     overflow-y: auto; // Permite scroll si hay muchos departamentos
     z-index: 100000;
@@ -16,16 +16,17 @@
 
 
     &::-webkit-scrollbar {
-        width: 5px; /* Ancho para scrollbars verticales */
+        width: 0px; /* Ancho para scrollbars verticales */
         height: 10px; /* Alto para scrollbars horizontales */
     }
     &::-webkit-scrollbar-track {
         background: $primary-color;
 
+
     }
     &::-webkit-scrollbar-thumb {
 
-        background: darken($primary-color, 5%)
+        background: darken($primary-color, 9% );
 
     }
 
@@ -37,7 +38,7 @@
         align-items: center;
 
 
-        padding: .5rem;
+        padding: 1rem .5rem;
 
 
 
@@ -45,8 +46,8 @@
         h3 {
             width: 100%;
             margin: 0;
-            font-size: 1rem;
-            height: fit-content;
+
+
             color: $tcolor2;
         }
         .close-sidemenu {
@@ -59,7 +60,9 @@
             position: absolute;
             top: 0;
             right: 0;
-            padding: .5rem;
+            padding: 1rem;
+            font-weight: 600;
+
         }
     }
 
@@ -70,20 +73,18 @@
 
             a {
 
-                font-size: .8rem;
+                font-size: clamp(0.7rem, 2.5vw, .8rem);
                 display: block;
-                padding:  .2rem .5rem;
+                padding:  .3rem;
                 color: $tcolor2;
                 font-weight: 600;
                 width: 100%;
-                @media screen and (max-width: 425px){
-                    font-size: .7rem;
-                }
-                &:hover {
+  
+                &:hover,
+                &.active {
+                    background-color: #F0F2F5;
                     color: $primary-color;
                     text-decoration: none;
-                    background: white;
-                    color: $primary-color;
                 }
             }
         }

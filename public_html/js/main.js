@@ -98,6 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = event.target;
         if (target.matches('.department-link')) {
             event.preventDefault();
+
+            document.querySelectorAll('.department-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            target.classList.add('active');
             const departmentId = target.dataset.departmentId;
             let params = { 
                 page: 1, 
