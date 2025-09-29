@@ -43,13 +43,6 @@ export async function getUserFavorites() {
  */
 
 
-// EN: public_html/js/ajax/product_loader.js
-
-// REEMPLAZA la función createProductCardHTML completa para asegurar la clase correcta
-// public_html/js/ajax/product_loader.js
-
-// REEMPLAZA la función createProductCardHTML completa para asegurar la clase correcta
-
 
 export function createProductCardHTML(product, cartQuantity = 0, isFavorite = false) {
     const precioVenta = parseFloat(product.precio_venta);
@@ -59,6 +52,57 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
     const isLoggedIn = document.querySelector('.my-account-link');
     const canShowDetails = !layoutSettings.details_for_logged_in_only || isLoggedIn;
     
+    // --- SCHEMA MEJORADO CON MÁS PROPIEDADES SEO ---
+    const finalPrice = (precioOferta > 0 && precioOferta < precioVenta) ? precioOferta : precioVenta;
+    
+    const schema = {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": product.nombre_producto,
+      "image": product.url_imagen || 'https://via.placeholder.com/200',
+      "description": product.descripcion || `Encuentra ${product.nombre_producto} en Variedades 10 y 15. Productos de calidad al mejor precio.`,
+      "sku": product.codigo_producto,
+      "brand": {
+        "@type": "Brand",
+        "name": "Variedades 10 y 15"
+      },
+      "offers": {
+        "@type": "Offer",
+        "url": `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}index.php?product_id=${product.id_producto}`,
+        "priceCurrency": "USD",
+        "price": finalPrice.toFixed(2),
+        "availability": isOutOfStock ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+        "itemCondition": "https://schema.org/NewCondition",
+        "priceValidUntil": new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0], // Válido por 1 año
+        "seller": {
+          "@type": "Organization",
+          "name": "Variedades 10 y 15"
+        }
+      }
+    };
+
+    // Agregar categoría si existe
+    if (product.nombre_departamento) {
+        schema.category = product.nombre_departamento;
+    }
+
+    // Agregar precio regular si hay oferta
+    if (precioOferta > 0 && precioOferta < precioVenta) {
+        schema.offers.priceSpecification = {
+            "@type": "PriceSpecification",
+            "price": precioVenta.toFixed(2),
+            "priceCurrency": "USD"
+        };
+    }
+
+    // Agregar identificador único
+    schema.identifier = {
+        "@type": "PropertyValue",
+        "propertyID": "product_id",
+        "value": product.id_producto
+    };
+    // --- FIN SCHEMA MEJORADO ---
+
     let priceContainerContent = '';
     let departmentHtml = '';
     
@@ -67,17 +111,17 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         let codeHtml = '';
         
         if (layoutSettings.show_product_department) {
-            departmentHtml = `<p class="department"> ${product.nombre_departamento}</p>`;
+            departmentHtml = `<p class="department">${product.nombre_departamento}</p>`;
         }
 
         if (layoutSettings.show_product_price) {
             if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
                 priceHtml = `
-                    <p class="price-offer">$${precioOferta.toFixed(2)}</p>
+                    <p class="price-offer" itemprop="price">$${precioOferta.toFixed(2)}</p>
                     <p class="price-older">$${precioVenta.toFixed(2)}</p>
                 `;
             } else {
-                priceHtml = `<p class="price">$${precioVenta.toFixed(2)}</p>`;
+                priceHtml = `<p class="price" itemprop="price">$${precioVenta.toFixed(2)}</p>`;
             }
         }
 
@@ -86,16 +130,16 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         }
         priceContainerContent = priceHtml + codeHtml;
     } else {
-        priceContainerContent = '<p class="login-prompt-message">Regístrese o inicie sesión para ver la informacion</p>';
+        priceContainerContent = '<p class="login-prompt-message">Regístrese o inicie sesión para ver la información</p>';
     }
     
     const disabledAttribute = isOutOfStock ? 'disabled' : '';
 
     const quantitySelectorHtml = `
         <div class="quantity-selector ${isOutOfStock ? 'disabled' : ''}">
-            <button class="quantity-btn minus" data-action="decrease" ${disabledAttribute}>-</button>
+            <button class="quantity-btn minus" data-action="decrease" ${disabledAttribute} aria-label="Disminuir cantidad">-</button>
             <input type="number" class="quantity-input" value="${cartQuantity}" min="0" max="99" data-product-id="${product.id_producto}" aria-label="Cantidad" ${disabledAttribute}>
-            <button class="quantity-btn plus" data-action="increase" ${disabledAttribute}>+</button>
+            <button class="quantity-btn plus" data-action="increase" ${disabledAttribute} aria-label="Aumentar cantidad">+</button>
         </div>
     `;
     
@@ -104,22 +148,32 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         badgeHtml = `<div class="out-of-stock-badge">Agotado</div>`;
     } else if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
         const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
-        badgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
+        badgeHtml = `<div class="discount-badge">-${discountPercent}%</div>`;
     }
 
-    const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card'; // <-- AQUI EL CAMBIO
+    const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card';
 
+    // Estructura HTML limpia con Schema JSON-LD únicamente
     return `
-        <div class="${cardClass}" data-product-id="${product.id_producto}">
+        <article class="${cardClass}" data-product-id="${product.id_producto}">
+            
+            <script type="application/ld+json">
+${JSON.stringify(schema, null, 2)}
+            </script>
+
             <div class="product-card-actions">
                 <button class="favorite-btn ${isFavorite ? 'is-favorite' : ''}" data-product-id="${product.id_producto}" aria-label="Añadir a favoritos">&#10084;</button>
-                <button class="share-btn" data-product-id="${product.id_producto}" aria-label="Compartir">
+                <button class="share-btn" data-product-id="${product.id_producto}" aria-label="Compartir producto">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                 </button>
             </div>
             
             <div class="product-image-container product-image-preview-trigger">
-                <img src="${product.url_imagen || 'https://via.placeholder.com/200'}" alt="${product.nombre_producto}" loading="lazy">
+                <img src="${product.url_imagen || 'https://via.placeholder.com/200'}" 
+                     alt="${product.nombre_producto}" 
+                     loading="lazy"
+                     width="200"
+                     height="200">
                 ${badgeHtml}
             </div>
 
@@ -131,7 +185,7 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
                 </div>
                 ${quantitySelectorHtml}
             </div>
-        </div>
+        </article>
     `;
 }
 
