@@ -3341,7 +3341,6 @@ body.page-checkout {
     transition: left 0.3s ease-in-out;
     -webkit-box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
             box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-    opacity: 0.9;
   }
   .sidemenu ul {
     display: -ms-grid;
@@ -3374,6 +3373,7 @@ body.page-checkout {
 .main-container .grid-inner::-webkit-scrollbar-thumb {
   background: #090737;
 }
+/*******Responsividad*******/
 @media (max-width: 768px) {
   .sidemenu {
     position: fixed;
@@ -3388,6 +3388,28 @@ body.page-checkout {
             box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
   }
   .sidemenu.active {
+    opacity: 0.95;
+    left: 0;
+  }
+  .sidemenu .sidemenu-header .close-sidemenu {
+    display: block;
+  }
+}
+@media screen and (max-width: 425px) {
+  .sidemenu {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100vh;
+    z-index: 2000;
+    -webkit-transition: left 0.3s ease-in-out;
+    transition: left 0.3s ease-in-out;
+    -webkit-box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+  }
+  .sidemenu.active {
+    opacity: 0.95;
     left: 0;
   }
   .sidemenu .sidemenu-header .close-sidemenu {

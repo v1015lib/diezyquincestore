@@ -38,6 +38,7 @@
     }
 
     .sidemenu {
+
         position: fixed;
         top: 0; 
         left: -100%; 
@@ -46,13 +47,14 @@
         z-index: 2000; 
         transition: left 0.3s ease-in-out; 
         box-shadow: 4px 0 15px rgba(0,0,0,0.1);
-        opacity: .9;
+
         ul{
             display: grid;
             grid-template-columns: repeat(2, 1fr);
         }
 
         &.active { 
+
             left: 0; 
         }
         .sidemenu-header .close-sidemenu { 
@@ -91,8 +93,7 @@
     }
 }
 
-// Archivo: public_html/scss/_responsive.scss
-
+/*******Responsividad*******/
 @media (max-width: $breakpoint-tablet) {
 
     // ... (otros estilos responsivos)
@@ -108,7 +109,8 @@
         box-shadow: 4px 0 15px rgba(0,0,0,0.1);
 
         &.active { 
-            left: 0; 
+            opacity: .95;
+            left: 0;
         }
         
         .sidemenu-header .close-sidemenu { 
@@ -116,6 +118,33 @@
         }
     }
 }
+@media screen and (max-width: 425px){
+
+    // ... (otros estilos responsivos)
+
+    .sidemenu {
+        position: fixed; // ✅ ¡ESTA ES LA LÍNEA QUE FALTABA!
+        top: 0; 
+        left: -100%; 
+        width: 100%; 
+        height: 100vh;
+        z-index: 2000; 
+        transition: left 0.3s ease-in-out; 
+        box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+
+        &.active { 
+                        opacity: .95;
+
+            left: 0; 
+
+        }
+        
+        .sidemenu-header .close-sidemenu { 
+            display: block; 
+        }
+    }
+}
+
 
 
 

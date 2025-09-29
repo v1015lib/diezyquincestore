@@ -8,9 +8,7 @@
             <div class="contact-info">
                 <p>
                     <i class="fas fa-map-marker-alt">📍</i><strong>Nuestra Dirección:</strong><br><br>
-                    Ilopango, San Salvador.
-                    San Bartolo, Calle Melenez, Local 8. <br>
-                    Frente a Edificio #1 INSAB.
+C. melendez Local 8, Ilopango 1117
                 </p>
                 <p>
                     <i class="fab fa-whatsapp">💬</i><strong>WhatsApp:</strong><br><br>
