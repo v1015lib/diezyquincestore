@@ -1,0 +1,12 @@
+# robots.txt
+User-agent: *
+
+# Bloquear el rastreo de páginas de sesión y paneles de usuario
+Disallow: /dashboard.php
+Disallow: /login.php
+Disallow: /registro.php
+Disallow: /finalizar_compra.php
+Disallow: /logout.php
+
+# Bloquear el acceso a la carpeta de la API
+Disallow: /api/

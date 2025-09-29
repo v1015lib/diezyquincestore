@@ -18,7 +18,8 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crear tu Cuenta</title>
-        <link rel="shortcut icon" href="img/favicon.png">    
+    <link rel="shortcut icon" href="img/favicon.png">    
+    <meta name="robots" content="noindex, follow">
 
     <link rel="stylesheet" href="css/style.css">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>

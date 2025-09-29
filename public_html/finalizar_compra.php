@@ -133,7 +133,7 @@ try {
     <title>Finalizar Compra</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <!-- Google tag (gtag.js) -->
+<meta name="robots" content="noindex, follow">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBEVFQFD8Q"></script>
 <script>
   window.dataLayer = window.dataLayer || [];

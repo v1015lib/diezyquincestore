@@ -14,6 +14,7 @@ $page_type = 'simplified';
     <title>Iniciar Sesión</title>
     <link rel="stylesheet" href="css/style.css">
 
+    <meta name="robots" content="noindex, follow">
 
 </head>
 <body class="page-login">
