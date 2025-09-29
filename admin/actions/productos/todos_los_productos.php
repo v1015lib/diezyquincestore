@@ -33,24 +33,27 @@
     </div>
 </div>
 <div id="product-list-container" class="table-container">
-    <table class="product-table">
-        <thead>
-            <tr>
-                <th><input type="checkbox" id="select-all-products"></th>
-                <th class="product-image-col" style="display: none;">Imagen</th> <th class="sortable" data-sort="p.codigo_producto">Código</th>
-                <th class="sortable" data-sort="p.nombre_producto">Nombre</th>
-                <th class="sortable" data-sort="d.departamento">Dept.</th>
-                <th class="sortable" data-sort="p.precio_venta">P. Venta</th>
-                <th class="sortable" data-sort="stock_actual">Stock </th>
-                <th>S. Mín.</th>
-                <th>S. Máx.</th>
-                <th>U. Inv.</th>
-                <th class="sortable" data-sort="e.nombre_estado">Estado</th>
-                <th>Acc.</th>
-            </tr>
-        </thead>
-        <tbody id="product-table-body">
-            </tbody>
-    </table>
+<table class="product-table">
+    <thead>
+        <tr>
+            <th data-col="select"><input type="checkbox" id="select-all-products"></th>
+            
+            <th class="product-image-col sortable" style="display: none;" data-sort="p.url_imagen">Imagen</th> 
+            
+            <th class="sortable" data-sort="p.codigo_producto">Código</th>
+            <th class="sortable" data-sort="p.nombre_producto">Nombre</th>
+            <th class="sortable" data-sort="d.departamento">Dept.</th>
+            <th class="sortable" data-sort="p.precio_venta">P. Venta</th>
+            <th class="sortable" data-sort="stock_actual">Stock </th>
+            <th data-col="stock-min">S. Mín.</th>
+            <th data-col="stock-max">S. Máx.</th>
+            <th data-col="u-inv">U. Inv.</th>
+            <th class="sortable" data-sort="e.nombre_estado">Estado</th>
+            <th data-col="acc">Acc.</th>
+        </tr>
+    </thead>
+    <tbody id="product-table-body">
+        </tbody>
+</table>
     <div id="loading-indicator" style="display: none; text-align: center; padding: 1rem;">Cargando más productos...</div>
 </div>

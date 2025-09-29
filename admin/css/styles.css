@@ -463,6 +463,25 @@ tbody tr:hover > * {
   text-align: center;
 }
 
+/* --- Estilos para Redimensionar Columnas --- */
+.product-table th {
+  position: relative; /* Necesario para posicionar el manejador */
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px; /* Ligeramente fuera para mejor agarre */
+  bottom: 0;
+  width: 5px; /* Área de clic */
+  cursor: col-resize; /* Cursor que indica que se puede redimensionar */
+  z-index: 10;
+  /* Efecto visual al pasar el mouse o al arrastrar */
+}
+.resize-handle:hover, .resize-handle.resizing {
+  background-color: rgba(212, 160, 23, 0.4); /* Un color ámbar semitransparente */
+}
+
 .module-header {
   position: relative;
   display: -webkit-box;

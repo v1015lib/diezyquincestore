@@ -5132,21 +5132,6 @@ case 'toggle-inventory':
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-// EN: api/index.php
-
 case 'admin/getProducts':
     if ($method == 'GET') {
         try {
@@ -5157,28 +5142,36 @@ case 'admin/getProducts':
             $searchTerm = $_GET['search'] ?? '';
             $departmentId = $_GET['department'] ?? '';
             $storeId_filter = $_GET['store'] ?? '';
-            $sortBy = $_GET['sort_by'] ?? 'p.nombre_producto'; // Se espera con prefijo
+            $sortBy = $_GET['sort_by'] ?? 'p.nombre_producto';
             $order = $_GET['order'] ?? 'ASC';
 
-            // --- CORRECCIÓN CLAVE ---
-            // Se añaden los nombres de columna con prefijo a la lista de valores permitidos.
             $allowedSortCols = [
                 'p.codigo_producto', 
                 'p.nombre_producto', 
-                'd.departamento', // <-- AÑADIDO Y CORREGIDO
+                'd.departamento',
                 'p.precio_venta', 
                 'stock_actual', 
-                'e.nombre_estado' // <-- AÑADIDO Y CORREGIDO
+                'e.nombre_estado',
+                'p.url_imagen'
             ];
 
-            // Se valida que el valor de sortBy sea uno de los permitidos.
             if (!in_array($sortBy, $allowedSortCols)) {
-                $sortBy = 'p.nombre_producto'; // Valor por defecto si no es válido
+                $sortBy = 'p.nombre_producto';
             }
-            // Ya no se necesita el mapeo, se usa el valor directamente.
-            $orderByColumn = $sortBy;
-            // --- FIN DE LA CORRECCIÓN ---
-
+            
+            // --- INICIO DE LA CORRECCIÓN CLAVE ---
+            // Se añade la lógica especial para ordenar por la columna de imagen
+            $orderByClause = "ORDER BY ";
+            if ($sortBy === 'p.url_imagen') {
+                // Esto crea una columna virtual: 0 si hay imagen, 1 si no la hay.
+                // Al ordenar, los productos con imagen (valor 0) aparecerán primero.
+                $orderByClause .= "CASE WHEN p.url_imagen IS NOT NULL AND p.url_imagen != '0' AND p.url_imagen != '' THEN 0 ELSE 1 END";
+            } else {
+                // Para todas las demás columnas, la ordenación es normal.
+                $orderByClause .= $sortBy;
+            }
+            $orderByClause .= " " . ($order === 'DESC' ? 'DESC' : 'ASC');
+            // --- FIN DE LA CORRECCIÓN CLAVE ---
 
             $rol = $_SESSION['rol'] ?? 'empleado';
             $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
@@ -5186,7 +5179,7 @@ case 'admin/getProducts':
             $where_clauses = [];
             $params = [];
 
-            // Lógica de Stock (sin cambios)
+            // Lógica de Stock
             $stock_subquery = "";
             if ($rol === 'administrador_global') {
                 if (!empty($storeId_filter)) {
@@ -5213,12 +5206,13 @@ case 'admin/getProducts':
 
             $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
             
+            // Se usa la nueva variable $orderByClause en la consulta final
             $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, $stock_subquery AS stock_actual
                     FROM productos p
                     LEFT JOIN departamentos d ON p.departamento = d.id_departamento
                     LEFT JOIN estados e ON p.estado = e.id_estado"
-                    . $where_sql .
-                    " ORDER BY $orderByColumn $order LIMIT :limit OFFSET :offset";
+                    . $where_sql
+                    . " " . $orderByClause . " LIMIT :limit OFFSET :offset"; // <-- CAMBIO AQUÍ
             
             $stmt = $pdo->prepare($sql);
             
@@ -5239,8 +5233,6 @@ case 'admin/getProducts':
         }
     }
     break;
-
-
 
 
 

@@ -1241,6 +1241,7 @@ async function loadActionContent(actionPath) {
                 await populateDepartmentFilter();
                 if (USER_ROLE === 'administrador_global') await populateStoreFilter();
                 await fetchAndRenderProducts();
+                initializeResizableColumns('.product-table');
                 mainContentContainer?.addEventListener('scroll', handleScroll);
                 break;
             case 'productos/agregar_producto': initializeAddProductForm(); break;
@@ -5599,6 +5600,93 @@ async function saveBucketImageRename(itemDiv, newValue, cell) {
         cell.textContent = originalText;
     }
 }
+
+
+function initializeResizableColumns(tableSelector) {
+    const table = document.querySelector(tableSelector);
+    if (!table) return;
+
+    const headers = table.querySelectorAll('thead th');
+    const storageKey = 'productTableWidths'; // Clave para guardar en Local Storage
+
+    // 1. Cargar y aplicar anchos guardados al iniciar
+    const savedWidths = JSON.parse(localStorage.getItem(storageKey));
+    if (savedWidths) {
+        headers.forEach(header => {
+            const colId = header.dataset.sort || header.dataset.col;
+            if (colId && savedWidths[colId]) {
+                header.style.width = savedWidths[colId];
+            }
+        });
+    }
+
+    // 2. Crear las "agarraderas" para cada columna
+    headers.forEach(header => {
+        // No añadimos una agarradera a la última columna
+        if (header.nextElementSibling) {
+            const handle = document.createElement('div');
+            handle.classList.add('resize-handle');
+            header.appendChild(handle);
+            handle.addEventListener('mousedown', startResize);
+        }
+    });
+
+    let startX, startWidth, resizingHeader, resizingHandle;
+
+    // 3. Función que se activa al hacer clic en una agarradera
+    function startResize(e) {
+        e.preventDefault();
+        resizingHeader = e.target.parentElement;
+        resizingHandle = e.target;
+        resizingHandle.classList.add('resizing');
+        startX = e.clientX;
+        startWidth = resizingHeader.offsetWidth;
+
+        // Escuchar movimientos y el momento en que se suelta el clic en todo el documento
+        document.addEventListener('mousemove', doResize);
+        document.addEventListener('mouseup', stopResize);
+    }
+
+    // 4. Función que se ejecuta mientras se arrastra el mouse
+    function doResize(e) {
+        if (resizingHeader) {
+            const newWidth = startWidth + (e.clientX - startX);
+            if (newWidth > 50) { // Un ancho mínimo para que la columna no desaparezca
+                resizingHeader.style.width = `${newWidth}px`;
+            }
+        }
+    }
+
+    // 5. Función que se activa al soltar el clic del mouse
+    function stopResize() {
+        if(resizingHandle) resizingHandle.classList.remove('resizing');
+        
+        // Dejar de escuchar los eventos
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+        
+        // Guardar los nuevos anchos
+        saveWidths();
+
+        resizingHeader = null;
+        resizingHandle = null;
+    }
+
+    // 6. Función para guardar todos los anchos en Local Storage
+    function saveWidths() {
+        const widthsToSave = {};
+        headers.forEach(header => {
+            // Usamos el identificador único que definimos en el HTML
+            const colId = header.dataset.sort || header.dataset.col;
+            if (colId && header.style.width) {
+                widthsToSave[colId] = header.style.width;
+            }
+        });
+        localStorage.setItem(storageKey, JSON.stringify(widthsToSave));
+    }
+}
+// --- FIN: LÓGICA PARA REDIMENSIONAR COLUMNAS ---
+
 
 
 });
