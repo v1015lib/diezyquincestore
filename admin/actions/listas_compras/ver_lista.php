@@ -29,11 +29,11 @@ $id_lista = $_GET['id'] ?? 0;
         <table id="list-items-table" class="product-table">
             <thead>
                 <tr>
-                    <th style="width: 5%; text-align: center;">✓</th> 
-                    <th>Producto</th>
-                    <th>Precio Venta</th>
-                    <th>Cantidad</th>
-                    <th>Acción</th>
+                    <th data-col="select" style="width: 5%; text-align: center;">✓</th> 
+                    <th data-col="product">Producto</th>
+                    <th data-col="price">Precio Venta</th>
+                    <th data-col="quantity">Cantidad</th>
+                    <th data-col="action">Acción</th>
                 </tr>
             </thead>
             <tbody id="list-items-tbody">

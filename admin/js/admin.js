@@ -898,10 +898,12 @@ function initializeCreateShoppingListForm() {
     });
 }
 
-function initializeListasCompras(container) {
+async function initializeListasCompras(container) {
     const listId = container.querySelector('.lista-compras-container')?.dataset.idLista;
     if (listId) {
-        loadAndRenderListView(listId);
+        await loadAndRenderListView(listId);
+        // Se llama a la función de redimensionamiento DESPUÉS de que la tabla está renderizada
+        initializeResizableColumns('#list-items-table', 'shoppingListTableWidths');
     } else {
         console.error("Error: No se pudo encontrar el ID de la lista.");
     }
@@ -1072,6 +1074,7 @@ async function addProductToList(listId, productId) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id_lista: listId, id_producto: productId })
     });
+    // Llama a la función principal que ahora también se encarga de reinicializar el resize
     await loadAndRenderListView(listId);
 }
 
@@ -1271,7 +1274,7 @@ async function loadActionContent(actionPath) {
             case 'web_admin/sliders': initializeWebAdminControls(); break;
             case 'listas_compras/gestion': initializeShoppingListManagement(); break; 
             case 'listas_compras/crear_lista': initializeCreateShoppingListForm(); break;
-            case 'listas_compras/ver_lista': initializeListasCompras(actionContent); break;
+            case 'listas_compras/ver_lista': await initializeListasCompras(actionContent); break;
             case 'tiendas/gestion': initializeTiendaManagement(); break; 
             case 'proveedores/gestion': initializeProveedorManagement(); break;
             case 'utilidades/procesador_imagenes': initializeImageProcessor(); break;
@@ -4812,8 +4815,10 @@ async function loadAndRenderListView(listId) {
     }
 
     try {
-        if (!actionContent.querySelector('#view-list-container')) {
-            const response = await fetch(`actions/listas_compras/ver_lista.php`);
+        // Se corrige el selector para que la lógica funcione correctamente
+        if (!actionContent.querySelector('.lista-compras-container')) {
+            // Se corrige el fetch para pasar el ID y cargar la vista correcta
+            const response = await fetch(`actions/listas_compras/ver_lista.php?id=${listId}`);
             actionContent.innerHTML = await response.text();
         }
 
@@ -4822,8 +4827,13 @@ async function loadAndRenderListView(listId) {
 
         if (detailsResult.success) {
             document.getElementById('list-name-header').textContent = `Editando Lista: ${detailsResult.listName}`;
-            renderListItems(detailsResult.items, existingItemIds);
-            initializeListViewInteractions(listId);
+            renderListItems(detailsResult.items, existingItemIds); // Tu llamada original
+            initializeListViewInteractions(listId); // Tu llamada original
+            
+            // --- ✅ LÍNEA INTEGRADA ---
+            // Se añade la reinicialización del resize después de renderizar
+            initializeResizableColumns('#list-items-table', 'shoppingListTableWidths'); 
+
         } else {
             throw new Error(detailsResult.error);
         }
@@ -4835,26 +4845,30 @@ async function loadAndRenderListView(listId) {
 
 
 
-function renderListItems(items) {
+function renderListItems(items, existingItemIds) { // Se mantiene el parámetro que pasas
     const tbody = document.getElementById('list-items-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
     items.forEach(item => {
         const row = document.createElement('tr');
         row.dataset.itemId = item.id_item_lista;
+        if (parseInt(item.marcado, 10) === 1) {
+            row.classList.add('item-marked');
+        }
         
         row.innerHTML = `
             <td style="text-align: center;">
                 <input type="checkbox" class="mark-item-checkbox" ${parseInt(item.marcado, 10) === 1 ? 'checked' : ''}>
             </td>
             <td>${item.nombre_producto}</td>
-            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(2)}" step="0.01">$</td>
+            <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(2)}" step="0.01"></td>
             <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
             <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
         tbody.appendChild(row);
     });
 }
+
 // Reemplaza también esta función completa en tu archivo admin.js
 
 
@@ -5602,14 +5616,13 @@ async function saveBucketImageRename(itemDiv, newValue, cell) {
 }
 
 
-function initializeResizableColumns(tableSelector) {
+
+function initializeResizableColumns(tableSelector, storageKey) {
     const table = document.querySelector(tableSelector);
     if (!table) return;
 
     const headers = table.querySelectorAll('thead th');
-    const storageKey = 'productTableWidths'; // Clave para guardar en Local Storage
-
-    // 1. Cargar y aplicar anchos guardados al iniciar
+    
     const savedWidths = JSON.parse(localStorage.getItem(storageKey));
     if (savedWidths) {
         headers.forEach(header => {
@@ -5620,9 +5633,7 @@ function initializeResizableColumns(tableSelector) {
         });
     }
 
-    // 2. Crear las "agarraderas" para cada columna
     headers.forEach(header => {
-        // No añadimos una agarradera a la última columna
         if (header.nextElementSibling) {
             const handle = document.createElement('div');
             handle.classList.add('resize-handle');
@@ -5633,7 +5644,6 @@ function initializeResizableColumns(tableSelector) {
 
     let startX, startWidth, resizingHeader, resizingHandle;
 
-    // 3. Función que se activa al hacer clic en una agarradera
     function startResize(e) {
         e.preventDefault();
         resizingHeader = e.target.parentElement;
@@ -5642,41 +5652,34 @@ function initializeResizableColumns(tableSelector) {
         startX = e.clientX;
         startWidth = resizingHeader.offsetWidth;
 
-        // Escuchar movimientos y el momento en que se suelta el clic en todo el documento
         document.addEventListener('mousemove', doResize);
         document.addEventListener('mouseup', stopResize);
     }
 
-    // 4. Función que se ejecuta mientras se arrastra el mouse
     function doResize(e) {
         if (resizingHeader) {
             const newWidth = startWidth + (e.clientX - startX);
-            if (newWidth > 50) { // Un ancho mínimo para que la columna no desaparezca
+            if (newWidth > 50) { 
                 resizingHeader.style.width = `${newWidth}px`;
             }
         }
     }
 
-    // 5. Función que se activa al soltar el clic del mouse
     function stopResize() {
         if(resizingHandle) resizingHandle.classList.remove('resizing');
         
-        // Dejar de escuchar los eventos
         document.removeEventListener('mousemove', doResize);
         document.removeEventListener('mouseup', stopResize);
         
-        // Guardar los nuevos anchos
         saveWidths();
 
         resizingHeader = null;
         resizingHandle = null;
     }
 
-    // 6. Función para guardar todos los anchos en Local Storage
     function saveWidths() {
         const widthsToSave = {};
         headers.forEach(header => {
-            // Usamos el identificador único que definimos en el HTML
             const colId = header.dataset.sort || header.dataset.col;
             if (colId && header.style.width) {
                 widthsToSave[colId] = header.style.width;
