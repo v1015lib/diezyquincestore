@@ -489,8 +489,8 @@
 /* --- Estilos para items tachados --- */
 .product-table tbody tr.item-marked {
   text-decoration: line-through;
-  opacity: 0.6;
-  background-color: #f8f9fa;
+  opacity: 0.5;
+  background-color: $primary-color;
   
   td, input {
       background-color: transparent !important;
@@ -507,3 +507,58 @@
   cursor: pointer;
 }
 
+
+/* --- INICIO: SOLUCIÓN DEFINITIVA PARA TABLA DE LISTAS EN MÓVIL (SCROLL HORIZONTAL) --- */
+
+// Aplica los estilos solo en pantallas con un ancho máximo de 768px (móviles y tablets en vertical).
+@media screen and (max-width: 768px) {
+
+    .lista-compras-container {
+
+        // 1. Habilitamos el scroll horizontal en el contenedor de la tabla.
+        #list-items-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; // Mejora la experiencia de scroll en iOS.
+        }
+
+        // 2. Forzamos un ancho mínimo a la tabla completa.
+        #list-items-table {
+            // ==> PUEDES MANEJAR ESTE VALOR <==
+            // Si la pantalla es más pequeña que 650px, la tabla no se encogerá más y aparecerá la barra de scroll.
+            // Aumenta este valor si quieres que la tabla sea aún más ancha.
+            min-width: 600px;
+
+            // 3. Asignamos anchos fijos a las columnas problemáticas para que no se colapsen.
+            th, td {
+                // Columna de Producto (dejamos que sea más flexible)
+                &:nth-child(1) {
+                    width: 50px;
+
+                }                
+
+                &:nth-child(2) {
+                    width:200px;
+
+                }
+
+                // ==> PUEDES MANEJAR ESTOS VALORES <==
+                // Columna de Precio Venta
+                &:nth-child(3) {
+                    width: 40px; // Un ancho fijo de 120px.
+                }
+
+                // Columna de Cantidad
+                &:nth-child(4) {
+                    width: 40px; // Un ancho fijo de 100px.
+                }
+                
+                // Columna de Acción (Botón Eliminar)
+                &:nth-child(5) {
+                    width: 40px;  // Un ancho fijo de 80px.
+                    text-align: center;
+                }
+            }
+        }
+    }
+}
+/* --- FIN: SOLUCIÓN DEFINITIVA --- */

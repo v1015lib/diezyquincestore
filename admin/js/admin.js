@@ -947,6 +947,10 @@ function renderListItems(items) {
     });
 }
 
+
+
+// EN: admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN)
+
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
     const searchResults = document.getElementById('product-search-results-list');
@@ -986,16 +990,16 @@ function initializeListViewInteractions(listId) {
         }, 300);
     });
 
-    // Añadir producto manualmente
-    manualForm.addEventListener('submit', async (e) => {
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    // Se reemplaza addEventListener por onsubmit para evitar envíos múltiples
+    manualForm.onsubmit = async (e) => {
         e.preventDefault();
         const feedbackDiv = document.getElementById('manual-add-feedback');
         const data = {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
-            // El campo ahora se llama precio_compra, pero le pasamos el precio de venta
             precio_compra: document.getElementById('manual_purchase_price').value,
-            cantidad: 1 // Siempre se añade con cantidad 1
+            cantidad: 1 
         };
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {
@@ -1012,7 +1016,8 @@ function initializeListViewInteractions(listId) {
         } catch (error) {
             feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
         }
-    });
+    };
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
 
     // Ocultar resultados de búsqueda si se hace clic fuera
     document.addEventListener('click', function(event) {
@@ -1211,8 +1216,6 @@ function initializeImageProcessor() {
 
 /***********************************************************************/
 
-// REEMPLAZA ESTA FUNCIÓN COMPLETA EN: admin/js/admin.js
-
 async function loadActionContent(actionPath) {
     const actionContent = document.getElementById('action-content');
     if (!actionContent) return;
@@ -1224,7 +1227,7 @@ async function loadActionContent(actionPath) {
     
     actionContent.innerHTML = '<p>Cargando...</p>';
     try {
-        // --- INICIO DE LA CORRECCIÓN CLAVE ---
+
         // Se separa la ruta de la acción de sus parámetros de consulta (query string).
         const [path, ...queryParts] = actionPath.split('&');
         const queryString = queryParts.join('&');
@@ -1293,7 +1296,7 @@ async function populateDepartmentFilter(selectorId = 'department-filter') {
     const filterSelect = document.getElementById(selectorId);
     if (!filterSelect) return;
     try {
-        // CORRECCIÓN: Se apunta al endpoint correcto que devuelve todos los departamentos.
+        // Devuelve todos los departamentos.
         const response = await fetch(`${API_BASE_URL}?resource=admin/getDepartments`);
         const result = await response.json(); // La API devuelve un objeto { success: true, departments: [...] }
 

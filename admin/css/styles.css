@@ -1943,8 +1943,8 @@ tbody tr:hover > * {
 /* --- Estilos para items tachados --- */
 .product-table tbody tr.item-marked {
   text-decoration: line-through;
-  opacity: 0.6;
-  background-color: #f8f9fa;
+  opacity: 0.5;
+  background-color: #0C0A4E;
 }
 .product-table tbody tr.item-marked td, .product-table tbody tr.item-marked input {
   background-color: transparent !important;
@@ -1959,6 +1959,33 @@ tbody tr:hover > * {
   cursor: pointer;
 }
 
+/* --- INICIO: SOLUCIÓN DEFINITIVA PARA TABLA DE LISTAS EN MÓVIL (SCROLL HORIZONTAL) --- */
+@media screen and (max-width: 768px) {
+  .lista-compras-container #list-items-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lista-compras-container #list-items-table {
+    min-width: 600px;
+  }
+  .lista-compras-container #list-items-table th:nth-child(1), .lista-compras-container #list-items-table td:nth-child(1) {
+    width: 50px;
+  }
+  .lista-compras-container #list-items-table th:nth-child(2), .lista-compras-container #list-items-table td:nth-child(2) {
+    width: 200px;
+  }
+  .lista-compras-container #list-items-table th:nth-child(3), .lista-compras-container #list-items-table td:nth-child(3) {
+    width: 40px;
+  }
+  .lista-compras-container #list-items-table th:nth-child(4), .lista-compras-container #list-items-table td:nth-child(4) {
+    width: 40px;
+  }
+  .lista-compras-container #list-items-table th:nth-child(5), .lista-compras-container #list-items-table td:nth-child(5) {
+    width: 40px;
+    text-align: center;
+  }
+}
+/* --- FIN: SOLUCIÓN DEFINITIVA --- */
 @media (max-width: 991px) {
   .dashboard-sidemenu {
     position: fixed;
