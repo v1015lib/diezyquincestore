@@ -990,14 +990,13 @@ function initializeListViewInteractions(listId) {
         }, 300);
     });
 
-    // --- INICIO DE LA CORRECCIÓN CLAVE ---
-    // Se reemplaza addEventListener por onsubmit para evitar envíos múltiples
     manualForm.onsubmit = async (e) => {
         e.preventDefault();
         const feedbackDiv = document.getElementById('manual-add-feedback');
         const data = {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
+            // El precio de venta se toma en lugar del de compra.
             precio_compra: document.getElementById('manual_purchase_price').value,
             cantidad: 1 
         };
@@ -1009,15 +1008,20 @@ function initializeListViewInteractions(listId) {
             });
             const result = await response.json();
             if (!result.success) throw new Error(result.error);
-            manualForm.reset();
+            
+            // Resetea el formulario para evitar re-envíos del mismo producto.
+            manualForm.reset(); 
+            
             feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-            await loadAndRenderListView(listId);
+            
+            // Recarga la lista para mostrar el nuevo item.
+            await loadAndRenderListView(listId); 
+            
             setTimeout(() => { feedbackDiv.innerHTML = '' }, 2500);
         } catch (error) {
             feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
         }
     };
-    // --- FIN DE LA CORRECCIÓN CLAVE ---
 
     // Ocultar resultados de búsqueda si se hace clic fuera
     document.addEventListener('click', function(event) {
@@ -4875,7 +4879,7 @@ function renderListItems(items, existingItemIds) { // Se mantiene el parámetro 
 // Reemplaza también esta función completa en tu archivo admin.js
 
 
-// REEMPLAZA esta función completa en tu archivo admin.js
+
 
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
@@ -4884,7 +4888,7 @@ function initializeListViewInteractions(listId) {
     const itemsTbody = document.getElementById('list-items-tbody');
     let searchTimer;
 
-    // Búsqueda de productos
+    // Búsqueda de productos (sin cambios)
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const query = searchInput.value.trim();
@@ -4913,9 +4917,11 @@ function initializeListViewInteractions(listId) {
         }, 300);
     });
 
-    // Añadir producto manualmente
-    manualForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // === INICIO DE LA CORRECCIÓN IMPORTANTE ===
+    // Se reemplaza addEventListener por onsubmit para evitar envíos múltiples.
+    // Esto asegura que la función de envío solo se defina UNA vez.
+    manualForm.onsubmit = async (e) => {
+        e.preventDefault(); // Previene que la página se recargue
         const feedbackDiv = document.getElementById('manual-add-feedback');
         const data = {
             id_lista: listId,
@@ -4931,60 +4937,19 @@ function initializeListViewInteractions(listId) {
             });
             const result = await response.json();
             if (!result.success) throw new Error(result.error);
-            manualForm.reset();
+            
+            manualForm.reset(); // Limpia los campos del formulario
             feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-            await loadAndRenderListView(listId);
-            setTimeout(() => { feedbackDiv.innerHTML = '' }, 2500);
+            
+            await loadAndRenderListView(listId); // Recarga la lista con el nuevo item
+            
+            setTimeout(() => { feedbackDiv.innerHTML = ''; }, 2500);
         } catch (error) {
             feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
         }
-    });
+    };
+    // === FIN DE LA CORRECCIÓN IMPORTANTE ===
 
-    // *** INICIO DE LA CORRECCIÓN CLAVE ***
-    // Eventos de la tabla (editar campos y marcar/desmarcar)
-    itemsTbody.addEventListener('change', async (e) => {
-        const target = e.target;
-        const row = target.closest('tr');
-        if (!row) return;
-        const itemId = row.dataset.itemId;
-        
-        // Si se cambia un campo de texto/número
-        if (target.classList.contains('editable-field')) {
-            const field = target.dataset.field;
-            const value = target.value;
-            await updateListItem(itemId, field, value);
-        } 
-        // Si se hace clic en el checkbox de tachar
-        else if (target.classList.contains('mark-item-checkbox')) {
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_item_lista: itemId })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    // Aplica o quita la clase 'item-marked' según la respuesta de la API
-                    row.classList.toggle('item-marked', result.newState);
-                }
-            } catch (error) {
-                console.error('Error al marcar el item:', error);
-                target.checked = !target.checked; // Revierte el checkbox si hay un error
-            }
-        }
-    });
-    // *** FIN DE LA CORRECCIÓN CLAVE ***
-    
-// Eliminar item de la lista
-itemsTbody.addEventListener('click', async (e) => {
-    if (e.target.classList.contains('remove-item-btn')) {
-        const row = e.target.closest('tr');
-        const itemId = row.dataset.itemId;
-        await removeProductFromList(itemId, row);
-    }
-});
-
-    
     // Ocultar resultados de búsqueda si se hace clic fuera
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
@@ -4992,9 +4957,39 @@ itemsTbody.addEventListener('click', async (e) => {
         }
     });
     
+    // Eventos de la tabla (editar, tachar, eliminar)
+    itemsTbody.addEventListener('change', async (e) => {
+        const target = e.target;
+        const row = target.closest('tr');
+        if (!row) return;
+        const itemId = row.dataset.itemId;
+        
+        if (target.classList.contains('editable-field')) {
+            await updateListItem(itemId, target.dataset.field, target.value);
+        } else if (target.classList.contains('mark-item-checkbox')) {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_item_lista: itemId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                row.classList.toggle('item-marked', result.newState);
+            } else {
+                target.checked = !target.checked;
+            }
+        }
+    });
+    
+    itemsTbody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('remove-item-btn')) {
+            const row = e.target.closest('tr');
+            await removeProductFromList(row.dataset.itemId, row);
+        }
+    });
+    
     // Botones de la cabecera
-    const headerActions = document.querySelector('.header-actions');
-    headerActions.addEventListener('click', async (e) => {
+    document.querySelector('.header-actions')?.addEventListener('click', async (e) => {
         if (e.target.id === 'save-and-exit-btn') {
             document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
         } else if (e.target.id === 'copy-list-btn') {
@@ -5002,6 +4997,13 @@ itemsTbody.addEventListener('click', async (e) => {
         }
     });
 }
+
+
+
+
+
+
+
 
 
 
