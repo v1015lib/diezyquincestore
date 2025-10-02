@@ -816,9 +816,44 @@ function initializeShoppingListManagement() {
             deleteShoppingList(listId, target.closest('tr'));
         } else if (target.classList.contains('copy-list-btn')) {
             copyShoppingList(listId);
+        } else if (target.classList.contains('export-csv-btn')) {
+            // Nueva acción para exportar a CSV
+            window.open(`../api/index.php?resource=admin/exportShoppingList&id=${listId}&format=csv`, '_blank');
+        } else if (target.classList.contains('whatsapp-share-btn')) {
+            // Nueva acción para compartir por WhatsApp
+            shareListViaWhatsApp(listId);
         }
     });
 }
+
+
+async function shareListViaWhatsApp(listId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        let message = `*Lista de Compras: ${result.listName}*\n\n`;
+        message += `*Proveedor:* ${result.providerName || 'N/A'}\n\n`;
+        message += '--- Productos ---\n';
+        
+        let total = 0;
+        result.items.forEach(item => {
+            const subtotal = item.cantidad * item.precio_compra;
+            message += `- ${item.cantidad} x ${item.nombre_producto} @ $${parseFloat(item.precio_compra).toFixed(2)} = $${subtotal.toFixed(2)}\n`;
+            total += subtotal;
+        });
+
+        message += `\n*Total Estimado: $${total.toFixed(2)}*`;
+
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+
+    } catch (error) {
+        alert(`Error al preparar el mensaje para WhatsApp: ${error.message}`);
+    }
+}
+
 
 async function fetchAndRenderShoppingLists(startDate, endDate) {
     const tableBody = document.getElementById('shopping-lists-tbody');
@@ -836,10 +871,12 @@ async function fetchAndRenderShoppingLists(startDate, endDate) {
                     <td>${list.fecha_creacion}</td>
                     <td>${list.nombre_usuario}</td>
                     <td>${list.nombre_proveedor || '<em>N/A</em>'}</td>
-                    <td>
-                        <button class="action-btn btn-sm view-list-btn">Ver / Editar</button>
-                        <button class="action-btn btn-sm delete-list-btn">Eliminar</button>
-                        <button class="action-btn btn-sm copy-list-btn">Copiar</button>
+                    <td class="action-buttons-cell">
+                        <button class="action-btn btn-sm view-list-btn" title="Ver/Editar">📝</button>
+                        <button class="action-btn btn-sm copy-list-btn" title="Copiar">📋</button>
+                        <button class="action-btn btn-sm export-csv-btn" title="Exportar a Excel (CSV)">📄</button>
+                        <button class="action-btn btn-sm whatsapp-share-btn" title="Compartir por WhatsApp">💬</button>
+                        <button class="action-btn btn-sm delete-list-btn" title="Eliminar">❌</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
@@ -940,7 +977,7 @@ function renderListItems(items) {
             </td>
             <td>${item.nombre_producto}</td>
             <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(2)}" step="0.01"></td>
-            <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
+            <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="0"></td>
             <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
         tbody.appendChild(row);

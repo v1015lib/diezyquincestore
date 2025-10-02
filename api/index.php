@@ -6,11 +6,21 @@ session_start();
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
+
+
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -296,7 +306,86 @@ case 'admin/addProductToList':
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
+    
     break;
+
+
+
+case 'admin/exportShoppingList':
+    try {
+        if (!isset($_GET['id'])) {
+            throw new Exception('Parámetros incompletos.');
+        }
+
+        $id_lista = intval($_GET['id']);
+
+        // Obtener detalles de la lista
+        $stmt = $pdo->prepare("
+            SELECT 
+                lc.nombre_lista,
+                p.nombre_proveedor
+            FROM listas_compras lc
+            LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor
+            WHERE lc.id_lista = ?
+        ");
+        $stmt->execute([$id_lista]);
+        $listDetails = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$listDetails) {
+            throw new Exception('Lista no encontrada.');
+        }
+
+        // Obtener los items de la lista
+        $stmt_items = $pdo->prepare("
+            SELECT 
+                COALESCE(p.nombre_producto, li.nombre_manual) AS nombre_producto,
+                li.cantidad,
+                li.precio_compra
+            FROM listas_compras_items li
+            LEFT JOIN productos p ON li.id_producto = p.id_producto
+            WHERE li.id_lista = ?
+            ORDER BY nombre_producto ASC
+        ");
+        $stmt_items->execute([$id_lista]);
+        $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        $fileName = "lista_" . preg_replace('/[^a-z0-9_]/i', '', $listDetails['nombre_lista']) . ".csv";
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM para compatibilidad con Excel
+
+        // --- Cabecera del archivo ---
+        fputcsv($output, ['Lista de Compras:', $listDetails['nombre_lista']]);
+        fputcsv($output, ['Proveedor:', $listDetails['nombre_proveedor'] ?? 'N/A']);
+        fputcsv($output, ['Fecha de Exportación:', date('d/m/Y')]); // <-- FECHA AÑADIDA
+        fputcsv($output, []); // Línea en blanco para separar
+
+        // --- Columnas de la tabla ---
+        fputcsv($output, ['Producto', 'Cantidad', 'Precio Unitario']);
+
+        // --- Filas de datos ---
+        foreach ($items as $item) {
+            fputcsv($output, [
+                $item['nombre_producto'] ?? 'Producto no especificado', 
+                $item['cantidad'],
+                number_format($item['precio_compra'], 2)
+            ]);
+        }
+
+        fclose($output);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Error al generar el archivo: ' . $e->getMessage()]);
+        exit;
+    }
+    break;
+
 
 
 /**********************************************************/
@@ -1037,43 +1126,40 @@ case 'admin/addProductToList':
     }
     break;
 
+// REEMPLAZA O AÑADE ESTE BLOQUE EN /api/index.php
 case 'admin/addManualProductToList':
-    $pdo->beginTransaction();
     try {
         $data = json_decode(file_get_contents('php://input'), true);
-        $listId = filter_var($data['id_lista'] ?? 0, FILTER_VALIDATE_INT);
-        $productName = trim($data['nombre_producto'] ?? '');
-        $purchasePrice = filter_var($data['precio_compra'] ?? 0.0, FILTER_VALIDATE_FLOAT);
-        $quantity = filter_var($data['cantidad'] ?? 1, FILTER_VALIDATE_INT);
-        $userId = $_SESSION['id_usuario'] ?? null;
 
-        if (!$listId || empty($productName) || $purchasePrice < 0 || $quantity <= 0 || !$userId) {
-            throw new Exception('Datos incompletos o no válidos para añadir el producto.');
+        if (empty($data['id_lista']) || empty($data['nombre_producto']) || !isset($data['precio_compra'])) {
+            throw new Exception("Faltan datos para agregar el producto manual.");
         }
 
-        $stmt = $pdo->prepare(
-            "INSERT INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad, usar_stock_actual) 
-             VALUES (:list_id, NULL, :name, :price, :qty, FALSE)"
-        );
-        $stmt->execute([
-            ':list_id' => $listId,
-            ':name' => $productName,
-            ':price' => $purchasePrice,
-            ':qty' => $quantity
-        ]);
+        $id_lista = intval($data['id_lista']);
+        $nombre_manual = trim($data['nombre_producto']);
+        $precio_compra = floatval($data['precio_compra']);
+        $cantidad = intval($data['cantidad'] ?? 1);
 
-        logActivity($pdo, $userId, 'Modificación de Lista', "Añadió el producto manual '{$productName}' a la lista ID {$listId}.");
-        
-        $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'Producto manual añadido.']);
+        // Se inserta NULL en id_producto y el nombre en la nueva columna nombre_manual
+        $stmt = $pdo->prepare(
+            "INSERT INTO listas_compras_items 
+            (id_lista, id_producto, nombre_manual, precio_compra, cantidad, marcado) 
+            VALUES (?, NULL, ?, ?, ?, 0)"
+        );
+
+        if ($stmt->execute([$id_lista, $nombre_manual, $precio_compra, $cantidad])) {
+            echo json_encode(['success' => true, 'message' => 'Producto manual agregado con éxito.']);
+        } else {
+            throw new Exception("No se pudo guardar el producto manual.");
+        }
+        exit;
+
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
     }
     break;
-
-
 
 
 
@@ -1107,55 +1193,45 @@ case 'admin/toggleListItemMark':
 
 
 
-// REEMPLAZA este case en tu archivo /api/index.php
-
 case 'admin/getShoppingListDetails':
     try {
-        $listId = filter_var($_GET['id_lista'] ?? 0, FILTER_VALIDATE_INT);
-        if (!$listId) throw new Exception('ID de lista no válido.');
+        if (!isset($_GET['id_lista'])) {
+            throw new Exception("No se proporcionó el ID de la lista.");
+        }
+        $id_lista = intval($_GET['id_lista']);
 
-        $user_role = $_SESSION['rol'] ?? 'empleado';
-        $user_store_id = $_SESSION['id_tienda'] ?? null;
-
-        $stmt_list = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = :id");
-        $stmt_list->execute([':id' => $listId]);
+        $stmt_list = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = ?");
+        $stmt_list->execute([$id_lista]);
         $listName = $stmt_list->fetchColumn();
 
-        $stock_sql_subquery = "";
-        if ($user_role === 'administrador_global') {
-            $stock_sql_subquery = "(SELECT SUM(stock) FROM inventario_tienda it WHERE it.id_producto = p.id_producto)";
-        } else if ($user_store_id) {
-            $stock_sql_subquery = "(SELECT stock FROM inventario_tienda it WHERE it.id_producto = p.id_producto AND it.id_tienda = " . intval($user_store_id) . ")";
-        }
-        $stock_selection = !empty($stock_sql_subquery) ? "COALESCE({$stock_sql_subquery}, 0)" : "0";
-        
-        // *** CORRECCIÓN CLAVE: Se añade lci.marcado a la consulta SELECT ***
+        // Esta consulta usa COALESCE para mostrar el nombre correcto
         $stmt_items = $pdo->prepare("
             SELECT 
-                lci.id_item_lista, 
-                lci.id_producto,
-                COALESCE(p.nombre_producto, lci.nombre_producto) AS nombre_producto,
-                lci.precio_compra, 
-                lci.cantidad, 
-                lci.usar_stock_actual, 
-                lci.marcado, -- <--- LÍNEA AÑADIDA
-                {$stock_selection} AS stock_actual
-            FROM listas_compras_items lci
-            LEFT JOIN productos p ON lci.id_producto = p.id_producto
-            WHERE lci.id_lista = :id
-            ORDER BY lci.marcado ASC, lci.id_item_lista ASC
+                li.id_item_lista,
+                COALESCE(p.nombre_producto, li.nombre_manual) AS nombre_producto, 
+                li.cantidad,
+                li.precio_compra,
+                li.marcado
+            FROM listas_compras_items li
+            LEFT JOIN productos p ON li.id_producto = p.id_producto
+            WHERE li.id_lista = ?
+            ORDER BY COALESCE(p.nombre_producto, li.nombre_manual) ASC
         ");
-        $stmt_items->execute([':id' => $listId]);
+        $stmt_items->execute([$id_lista]);
         $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode(['success' => true, 'listName' => $listName, 'items' => $items]);
+        echo json_encode([
+            'success' => true,
+            'listName' => $listName,
+            'items' => $items
+        ]);
+        exit;
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
     }
     break;
-
-
 
 // Reemplaza el case 'admin/updateListItem' existente con este bloque
 case 'admin/updateListItem':
