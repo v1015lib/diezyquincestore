@@ -3055,7 +3055,7 @@ case 'admin/createBackup':
             }
         }
 
-        $backup_file = 'DBBACKUP' . DB_NAME . '_' . date("Y-m-d_H-i-s") . '.sql';
+        $backup_file = DB_NAME . '_' . date("d-m-y_H-i-s") . '.sql';
         $backup_path = $backup_dir . $backup_file;
 
         // Construcción del comando, ahora sin escapeshellarg en la contraseña para probar
@@ -3112,7 +3112,7 @@ case 'admin/downloadBackup':
     $backup_dir = __DIR__ . '/../admin/backups/';
     $file_name = $_GET['file'] ?? '';
 
-    // Validación de seguridad para evitar que accedan a otros directorios
+    // Validación de seguridad para evitar que accedan a otros directorios (¡Bien hecho aquí!)
     if (basename($file_name) !== $file_name) {
         http_response_code(400);
         die('Nombre de archivo no válido.');
@@ -3124,11 +3124,9 @@ case 'admin/downloadBackup':
         header('Content-Description: File Transfer');
         
         // --- Lógica para determinar el Content-Type ---
-        // Si el archivo termina en .gz, es un archivo comprimido.
         if (str_ends_with($file_name, '.gz')) {
             header('Content-Type: application/gzip');
         } else {
-            // Si no, es un archivo SQL de texto plano.
             header('Content-Type: application/sql');
         }
         
@@ -3144,6 +3142,13 @@ case 'admin/downloadBackup':
         
         // Lee el archivo y lo envía directamente al navegador
         readfile($file_path);
+
+        // ✅ ========== INICIO DEL CAMBIO ========== ✅
+        //
+        // Borra el archivo del servidor DESPUÉS de que se ha enviado.
+        unlink($file_path);
+        //
+        // ✅ ========== FIN DEL CAMBIO ========== ✅
         
         // Detiene el script para asegurar que no se envíe nada más.
         exit;
@@ -3151,7 +3156,7 @@ case 'admin/downloadBackup':
         http_response_code(404);
         die('Archivo de backup no encontrado.');
     }
-    break; // Aunque exit; detiene el script, es buena práctica mantener el break.
+    break;
 
 //Tarjetas
 

@@ -3527,47 +3527,48 @@ function initializeBackupControls() {
 
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/createBackup`);
-            
-            // --- INICIO DE LA CORRECCIÓN CLAVE ---
-            // 1. Leemos la respuesta como texto, sin asumir que es JSON.
             const responseText = await response.text();
             let result;
 
-            // 2. Intentamos convertir el texto a JSON.
             try {
                 result = JSON.parse(responseText);
             } catch (e) {
-                // Si falla, el problema es que el servidor envió HTML.
-                // Mostramos ese HTML para ver el error de PHP.
                 console.error("La respuesta del servidor no es un JSON válido:", responseText);
-                throw new Error("El servidor devolvió un error inesperado. Revisa la consola del navegador (F12) para ver la respuesta HTML completa.");
+                throw new Error("El servidor devolvió un error inesperado. Revisa la consola del navegador (F12).");
             }
-            // --- FIN DE LA CORRECCIÓN CLAVE ---
 
             if (result.success) {
-                resultsDiv.innerHTML = `
-                    <div class="message success">${result.message}</div>
-                    <p><strong>Archivo:</strong> ${result.file_name}</p>
-                    <a href="../api/${result.download_url}" class="action-btn modal-btn-primary" download>Descargar Copia de Seguridad</a>
-                `;
+                resultsDiv.innerHTML = `<div class="message success">${result.message} Iniciando descarga...</div>`;
+
+                const link = document.createElement('a');
+                link.href = `../api/${result.download_url}`;
+                link.setAttribute('download', result.file_name);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // ✅ --- CAMBIO CLAVE --- ✅
+                // En lugar de recargar toda la página, volvemos a cargar solo
+                // el contenido de la acción de copias de seguridad.
+                setTimeout(() => {
+                    loadActionContent('utilidades/copia_seguridad');
+                }, 2000);
+
             } else {
-                // Si es un JSON de error, mostramos los detalles que envía PHP.
                 let errorMessage = result.message || 'Ocurrió un error desconocido.';
                 if (result.details) {
-                    errorMessage += `<br><strong style='margin-top:1rem;display:block;'>Detalles del error:</strong><pre style='background-color:#f8d7da;padding:0.5rem;border-radius:4px;white-space:pre-wrap;text-align:left;'>${result.details}</pre>`;
+                    errorMessage += `<br><strong>Detalles:</strong><pre>${result.details}</pre>`;
                 }
                 throw new Error(errorMessage);
             }
 
         } catch (error) {
             resultsDiv.innerHTML = `<div class="message error">${error.message}</div>`;
-        } finally {
             startBtn.disabled = false;
             startBtn.textContent = 'Iniciar Creación de Copia de Seguridad';
         }
     });
 }
-
 
 
 
