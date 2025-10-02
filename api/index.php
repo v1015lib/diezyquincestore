@@ -360,7 +360,7 @@ case 'admin/exportShoppingList':
         // --- Cabecera del archivo ---
         fputcsv($output, ['Lista de Compras:', $listDetails['nombre_lista']]);
         fputcsv($output, ['Proveedor:', $listDetails['nombre_proveedor'] ?? 'N/A']);
-        fputcsv($output, ['Fecha de Exportación:', date('d/m/Y')]); // <-- FECHA AÑADIDA
+        fputcsv($output, ['Fecha de Exportacion:', date('d/m/Y')]); // <-- FECHA AÑADIDA
         fputcsv($output, []); // Línea en blanco para separar
 
         // --- Columnas de la tabla ---
@@ -2935,7 +2935,6 @@ case 'admin/getProductStats':
 
 
 
-// EN: api/index.php
 
 case 'admin/getSalesStats':
     header('Content-Type: application/json');
@@ -3047,7 +3046,7 @@ case 'admin/createBackup':
 
     try {
         $mysqldump_executable = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
-        //$mysqldump_executable = 'mysqldump.exe';
+        //$mysqldump_executable = '/usr/bin/mysqldump'; //DEscomentar en produccion
         $backup_dir = __DIR__ . '/../admin/backups/';
 
         if (!is_dir($backup_dir)) {
