@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelector = document.getElementById('selector-imagen');
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
+    let imageTargetInputId = null;
     const galleryCache = {
         images: [], // Almacenará todas las imágenes cargadas
         hasMore: true, // Recordará si quedan más imágenes por cargar
@@ -1815,7 +1816,9 @@ function initializeEditProductFormSubmit(form) {
 
 // admin/js/admin.js
 
-async function openImageGallery() {
+async function openImageGallery(targetInputId) {
+        imageTargetInputId = targetInputId; // Se guarda el ID en la variable global
+
     if (!galleryModal) return;
 
     const grid = galleryModal.querySelector('.image-grid-container');
@@ -2087,7 +2090,17 @@ mainContent.addEventListener('click', async (event) => {
 
 
 
+    // --- ✅ INICIO DE LA CORRECCIÓN ---
+    if (target.id === 'open-gallery-btn') {
+        openImageGallery('selected-image-url'); // Especifica el target del formulario de productos
+        return;
+    }
 
+    // Listener para el botón de galería en el formulario de ANUNCIOS
+    if (target.id === 'open-gallery-for-ads-btn') {
+        openImageGallery('ads-url-imagen'); // Especifica el target del formulario de anuncios
+        return;
+    }
 
         if (target.classList.contains('delete-btn') && target.closest('.bucket-item')) {
         event.stopPropagation(); // Evita que se disparen otros eventos
@@ -2773,17 +2786,24 @@ mainContent.addEventListener('change', async (event) => {
             }
             if (target.id === 'gallery-confirm-btn') {
                 const selectedImage = galleryModal.querySelector('.image-grid-item.selected');
-                if (selectedImage) {
-                    const imageUrl = selectedImage.dataset.imageUrl;
-                    const formImageUrlInput = document.querySelector('#selected-image-url');
-                    const formImagePreview = document.querySelector('#image-preview');
-                    const formImagePlaceholder = document.querySelector('#no-image-text');
-                    if(formImageUrlInput && formImagePreview && formImagePlaceholder) {
-                        formImageUrlInput.value = imageUrl;
-                        formImagePreview.src = imageUrl;
-                        formImagePreview.classList.remove('hidden');
-                        formImagePlaceholder.classList.add('hidden');
-                    }
+if (selectedImage && imageTargetInputId) { // Se verifica que la variable exista
+        const imageUrl = selectedImage.dataset.imageUrl;
+        const targetInput = document.getElementById(imageTargetInputId); // Se usa la variable para encontrar el input
+        
+        if (targetInput) {
+            targetInput.value = imageUrl; // Pone la URL en el input correcto
+
+            // Si es el formulario de productos, también actualiza la previsualización
+            if (imageTargetInputId === 'selected-image-url') {
+                const formImagePreview = document.querySelector('#image-preview');
+                const formImagePlaceholder = document.querySelector('#no-image-text');
+                if(formImagePreview && formImagePlaceholder) {
+                    formImagePreview.src = imageUrl;
+                    formImagePreview.classList.remove('hidden');
+                    formImagePlaceholder.classList.add('hidden');
+                }
+            }
+        }
                     closeImageGallery();
                 }
             }
@@ -2978,6 +2998,184 @@ async function initializeWebAdminControls() {
             saveAllSettings();
         }
     });
+
+    // Inicializar funcionalidad de anuncios si existe la pestaña
+    if (document.getElementById('tab-content-ads')) {
+        initializeAdsManagement();
+    }
+}
+
+
+// Función para manejar la gestión de anuncios
+async function initializeAdsManagement() {
+    const adsForm = document.getElementById('ads-form');
+    const adsList = document.getElementById('ads-list');
+    const cancelEditBtn = document.getElementById('cancel-edit');
+    let editingAdId = null;
+
+    // Cargar anuncios al inicializar
+    await loadAds();
+
+    // Event listener para el formulario
+    adsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveAd();
+    });
+
+    // Event listener para cancelar edición
+    cancelEditBtn.addEventListener('click', () => {
+        resetForm();
+    });
+
+    // Función para cargar anuncios
+    async function loadAds() {
+        try {
+            const response = await fetch('../api/anuncios_web.php');
+            const result = await response.json();
+            
+            if (result.success) {
+                displayAds(result.data);
+            } else {
+                console.error('Error al cargar anuncios:', result.error);
+            }
+        } catch (error) {
+            console.error('Error al cargar anuncios:', error);
+        }
+    }
+
+    // Función para mostrar anuncios en la lista
+    function displayAds(ads) {
+        adsList.innerHTML = '';
+        if (ads.length === 0) {
+            adsList.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 2rem;">No hay anuncios registrados</p>';
+            return;
+        }
+        ads.forEach(ad => {
+            const adElement = createAdElement(ad);
+            adsList.appendChild(adElement);
+        });
+    }
+
+    // Función para crear elemento de anuncio
+    function createAdElement(ad) {
+        const div = document.createElement('div');
+        div.className = 'ad-item';
+        // CORRECCIÓN: Se usa 'ad.url_enlace' para mostrar el destino
+        div.innerHTML = `
+            <div class="ad-item-header">
+                <h5 class="ad-item-title">${ad.titulo}</h5>
+                <span class="ad-item-type ${ad.tipo}">${ad.tipo === 'slider_principal' ? 'Carrusel Principal' : 'Columna Derecha'}</span>
+            </div>
+            <div class="ad-item-actions">
+                <button class="btn-edit" onclick="editAd(${ad.id_anuncio})">Editar</button>
+                <button class="btn-delete" onclick="deleteAd(${ad.id_anuncio})">Eliminar</button>
+            </div>
+            <div class="ad-item-details">
+                <div><strong>URL Imagen:</strong> ${ad.url_imagen}</div>
+                ${ad.url_enlace ? `<div><strong>URL Destino:</strong> ${ad.url_enlace}</div>` : ''}
+                <div><strong>Orden:</strong> ${ad.orden}</div>
+                <div><strong>Estado:</strong> ${ad.activo ? 'Activo' : 'Inactivo'}</div>
+                <div><strong>Creado:</strong> ${new Date(ad.fecha_creacion).toLocaleDateString()}</div>
+            </div>
+            <div class="ad-preview">
+                <img src="${ad.url_imagen}" alt="${ad.titulo}" onerror="this.style.display='none'">
+            </div>
+        `;
+        return div;
+    }
+
+    // Función para guardar anuncio
+    async function saveAd() {
+        const formData = new FormData(adsForm);
+        // CORRECCIÓN: Se lee 'url_enlace' del formulario y se envía como 'url_enlace'
+        const data = {
+            titulo: formData.get('titulo'),
+            url_imagen: formData.get('url_imagen'),
+            url_enlace: formData.get('url_enlace') || null,
+            tipo: formData.get('tipo'),
+            orden: parseInt(formData.get('orden')) || 0,
+            activo: formData.get('activo') ? 1 : 0
+        };
+
+        if (editingAdId) {
+            data.id_anuncio = editingAdId;
+        }
+
+        try {
+            const response = await fetch('../api/anuncios_web.php', {
+                method: editingAdId ? 'PUT' : 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                resetForm();
+                await loadAds();
+            } else {
+                alert('Error: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error al guardar anuncio:', error);
+            alert('Error al guardar el anuncio');
+        }
+    }
+
+    // Función para editar anuncio
+    window.editAd = async function(id) {
+        try {
+            const response = await fetch('../api/anuncios_web.php');
+            const result = await response.json();
+            if (result.success) {
+                const ad = result.data.find(a => a.id_anuncio == id);
+                if (ad) {
+                    editingAdId = id;
+                    document.getElementById('ads-titulo').value = ad.titulo;
+                    document.getElementById('ads-url-imagen').value = ad.url_imagen;
+                    // CORRECCIÓN: Se lee 'ad.url_enlace' para llenar el campo del formulario
+                    document.getElementById('ads-url-enlace').value = ad.url_enlace || '';
+                    document.getElementById('ads-tipo').value = ad.tipo;
+                    document.getElementById('ads-orden').value = ad.orden;
+                    document.getElementById('ads-activo').checked = ad.activo == 1;
+                    
+                    document.querySelector('#ads-form button[type="submit"]').textContent = 'Actualizar Anuncio';
+                    cancelEditBtn.style.display = 'inline-block';
+                }
+            }
+        } catch (error) {
+            console.error('Error al cargar anuncio para editar:', error);
+        }
+    };
+
+    // Función para eliminar anuncio
+    window.deleteAd = async function(id) {
+        if (!confirm('¿Estás seguro de que quieres eliminar este anuncio?')) return;
+        try {
+            const response = await fetch('../api/anuncios_web.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id_anuncio: id })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                await loadAds();
+            } else {
+                alert('Error: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error al eliminar anuncio:', error);
+            alert('Error al eliminar el anuncio');
+        }
+    };
+
+    // Función para resetear formulario
+    function resetForm() {
+        adsForm.reset();
+        editingAdId = null;
+        document.querySelector('#ads-form button[type="submit"]').textContent = 'Guardar Anuncio';
+        cancelEditBtn.style.display = 'none';
+    }
 }
 
 

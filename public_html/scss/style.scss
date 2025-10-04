@@ -203,3 +203,87 @@
 }
 
 
+/* Estilos para el contenedor principal del carrusel */
+.carousel-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden; /* Asegura que las imágenes no se salgan del contenedor */
+    /* Puedes ajustar la altura máxima aquí si es necesario, por ejemplo: */
+    max-height: 350px; /* Ajusta este valor según el diseño deseado */
+    display: flex; /* Para centrar el contenido si es necesario */
+    align-items: center; /* Centra verticalmente */
+    justify-content: center; /* Centra horizontalmente */
+}
+
+/* Estilos para las diapositivas del carrusel */
+.carousel-slides {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+    width: 100%;
+    height: 100%; /* Las diapositivas ocupan toda la altura de su contenedor */
+}
+
+/* Estilos para cada imagen dentro de una diapositiva */
+.carousel-slide img {
+    width: 100%; /* La imagen ocupa todo el ancho de su diapositiva */
+    height: auto; /* Mantiene la proporción de la imagen */
+    object-fit: contain; /* Redimensiona la imagen para que quepa, sin cortarla */
+    /* object-fit: cover; // Alternativa: la imagen cubrirá todo el espacio, cortando si es necesario */
+    max-height: 350px; /* Asegura que la imagen no exceda la altura máxima del contenedor */
+}
+
+/* Estilos para las imágenes en la columna lateral (sidebar) */
+.promo-sidebar-column .fixed-ad img {
+    width: 100%; /* Ocupa todo el ancho disponible */
+    height: auto; /* Mantiene la proporción */
+    object-fit: cover; /* Recorta la imagen para llenar el espacio */
+    max-height: 170px; /* Ajusta según el tamaño de los anuncios laterales estáticos */
+    display: block; /* Elimina espacios extra bajo la imagen */
+}
+
+/* Asegurarse de que el contenedor de los anuncios laterales también tenga una altura controlada si es necesario */
+.fixed-ad {
+    width: 100%;
+    /* Si los anuncios laterales necesitan una altura fija: */
+    /* height: 170px; */ /* Descomenta y ajusta si quieres altura fija para los contenedores */
+    overflow: hidden; /* Oculta cualquier parte de la imagen que se salga */
+    margin-bottom: 10px; /* Espacio entre anuncios laterales */
+}
+/* Agrega esto a tu archivo de estilos CSS */
+
+.carousel-slide img,
+.fixed-ad img {
+    width: 100%; /* Asegura que la imagen intente llenar el ancho */
+    height: 100%; /* Asegura que la imagen intente llenar la altura */
+    object-fit: contain; /* Muestra la imagen completa sin deformarla */
+}
+/* Para el carrusel principal */
+.carousel-slide {
+    height: 350px; /* <-- Define una altura fija para el slide. Ajústala a tu gusto. */
+    background-color: #f7f7f7; /* Un color de fondo para rellenar el espacio extra */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Esto hará que tu imagen cuadrada quepa sin deformarse */
+}
+
+/* Para la columna derecha */
+.fixed-ad {
+    height: 160px; /* <-- Define una altura fija para los anuncios laterales. Ajústala. */
+    background-color: #f7f7f7; /* Color de fondo opcional */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px; /* Para separar los dos anuncios */
+}
+
+.fixed-ad img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* La misma regla para que no se deforme */
+}
