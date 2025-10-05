@@ -988,17 +988,20 @@ function renderListItems(items) {
 
 
 // EN: admin/js/admin.js (REEMPLAZA ESTA FUNCIÓN)
-
 function initializeListViewInteractions(listId) {
     const searchInput = document.getElementById('product-search-for-list');
     const searchResults = document.getElementById('product-search-results-list');
     const manualForm = document.getElementById('manual-add-product-form');
     const itemsTbody = document.getElementById('list-items-tbody');
     let searchTimer;
+    
+    // --- INICIO DE LA NUEVA LÓGICA ---
+    let highlightedIndex = -1; // -1 significa que no hay nada seleccionado
 
-    // Búsqueda de productos
+    // Búsqueda de productos (con lógica de reinicio de selección)
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
+        highlightedIndex = -1; // Resetea la selección en cada nueva búsqueda
         const query = searchInput.value.trim();
         if (query.length < 2) {
             searchResults.style.display = 'none';
@@ -1028,13 +1031,54 @@ function initializeListViewInteractions(listId) {
         }, 300);
     });
 
+    // Nueva función para manejar el resaltado
+    function highlightItem(index) {
+        const items = searchResults.querySelectorAll('.search-result-item');
+        if (items.length === 0) return;
+
+        // Quita el resaltado anterior
+        if (highlightedIndex > -1 && items[highlightedIndex]) {
+            items[highlightedIndex].classList.remove('highlighted');
+        }
+
+        // Aplica el nuevo resaltado
+        highlightedIndex = index;
+        if (items[highlightedIndex]) {
+            items[highlightedIndex].classList.add('highlighted');
+            // Asegura que el item sea visible si la lista tiene scroll
+            items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // Listener para las teclas de flecha y Enter
+    searchInput.addEventListener('keydown', (e) => {
+        const items = searchResults.querySelectorAll('.search-result-item');
+        if (items.length === 0 || searchResults.style.display === 'none') return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            highlightedIndex = (highlightedIndex + 1) % items.length;
+            highlightItem(highlightedIndex);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+            highlightItem(highlightedIndex);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex > -1 && items[highlightedIndex]) {
+                items[highlightedIndex].click(); // Simula un clic en el item seleccionado
+            }
+        }
+    });
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+    // El resto de la función (formulario manual, eventos de la tabla, etc.) permanece igual
     manualForm.onsubmit = async (e) => {
         e.preventDefault();
         const feedbackDiv = document.getElementById('manual-add-feedback');
         const data = {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
-            // El precio de venta se toma en lugar del de compra.
             precio_compra: document.getElementById('manual_purchase_price').value,
             cantidad: 1 
         };
@@ -1047,28 +1091,21 @@ function initializeListViewInteractions(listId) {
             const result = await response.json();
             if (!result.success) throw new Error(result.error);
             
-            // Resetea el formulario para evitar re-envíos del mismo producto.
             manualForm.reset(); 
-            
             feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-            
-            // Recarga la lista para mostrar el nuevo item.
             await loadAndRenderListView(listId); 
-            
             setTimeout(() => { feedbackDiv.innerHTML = '' }, 2500);
         } catch (error) {
             feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
         }
     };
 
-    // Ocultar resultados de búsqueda si se hace clic fuera
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
             searchResults.style.display = 'none';
         }
     });
 
-    // Eventos de la tabla (editar, tachar)
     itemsTbody.addEventListener('change', async (e) => {
         const target = e.target;
         const row = target.closest('tr');
@@ -1076,11 +1113,9 @@ function initializeListViewInteractions(listId) {
         const itemId = row.dataset.itemId;
         
         if (target.classList.contains('editable-field')) {
-            const field = target.dataset.field;
-            const value = target.value;
-            await updateListItem(itemId, field, value);
+            await updateListItem(itemId, target.dataset.field, target.value);
         } else if (target.classList.contains('mark-item-checkbox')) {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
+            const response = await fetch(`${API_URL}?resource=admin/toggleListItemMark`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id_item_lista: itemId })
@@ -1089,23 +1124,19 @@ function initializeListViewInteractions(listId) {
             if (result.success) {
                 row.classList.toggle('item-marked', result.newState);
             } else {
-                target.checked = !target.checked; // Revertir si hay error
+                target.checked = !target.checked;
             }
         }
     });
     
-    // Eliminar item de la lista
     itemsTbody.addEventListener('click', async (e) => {
         if (e.target.classList.contains('remove-item-btn')) {
             const row = e.target.closest('tr');
-            const itemId = row.dataset.itemId;
-            await removeProductFromList(itemId, row);
+            await removeProductFromList(row.dataset.itemId, row);
         }
     });
     
-    // Botones de la cabecera (Guardar y Salir, Copiar)
-    const headerActions = document.querySelector('.header-actions');
-    headerActions.addEventListener('click', async (e) => {
+    document.querySelector('.header-actions')?.addEventListener('click', async (e) => {
         if (e.target.id === 'save-and-exit-btn') {
             document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
         } else if (e.target.id === 'copy-list-btn') {
@@ -1113,6 +1144,7 @@ function initializeListViewInteractions(listId) {
         }
     });
 }
+
 
 
 async function addProductToList(listId, productId) {
@@ -5105,7 +5137,7 @@ function renderListItems(items, existingItemIds) { // Se mantiene el parámetro 
             </td>
             <td>${item.nombre_producto}</td>
             <td><input type="number" class="editable-field" data-field="precio_compra" value="${parseFloat(item.precio_compra).toFixed(2)}" step="0.01"></td>
-            <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="1"></td>
+            <td><input type="number" class="editable-field" data-field="cantidad" value="${item.cantidad}" min="0"></td>
             <td><button class="action-btn btn-sm btn-danger remove-item-btn">&times;</button></td>
         `;
         tbody.appendChild(row);
@@ -5163,7 +5195,7 @@ function initializeListViewInteractions(listId) {
             id_lista: listId,
             nombre_producto: document.getElementById('manual_product_name').value,
             precio_compra: document.getElementById('manual_purchase_price').value,
-            cantidad: 1
+            cantidad: 0 //Controla la cantidad cuando el item se agrega mnualmente a la lista
         };
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/addManualProductToList`, {

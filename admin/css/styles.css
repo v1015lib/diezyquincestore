@@ -1558,7 +1558,7 @@ tbody tr:hover > * {
   outline: 1px solid #007bff;
 }
 .lista-compras-container .btn-add {
-  font-size: 20px;
+  font-size: 1em;
   width: 35px;
   height: 35px;
   border-radius: 50%;
@@ -1673,7 +1673,7 @@ tbody tr:hover > * {
           align-items: center;
   -ms-flex-wrap: wrap;
       flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #f0f0f0;
@@ -1696,8 +1696,8 @@ tbody tr:hover > * {
   display: grid;
   -ms-grid-columns: 1fr;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 @media (min-width: 768px) {
   .list-controls {
@@ -1794,7 +1794,7 @@ tbody tr:hover > * {
           align-items: center;
   -ms-flex-wrap: wrap;
       flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #f0f0f0;
@@ -1816,8 +1816,8 @@ tbody tr:hover > * {
   display: grid;
   -ms-grid-columns: 1fr;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
   -webkit-box-align: start;
       -ms-flex-align: start;
           align-items: start;
@@ -1884,7 +1884,7 @@ tbody tr:hover > * {
 .lista-compras-container #list-items-table {
   table-layout: fixed;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: clamp(0.8rem, 4vw, 1rem);
   /* Anchos de las columnas */
   /* Checkbox */
   /* Producto */
@@ -1893,15 +1893,16 @@ tbody tr:hover > * {
   /* Acción */
 }
 .lista-compras-container #list-items-table th, .lista-compras-container #list-items-table td {
-  padding: 0.75rem;
+  padding: 0.2rem;
   vertical-align: middle;
+  font-weight: bold;
 }
 .lista-compras-container #list-items-table th:nth-child(1), .lista-compras-container #list-items-table td:nth-child(1) {
   width: 5%;
   text-align: center;
 }
 .lista-compras-container #list-items-table th:nth-child(2), .lista-compras-container #list-items-table td:nth-child(2) {
-  width: 60%;
+  width: 50%;
 }
 .lista-compras-container #list-items-table th:nth-child(3), .lista-compras-container #list-items-table td:nth-child(3) {
   width: 10%;
@@ -1915,17 +1916,17 @@ tbody tr:hover > * {
 }
 .lista-compras-container #list-items-table input[type=number] {
   width: 100%;
-  padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  text-align: right;
+  text-align: center;
+  font-weight: 900;
 }
 
 /* --- Animación para resaltar nuevos items --- */
 @keyframes highlight-fade-strong {
   0% {
     background-color: #0C0A4E;
-    color: white;
+    color: red;
   }
   100% {
     background-color: transparent;
@@ -1943,11 +1944,13 @@ tbody tr:hover > * {
 /* --- Estilos para items tachados --- */
 .product-table tbody tr.item-marked {
   text-decoration: line-through;
-  opacity: 0.5;
-  background-color: #0C0A4E;
+  background: #050281;
+  color: white;
+  opacity: 0.8;
 }
 .product-table tbody tr.item-marked td, .product-table tbody tr.item-marked input {
-  background-color: transparent !important;
+  background-color: inherit;
+  color: inherit;
 }
 .product-table tbody tr.item-marked:hover {
   opacity: 0.8;
@@ -1986,6 +1989,29 @@ tbody tr:hover > * {
   }
 }
 /* --- FIN: SOLUCIÓN DEFINITIVA --- */
+/* --- Estilos para items tachados (Versión Definitiva) --- */
+.product-table tbody tr.item-marked {
+  text-decoration: line-through;
+  background-color: #050421;
+  color: white;
+  opacity: 0.8;
+  /* === INICIO DE LA CORRECCIÓN CLAVE === */
+  /* === FIN DE LA CORRECCIÓN CLAVE === */
+}
+.product-table tbody tr.item-marked td, .product-table tbody tr.item-marked input {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+.product-table tbody tr.item-marked:hover {
+  opacity: 1;
+}
+
+/* --- Estilo para el item resaltado en la búsqueda --- */
+.search-results-popover .search-result-item.highlighted {
+  background-color: #9b98f2;
+  font-weight: 600;
+}
+
 @media (max-width: 991px) {
   .dashboard-sidemenu {
     position: fixed;

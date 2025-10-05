@@ -6,10 +6,10 @@ $id_lista = $_GET['id'] ?? 0;
 <div class="lista-compras-container" data-id-lista="<?php echo htmlspecialchars($id_lista); ?>">
     <div class="list-header-responsive">
         <h3 id="list-name-header">Cargando...</h3>
-        <div class="header-actions">
+        <!--<div class="header-actions">
             <button id="save-and-exit-btn" class="action-btn btn-sm btn-primary">Guardar y Salir</button>
             <button id="copy-list-btn" class="action-btn btn-sm" title="Crear una copia de esta lista para hoy">Copiar</button>
-        </div>
+        </div>-->
     </div>
 
     <div class="list-controls">

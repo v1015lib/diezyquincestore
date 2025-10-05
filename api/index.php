@@ -264,7 +264,7 @@ case 'admin/addProductToList':
         // Se inserta el precio de venta en la columna de la lista
         $stmt = $pdo->prepare(
             "INSERT IGNORE INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) 
-             VALUES (:list_id, :product_id, :name, :price, 1)"
+             VALUES (:list_id, :product_id, :name, :price, 0)"
         );
         $stmt->execute([
             ':list_id' => $listId,
@@ -1093,16 +1093,16 @@ case 'admin/addProductToList':
             throw new Exception('Datos incompletos para añadir el producto.');
         }
 
-        // 1. Obtener precio de compra y nombre del producto.
-        $stmt_info = $pdo->prepare("SELECT nombre_producto, precio_compra FROM productos WHERE id_producto = :pid");
+        // *** CORRECCIÓN CLAVE: Ahora obtiene el precio_venta ***
+        $stmt_info = $pdo->prepare("SELECT nombre_producto, precio_venta FROM productos WHERE id_producto = :pid");
         $stmt_info->execute([':pid' => $productId]);
         $product_data = $stmt_info->fetch(PDO::FETCH_ASSOC);
         
         if (!$product_data) {
-            throw new Exception("El producto que intentas añadir ya no existe.");
+            throw new Exception("El producto ya no existe.");
         }
         
-        // 2. Insertar el item con cantidad 1, ignorando si ya existe para evitar duplicados.
+        // Se inserta el precio de venta en la columna de la lista
         $stmt = $pdo->prepare(
             "INSERT IGNORE INTO listas_compras_items (id_lista, id_producto, nombre_producto, precio_compra, cantidad) 
              VALUES (:list_id, :product_id, :name, :price, 1)"
@@ -1111,14 +1111,13 @@ case 'admin/addProductToList':
             ':list_id' => $listId,
             ':product_id' => $productId,
             ':name' => $product_data['nombre_producto'],
-            ':price' => $product_data['precio_compra'] ?? 0.0
+            ':price' => $product_data['precio_venta'] ?? 0.0 // Se usa precio_venta
         ]);
 
         logActivity($pdo, $userId, 'Modificación de Lista', "Añadió '{$product_data['nombre_producto']}' a la lista ID {$listId}.");
         
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
-
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(400);
@@ -1126,7 +1125,10 @@ case 'admin/addProductToList':
     }
     break;
 
+
 // REEMPLAZA O AÑADE ESTE BLOQUE EN /api/index.php
+
+
 case 'admin/addManualProductToList':
     try {
         $data = json_decode(file_get_contents('php://input'), true);
@@ -1138,7 +1140,7 @@ case 'admin/addManualProductToList':
         $id_lista = intval($data['id_lista']);
         $nombre_manual = trim($data['nombre_producto']);
         $precio_compra = floatval($data['precio_compra']);
-        $cantidad = intval($data['cantidad'] ?? 1);
+        $cantidad = intval($data['cantidad'] ?? 0);
 
         // Se inserta NULL en id_producto y el nombre en la nueva columna nombre_manual
         $stmt = $pdo->prepare(
@@ -1160,7 +1162,6 @@ case 'admin/addManualProductToList':
         exit;
     }
     break;
-
 
 
 
@@ -1215,7 +1216,7 @@ case 'admin/getShoppingListDetails':
             FROM listas_compras_items li
             LEFT JOIN productos p ON li.id_producto = p.id_producto
             WHERE li.id_lista = ?
-            ORDER BY COALESCE(p.nombre_producto, li.nombre_manual) ASC
+            ORDER BY li.marcado ASC, li.id_item_lista DESC
         ");
         $stmt_items->execute([$id_lista]);
         $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);

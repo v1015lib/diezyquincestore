@@ -117,7 +117,7 @@
     }
 
     .btn-add {
-        font-size: 20px;
+        font-size: 1em;
         width: 35px;
         height: 35px;
         border-radius: 50%;
@@ -248,7 +248,7 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: .5rem;
     margin-bottom: 1rem;
     padding-bottom: 1rem;
     border-bottom: 2px solid #f0f0f0;
@@ -267,8 +267,8 @@
 .list-controls {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: .5rem;
+    margin-bottom: .5rem;
 
     @media (min-width: 768px) {
         grid-template-columns: 2fr 3fr;
@@ -351,12 +351,13 @@
 
 /* Contenedor principal de la vista */
 .lista-compras-container {
+
     .list-header-responsive {
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: .5rem;
         margin-bottom: 1rem;
         padding-bottom: 1rem;
         border-bottom: 2px solid #f0f0f0;
@@ -376,8 +377,8 @@
     .list-controls {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        gap: .5rem;
+        margin-bottom: .5rem;
         align-items: start;
 
         @media (min-width: 768px) {
@@ -443,26 +444,29 @@
     #list-items-table {
         table-layout: fixed;
         width: 100%;
-        font-size: 0.9rem;
+        font-size: clamp(.8rem, 4vw, 1rem);
 
         th, td {
-            padding: 0.75rem;
+            padding: .2rem;
             vertical-align: middle;
+            font-weight: bold;
+
         }
         
         /* Anchos de las columnas */
         th:nth-child(1), td:nth-child(1) { width: 5%; text-align: center; } /* Checkbox */
-        th:nth-child(2), td:nth-child(2) { width: 60%; } /* Producto */
+        th:nth-child(2), td:nth-child(2) { width: 50%; } /* Producto */
         th:nth-child(3), td:nth-child(3) { width: 10%; } /* Precio */
         th:nth-child(4), td:nth-child(4) { width: 10%; } /* Cantidad */
         th:nth-child(5), td:nth-child(5) { width: 10%; text-align: center; } /* Acción */
 
         input[type="number"] {
             width: 100%;
-            padding: 0.5rem;
+
             border: 1px solid #ccc;
             border-radius: 4px;
-            text-align: right;
+            text-align: center;
+            font-weight: 900;
         }
     }
 }
@@ -471,7 +475,7 @@
 @keyframes highlight-fade-strong {
   0% {
     background-color: #0C0A4E;
-    color: white;
+    color: red;
   }
   100% {
     background-color: transparent;
@@ -488,16 +492,19 @@
 
 /* --- Estilos para items tachados --- */
 .product-table tbody tr.item-marked {
-  text-decoration: line-through;
-  opacity: 0.5;
-  background-color: $primary-color;
-  
+  text-decoration: line-through;    // Mantiene el tachado
+  background: #050281;
+  color: white;
+  opacity: 0.8;
+
+
   td, input {
-      background-color: transparent !important;
+      background-color: inherit;
+      color: inherit; // Hereda el color blanco del padre (tr)
   }
 
   &:hover {
-    opacity: 0.8;
+    opacity: .8;
   }
 }
 
@@ -562,3 +569,29 @@
     }
 }
 /* --- FIN: SOLUCIÓN DEFINITIVA --- */
+
+/* --- Estilos para items tachados (Versión Definitiva) --- */
+.product-table tbody tr.item-marked {
+  text-decoration: line-through;
+  background-color: darken($primary-color, 10%); // Oscurece el color primario
+  color: white;                                  // Establece el color de texto para la fila
+  opacity: 0.8;
+
+  /* === INICIO DE LA CORRECCIÓN CLAVE === */
+  // Esta regla fuerza a que las celdas (td) y los inputs
+  // hereden el color 'white' de la fila (tr).
+  td, input {
+      background-color: transparent !important;
+      color: inherit !important; // "inherit" significa "hereda el color de tu padre"
+  }
+  /* === FIN DE LA CORRECCIÓN CLAVE === */
+
+  &:hover {
+    opacity: 1;
+  }
+}
+/* --- Estilo para el item resaltado en la búsqueda --- */
+.search-results-popover .search-result-item.highlighted {
+  background-color: lighten($primary-color, 60%); // Un fondo azul claro
+  font-weight: 600;
+}
