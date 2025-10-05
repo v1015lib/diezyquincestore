@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/config.php'; 
 
 // Verificar autenticación
 session_start();

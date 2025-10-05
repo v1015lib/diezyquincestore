@@ -3062,7 +3062,7 @@ async function initializeAdsManagement() {
     // Función para cargar anuncios
     async function loadAds() {
         try {
-            const response = await fetch('../api/anuncios_web.php');
+            const response = await fetch('api/anuncios_web.php');
             const result = await response.json();
             
             if (result.success) {
@@ -3134,7 +3134,7 @@ async function initializeAdsManagement() {
         }
 
         try {
-            const response = await fetch('../api/anuncios_web.php', {
+            const response = await fetch('api/anuncios_web.php', {
                 method: editingAdId ? 'PUT' : 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
@@ -3156,7 +3156,7 @@ async function initializeAdsManagement() {
     // Función para editar anuncio
     window.editAd = async function(id) {
         try {
-            const response = await fetch('../api/anuncios_web.php');
+            const response = await fetch('api/anuncios_web.php');
             const result = await response.json();
             if (result.success) {
                 const ad = result.data.find(a => a.id_anuncio == id);
@@ -3183,7 +3183,7 @@ async function initializeAdsManagement() {
     window.deleteAd = async function(id) {
         if (!confirm('¿Estás seguro de que quieres eliminar este anuncio?')) return;
         try {
-            const response = await fetch('../api/anuncios_web.php', {
+            const response = await fetch('api/anuncios_web.php', {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id_anuncio: id })
