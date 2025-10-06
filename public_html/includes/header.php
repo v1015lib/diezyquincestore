@@ -9,8 +9,8 @@ if (session_status() == PHP_SESSION_NONE) {
         <div class="logo">
             <a href="index.php">
                 <img src="img/logo.png" alt="Logo de la Tienda">
-                <img src="img/esbandera.webp" alt="El Salvador" class="season-img">
-            </a>
+
+]            </a>
         </div>
   
         <?php // --- INICIO DE LA CORRECCIÓN --- ?>

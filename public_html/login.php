@@ -5,6 +5,11 @@ $page_type = 'simplified';
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <?php
+// Determina la ruta base automáticamente
+$base_path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+?>
+<base href="<?php echo $base_path; ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">

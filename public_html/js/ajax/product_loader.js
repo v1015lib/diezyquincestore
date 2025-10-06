@@ -148,7 +148,7 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         badgeHtml = `<div class="out-of-stock-badge">Agotado</div>`;
     } else if (precioOferta && precioOferta > 0 && precioOferta < precioVenta) {
         const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
-        badgeHtml = `<div class="discount-badge">-${discountPercent}%</div>`;
+        badgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
     }
 
     const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card';

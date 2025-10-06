@@ -29,9 +29,12 @@ if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
 // Si viene un ID de producto, se ajusta el título principal de la página.
 // La lógica de las metaetiquetas se gestiona en el include.
 if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
+    $product_id = (int)$_GET['product_id'];
+    $filter_params['product_id'] = $product_id; // <-- ESTA LÍNEA ES LA CLAVE
+    
     require_once __DIR__ . '/../config/config.php';
     $stmt_title = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
-    $stmt_title->execute([':id' => (int)$_GET['product_id']]);
+    $stmt_title->execute([':id' => $product_id]);
     if($product_name = $stmt_title->fetchColumn()){
         $page_title = $product_name;
     }
@@ -41,6 +44,11 @@ if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<?php
+// Determina la ruta base automáticamente
+$base_path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+?>
+<base href="<?php echo $base_path; ?>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - Variedades 10 y 15</title>
@@ -59,6 +67,7 @@ if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
   gtag('config', 'G-HBEVFQFD8Q');
 </script>
 </head>
+
 <body>
     <?php include 'includes/header.php'; ?>
 

@@ -3069,21 +3069,35 @@ async function initializeAdsManagement() {
     }
 
     function generateUrl() {
+        const path = window.location.pathname;
+        const subdirectory = path.substring(0, path.indexOf('/admin'));
+        const baseURL = window.location.origin + subdirectory + '/public_html/';
+
         const type = linkTypeSelector.value;
         const decorator = slugify(linkDecoratorInput.value.trim());
         let generatedUrl = '';
+
+        if (!decorator) {
+            urlEnlaceInput.value = '';
+            return;
+        }
 
         if (type === 'departamento') {
             const selectedOption = departmentSelector.options[departmentSelector.selectedIndex];
             if (selectedOption && selectedOption.value) {
                 const id = selectedOption.value;
-                generatedUrl = `${baseURL}pageuniquecontent.php?department_id=${id}/promo/${decorator}`;
+                generatedUrl = `${baseURL}departamento/${id}/${decorator}`;
             }
         } else if (type === 'producto') {
             if (selectedProductId) {
-                generatedUrl = `${baseURL}pageuniquecontent.php?product_id=${selectedProductId}/producto/${decorator}`;
+                generatedUrl = `${baseURL}producto/${selectedProductId}/${decorator}`;
             }
+        } else if (type === 'ofertas') {
+            generatedUrl = `${baseURL}ofertas/${decorator}`;
+        } else if (type === 'todos') {
+            generatedUrl = `${baseURL}productos/${decorator}`;
         }
+        
         urlEnlaceInput.value = generatedUrl;
     }
 
@@ -3112,7 +3126,19 @@ async function initializeAdsManagement() {
             urlEnlaceInput.value = '';
             productSearchInput.value = '';
             selectedProductId = null;
+
+
+
+            // Si se seleccionan "Todas las Ofertas", autocompletamos y generamos la URL
+            if (selectedType === 'ofertas') {
+                linkDecoratorInput.value = 'ofertas-especiales';
+                generateUrl();
+            }else if (selectedType === 'todos') {
+                linkDecoratorInput.value = 'catalogo-completo';
+                generateUrl();
+            }
         });
+
     }
 
     if (departmentSelector) {

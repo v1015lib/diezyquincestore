@@ -8,6 +8,11 @@ $page_type = 'simplified';
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <?php
+// Determina la ruta base automáticamente
+$base_path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+?>
+<base href="<?php echo $base_path; ?>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Políticas de Privacidad - Variedades 10 y 15</title>

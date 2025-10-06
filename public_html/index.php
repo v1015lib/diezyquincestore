@@ -18,6 +18,11 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<?php
+// Determina la ruta base automáticamente
+$base_path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+?>
+<base href="<?php echo $base_path; ?>">
     <meta charset="UTF-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -127,6 +127,10 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
                                     <option value="manual">Manual</option>
                                     <option value="departamento">Departamento</option>
                                     <option value="producto">Producto</option>
+                                    <option value="ofertas">Todas las Ofertas</option> 
+                                    <option value="todos">Todos los productos</option> </select>
+
+
                                 </select>
                             </div>
                             <div id="department-link-generator" class="form-group hidden">
