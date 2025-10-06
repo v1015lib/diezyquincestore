@@ -116,8 +116,35 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
                         </div>
                         <div class="form-group">
                             <label for="ads-url-enlace">URL de Destino (opcional)</label>
-                            <input type="url" id="ads-url-enlace" name="url_enlace" placeholder="https://ejemplo.com/destino">
+                            <input type="url" id="ads-url-enlace" name="url_enlace" placeholder="Se genera automáticamente al seleccionar abajo">
                         </div>
+
+                        <fieldset class="form-fieldset" style="margin-top: 1rem; padding: 1rem; border: 1px dashed #ccc;">
+                            <legend style="font-size: 0.9rem; font-weight: 600; padding: 0 5px;">Generador de URL de Destino</legend>
+                            <div class="form-group">
+                                <label for="link-type-selector">Tipo de Enlace</label>
+                                <select id="link-type-selector" class="form-control">
+                                    <option value="manual">Manual</option>
+                                    <option value="departamento">Departamento</option>
+                                    <option value="producto">Producto</option>
+                                </select>
+                            </div>
+                            <div id="department-link-generator" class="form-group hidden">
+                                <label for="department-selector">Seleccionar Depto.</label>
+                                <select id="department-selector" class="form-control" style="width: 100%;">
+                                    <option value="">Cargando...</option>
+                                </select>
+                            </div>
+                            <div id="product-link-generator" class="form-group hidden" style="position: relative;">
+                                <label for="product-search-input-ads">Buscar Producto</label>
+                                <input type="text" id="product-search-input-ads" class="form-control" placeholder="Escribe para buscar...">
+                                <div id="product-search-results-ads" class="search-results-popover"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="link-decorator">Decorador/Campaña</label>
+                                <input type="text" id="link-decorator" class="form-control" placeholder="Se autocompleta al seleccionar">
+                            </div>
+                        </fieldset>
                         <div class="form-group">
                             <label for="ads-tipo">Ubicación</label>
                             <select id="ads-tipo" name="tipo" required>
@@ -157,10 +184,11 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
 <style>
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
+    .hidden { display: none !important; }
     
     .ads-management {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1.2fr;
         gap: 2rem;
         margin-top: 1rem;
     }
@@ -203,7 +231,7 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
     }
     
     .ads-list {
-        max-height: 500px;
+        max-height: 600px;
         overflow-y: auto;
     }
     
@@ -324,8 +352,35 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
     .btn:hover {
         opacity: 0.9;
     }
+
+    .search-results-popover {
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        z-index: 1000;
+        width: calc(100% - 2rem);
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        display: none; /* Oculto por defecto */
+    }
+
+    .search-results-popover .search-result-item {
+        padding: 0.75rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .search-results-popover .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .search-results-popover .search-result-item:hover {
+        background-color: #f5f5f5;
+    }
     
-    @media (max-width: 768px) {
+    @media (max-width: 991px) {
         .ads-management {
             grid-template-columns: 1fr;
         }

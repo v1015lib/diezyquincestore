@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once __DIR__ . '/../config/config.php'; 
+require_once __DIR__ . '/../config/config.php';
 
 // Verificar autenticación
 session_start();
@@ -117,7 +117,7 @@ function handlePut($pdo, $input) {
     $result = $stmt->execute([
         $input['titulo'],
         $input['url_imagen'],
-        $input['url_destino'] ?? '',
+        $input['url_enlace'] ?? '',
         $tipo_db, // Se usa el valor traducido
         $input['orden'] ?? 0,
         $input['activo'] ?? 1,

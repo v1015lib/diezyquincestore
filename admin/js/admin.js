@@ -3038,12 +3038,145 @@ async function initializeWebAdminControls() {
 }
 
 
-// Función para manejar la gestión de anuncios
 async function initializeAdsManagement() {
     const adsForm = document.getElementById('ads-form');
     const adsList = document.getElementById('ads-list');
     const cancelEditBtn = document.getElementById('cancel-edit');
     let editingAdId = null;
+
+    // --- INICIO: Lógica del Generador de URL ---
+    const baseURL = 'https://diezyquince.store/'; // Variable para la URL base
+    const linkTypeSelector = document.getElementById('link-type-selector');
+    const departmentGenerator = document.getElementById('department-link-generator');
+    const productGenerator = document.getElementById('product-link-generator');
+    const departmentSelector = document.getElementById('department-selector');
+    const productSearchInput = document.getElementById('product-search-input-ads');
+    const productSearchResults = document.getElementById('product-search-results-ads');
+    const linkDecoratorInput = document.getElementById('link-decorator');
+    const urlEnlaceInput = document.getElementById('ads-url-enlace');
+    
+    let selectedProductId = null;
+    let searchDebounce;
+
+    function slugify(text) {
+        if (!text) return '';
+        return text.toString().toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^\w\-]+/g, '')
+            .replace(/\-\-+/g, '-')
+            .replace(/^-+/, '')
+            .replace(/-+$/, '');
+    }
+
+    function generateUrl() {
+        const type = linkTypeSelector.value;
+        const decorator = slugify(linkDecoratorInput.value.trim());
+        let generatedUrl = '';
+
+        if (type === 'departamento') {
+            const selectedOption = departmentSelector.options[departmentSelector.selectedIndex];
+            if (selectedOption && selectedOption.value) {
+                const id = selectedOption.value;
+                generatedUrl = `${baseURL}pageuniquecontent.php?department_id=${id}/promo/${decorator}`;
+            }
+        } else if (type === 'producto') {
+            if (selectedProductId) {
+                generatedUrl = `${baseURL}pageuniquecontent.php?product_id=${selectedProductId}/producto/${decorator}`;
+            }
+        }
+        urlEnlaceInput.value = generatedUrl;
+    }
+
+    async function populateDepartmentSelect() {
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getDepartments`);
+            const result = await response.json();
+            if (result.success && result.departments) {
+                departmentSelector.innerHTML = '<option value="">-- Selecciona un departamento --</option>';
+                result.departments.forEach(dept => {
+                    const option = new Option(dept.departamento, dept.id_departamento);
+                    departmentSelector.appendChild(option);
+                });
+            }
+        } catch (error) {
+            departmentSelector.innerHTML = '<option value="">Error al cargar</option>';
+        }
+    }
+
+    if(linkTypeSelector) {
+        linkTypeSelector.addEventListener('change', () => {
+            const selectedType = linkTypeSelector.value;
+            departmentGenerator.classList.toggle('hidden', selectedType !== 'departamento');
+            productGenerator.classList.toggle('hidden', selectedType !== 'producto');
+            linkDecoratorInput.value = '';
+            urlEnlaceInput.value = '';
+            productSearchInput.value = '';
+            selectedProductId = null;
+        });
+    }
+
+    if (departmentSelector) {
+        departmentSelector.addEventListener('change', (e) => {
+            const selectedText = e.target.options[e.target.selectedIndex].text;
+            linkDecoratorInput.value = slugify(selectedText);
+            generateUrl();
+        });
+    }
+    
+    if (productSearchInput) {
+        productSearchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            const query = productSearchInput.value.trim();
+            if (query.length < 2) {
+                productSearchResults.style.display = 'none';
+                return;
+            }
+            searchDebounce = setTimeout(async () => {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/getProducts&search=${encodeURIComponent(query)}&limit=10`);
+                const result = await response.json();
+                productSearchResults.innerHTML = '';
+                if (result.success && result.products.length > 0) {
+                    result.products.forEach(p => {
+                        const item = document.createElement('div');
+                        item.className = 'search-result-item';
+                        item.textContent = `(${p.codigo_producto}) ${p.nombre_producto}`;
+                        item.dataset.productId = p.id_producto;
+                        item.dataset.productName = p.nombre_producto;
+                        productSearchResults.appendChild(item);
+                    });
+                    productSearchResults.style.display = 'block';
+                } else {
+                    productSearchResults.style.display = 'none';
+                }
+            }, 300);
+        });
+    }
+
+    if (productSearchResults) {
+        productSearchResults.addEventListener('click', (e) => {
+            if (e.target.classList.contains('search-result-item')) {
+                productSearchInput.value = e.target.textContent;
+                selectedProductId = e.target.dataset.productId;
+                linkDecoratorInput.value = slugify(e.target.dataset.productName);
+                productSearchResults.style.display = 'none';
+                generateUrl();
+            }
+        });
+    }
+
+    if (linkDecoratorInput) {
+        linkDecoratorInput.addEventListener('input', generateUrl);
+    }
+    
+    document.addEventListener('click', (e) => {
+        if (!productGenerator.contains(e.target)) {
+            productSearchResults.style.display = 'none';
+        }
+    });
+
+    populateDepartmentSelect();
+    // --- FIN: Lógica del Generador de URL ---
+
 
     // Cargar anuncios al inicializar
     await loadAds();
@@ -3092,7 +3225,6 @@ async function initializeAdsManagement() {
     function createAdElement(ad) {
         const div = document.createElement('div');
         div.className = 'ad-item';
-        // CORRECCIÓN: Se usa 'ad.url_enlace' para mostrar el destino
         div.innerHTML = `
             <div class="ad-item-header">
                 <h5 class="ad-item-title">${ad.titulo}</h5>
@@ -3119,7 +3251,6 @@ async function initializeAdsManagement() {
     // Función para guardar anuncio
     async function saveAd() {
         const formData = new FormData(adsForm);
-        // CORRECCIÓN: Se lee 'url_enlace' del formulario y se envía como 'url_enlace'
         const data = {
             titulo: formData.get('titulo'),
             url_imagen: formData.get('url_imagen'),
@@ -3164,7 +3295,6 @@ async function initializeAdsManagement() {
                     editingAdId = id;
                     document.getElementById('ads-titulo').value = ad.titulo;
                     document.getElementById('ads-url-imagen').value = ad.url_imagen;
-                    // CORRECCIÓN: Se lee 'ad.url_enlace' para llenar el campo del formulario
                     document.getElementById('ads-url-enlace').value = ad.url_enlace || '';
                     document.getElementById('ads-tipo').value = ad.tipo;
                     document.getElementById('ads-orden').value = ad.orden;
@@ -3172,6 +3302,7 @@ async function initializeAdsManagement() {
                     
                     document.querySelector('#ads-form button[type="submit"]').textContent = 'Actualizar Anuncio';
                     cancelEditBtn.style.display = 'inline-block';
+                    window.scrollTo(0, 0);
                 }
             }
         } catch (error) {
@@ -3207,6 +3338,14 @@ async function initializeAdsManagement() {
         editingAdId = null;
         document.querySelector('#ads-form button[type="submit"]').textContent = 'Guardar Anuncio';
         cancelEditBtn.style.display = 'none';
+
+        // Resetear el generador de URL
+        departmentGenerator.classList.add('hidden');
+        productGenerator.classList.add('hidden');
+        linkTypeSelector.value = 'manual';
+        linkDecoratorInput.value = '';
+        productSearchInput.value = '';
+        selectedProductId = null;
     }
 }
 

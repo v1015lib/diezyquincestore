@@ -229,15 +229,15 @@
     height: auto; /* Mantiene la proporción de la imagen */
     object-fit: contain; /* Redimensiona la imagen para que quepa, sin cortarla */
     /* object-fit: cover; // Alternativa: la imagen cubrirá todo el espacio, cortando si es necesario */
-    max-height: 350px; /* Asegura que la imagen no exceda la altura máxima del contenedor */
+
 }
 
 /* Estilos para las imágenes en la columna lateral (sidebar) */
 .promo-sidebar-column .fixed-ad img {
     width: 100%; /* Ocupa todo el ancho disponible */
     height: auto; /* Mantiene la proporción */
-    object-fit: cover; /* Recorta la imagen para llenar el espacio */
-    max-height: 170px; /* Ajusta según el tamaño de los anuncios laterales estáticos */
+    object-fit: contain; /* Recorta la imagen para llenar el espacio */
+
     display: block; /* Elimina espacios extra bajo la imagen */
 }
 
@@ -259,31 +259,11 @@
 }
 /* Para el carrusel principal */
 .carousel-slide {
-    height: 350px; /* <-- Define una altura fija para el slide. Ajústala a tu gusto. */
+
     background-color: #f7f7f7; /* Un color de fondo para rellenar el espacio extra */
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.carousel-slide img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* Esto hará que tu imagen cuadrada quepa sin deformarse */
-}
 
-/* Para la columna derecha */
-.fixed-ad {
-    height: 160px; /* <-- Define una altura fija para los anuncios laterales. Ajústala. */
-    background-color: #f7f7f7; /* Color de fondo opcional */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 10px; /* Para separar los dos anuncios */
-}
-
-.fixed-ad img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* La misma regla para que no se deforme */
-}
