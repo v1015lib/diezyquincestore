@@ -1,6 +1,7 @@
 RewriteEngine On
 
 # Le dice a Apache que la base para estas reglas es la carpeta /diezyquincestore/public_html/
+# En produccion solo dejar la barra /
 RewriteBase /diezyquincestore/public_html/
 
 # Regla para evitar que el motor se aplique a archivos o directorios existentes
@@ -21,3 +22,4 @@ RewriteRule ^ofertas/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?ofertas=true&campa
 # --- ¡NUEVA REGLA AÑADIDA! ---
 # Regla para Todos los Productos
 RewriteRule ^productos/([a-zA-Z0-9-]+)/?$ index.php?campaign=$1 [L,QSA]
+

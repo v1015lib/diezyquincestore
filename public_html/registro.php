@@ -12,10 +12,14 @@ try {
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <?php
-// Determina la ruta base automáticamente
-$base_path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+<?php
+// Construye la URL base absoluta y detecta subcarpetas automáticamente.
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+$host = $_SERVER['HTTP_HOST'];
+$path = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+$base_url = "{$protocol}://{$host}{$path}/";
 ?>
+<base href="<?php echo $base_url; ?>">
 <base href="<?php echo $base_path; ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

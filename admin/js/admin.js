@@ -3101,6 +3101,42 @@ async function initializeAdsManagement() {
         urlEnlaceInput.value = generatedUrl;
     }
 
+    /* //DESCOMENTAR EN PRDDUCCION
+
+    
+    function generateUrl() {
+        // --- ESTA ES LA LÍNEA CLAVE QUE REEMPLAZAS ---
+        const baseURL = 'https://diezyquince.store/'; 
+
+        const type = linkTypeSelector.value;
+        const decorator = slugify(linkDecoratorInput.value.trim());
+        let generatedUrl = '';
+
+        if (!decorator) {
+            urlEnlaceInput.value = '';
+            return;
+        }
+
+        if (type === 'departamento') {
+            const selectedOption = departmentSelector.options[departmentSelector.selectedIndex];
+            if (selectedOption && selectedOption.value) {
+                const id = selectedOption.value;
+                generatedUrl = `${baseURL}departamento/${id}/${decorator}`;
+            }
+        } else if (type === 'producto') {
+            if (selectedProductId) {
+                generatedUrl = `${baseURL}producto/${selectedProductId}/${decorator}`;
+            }
+        } else if (type === 'ofertas') {
+            generatedUrl = `${baseURL}ofertas/${decorator}`;
+        } else if (type === 'todos') {
+            generatedUrl = `${baseURL}productos/${decorator}`;
+        }
+        
+        urlEnlaceInput.value = generatedUrl;
+    }
+    */
+
     async function populateDepartmentSelect() {
         try {
             const response = await fetch(`${API_BASE_URL}?resource=admin/getDepartments`);

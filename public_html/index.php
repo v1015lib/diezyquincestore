@@ -19,9 +19,13 @@ $layout_settings = json_decode($settings_json, true)['settings'] ?? [
 <html lang="es">
 <head>
 <?php
-// Determina la ruta base automáticamente
-$base_path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/';
+// Construye la URL base absoluta y detecta subcarpetas automáticamente.
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+$host = $_SERVER['HTTP_HOST'];
+$path = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+$base_url = "{$protocol}://{$host}{$path}/";
 ?>
+<base href="<?php echo $base_url; ?>">
 <base href="<?php echo $base_path; ?>">
     <meta charset="UTF-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
