@@ -1,18 +1,25 @@
 // public_html/js/share_handler.js
+
 import { showNotification } from './notification_handler.js';
 
-const shareModal = document.getElementById('share-modal');
-const closeBtn = document.getElementById('share-modal-close');
-const productNameEl = document.getElementById('share-product-name');
+// --- INICIO DE LA CORRECCIÓN ---
+// Bandera para asegurar que la inicialización ocurra solo una vez.
+let isInitialized = false;
+// --- FIN DE LA CORRECCIÓN ---
 
-const whatsappBtn = document.getElementById('share-whatsapp');
-const facebookBtn = document.getElementById('share-facebook');
-const twitterBtn = document.getElementById('share-twitter');
-const copyLinkBtn = document.getElementById('share-copy-link');
 let productUrlToCopy = '';
 
 function openShareModal(productName, productUrl) {
-    if (!shareModal) return;
+    const shareModal = document.getElementById('share-modal');
+    if (!shareModal) {
+        console.error('El modal de compartir no se encuentra en la página.');
+        return;
+    }
+
+    const productNameEl = document.getElementById('share-product-name');
+    const whatsappBtn = document.getElementById('share-whatsapp');
+    const facebookBtn = document.getElementById('share-facebook');
+    const twitterBtn = document.getElementById('share-twitter');
 
     productNameEl.textContent = productName;
     productUrlToCopy = productUrl;
@@ -29,70 +36,49 @@ function openShareModal(productName, productUrl) {
 }
 
 function closeShareModal() {
+    const shareModal = document.getElementById('share-modal');
     if (!shareModal) return;
     shareModal.classList.remove('visible');
-    setTimeout(() => shareModal.classList.add('hidden'), 300);
 }
 
 export function initializeShareHandler() {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Si ya fue inicializado, nos detenemos para evitar duplicados.
+    if (isInitialized) {
+        return;
+    }
+    isInitialized = true;
+    // --- FIN DE LA CORRECCIÓN ---
+
     document.body.addEventListener('click', (event) => {
+        // Abrir el modal
         const shareButton = event.target.closest('.share-btn');
         if (shareButton) {
             const productCard = shareButton.closest('.product-card');
             const productId = productCard.dataset.productId;
             const productName = productCard.querySelector('h3').textContent;
             
-            const productUrl = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}index.php?product_id=${encodeURIComponent(productId)}`;
+            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+            const productUrl = `${baseUrl}pageuniquecontent.php?product_id=${productId}`;
 
             openShareModal(productName, productUrl);
         }
-    });
 
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeShareModal);
-    }
-    if (shareModal) {
-        shareModal.addEventListener('click', (event) => {
-            if (event.target === shareModal) {
-                closeShareModal();
-            }
-        });
-    }
+        // Cerrar el modal
+        const shareModal = document.getElementById('share-modal');
+        if (shareModal && (event.target.id === 'share-modal-close' || event.target === shareModal)) {
+            closeShareModal();
+        }
 
-    // --- INICIO DE LA CORRECCIÓN PARA COPIAR ENLACE ---
-    if (copyLinkBtn) {
-        copyLinkBtn.addEventListener('click', () => {
-            // Función de respaldo para entornos no seguros (HTTP)
-            const fallbackCopyTextToClipboard = (text) => {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed"; // Evita que la página se desplace
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    showNotification('¡Enlace copiado al portapapeles!');
-                    closeShareModal();
-                } catch (err) {
-                    showNotification('No se pudo copiar el enlace.', 'error');
-                }
-                document.body.removeChild(textArea);
-            };
-
-            // Intenta usar la API moderna, y si falla, usa el respaldo
-            if (!navigator.clipboard) {
-                fallbackCopyTextToClipboard(productUrlToCopy);
-                return;
-            }
+        // Botón de Copiar
+        const copyLinkBtn = event.target.closest('#share-copy-link');
+        if (copyLinkBtn) {
             navigator.clipboard.writeText(productUrlToCopy).then(() => {
                 showNotification('¡Enlace copiado al portapapeles!');
                 closeShareModal();
             }).catch(err => {
-                console.error('Error al usar navigator.clipboard, usando respaldo:', err);
-                fallbackCopyTextToClipboard(productUrlToCopy);
+                showNotification('No se pudo copiar el enlace.', 'error');
             });
-        });
-    }
-    // --- FIN DE LA CORRECCIÓN ---
+        }
+    });
 }

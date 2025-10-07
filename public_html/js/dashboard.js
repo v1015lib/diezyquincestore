@@ -1,19 +1,23 @@
-// js/dashboard.js
+// public_html/js/dashboard.js
 
 import { updateCartHeader } from './cart_updater.js';
 import { initializeCartView } from './cart_view_handler.js';
 import { initializeQuantityHandlers } from './cart_quantity_handler.js';
-import { initializeFavoritesHandler } from './favorites_handler.js'; // <-- AÑADIDO
-import { initializeModals } from './modal_handler.js';             // <-- AÑADIDO
-import { initializePushNotifications } from './push_manager.js'; // <-- AÑADIR ESTA LÍNEA
+import { initializeFavoritesHandler } from './favorites_handler.js';
+import { initializeModals } from './modal_handler.js';
+import { initializePushNotifications } from './push_manager.js';
+// --- INICIO DE LA CORRECCIÓN ---
+import { initializeShareHandler } from './share_handler.js'; // Se importa el manejador de "compartir"
+// --- FIN DE LA CORRECCIÓN ---
 
 document.addEventListener('DOMContentLoaded', () => {
     initializePushNotifications();
     const menuToggle = document.getElementById('dashboard-menu-toggle');
     const sidemenu = document.getElementById('dashboard-sidemenu');
 
-
-
+    // --- INICIO DE LA CORRECCIÓN ---
+    initializeShareHandler(); // Se inicializa aquí para que funcione en todas las vistas del dashboard
+    // --- FIN DE LA CORRECCIÓN ---
 
     const updateNotificationBadge = async () => {
         const badge = document.getElementById('notification-count-badge');
@@ -34,28 +38,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     updateNotificationBadge();
-    // Lógica para el menú lateral del dashboard
+    
     if (menuToggle && sidemenu) {
         menuToggle.addEventListener('click', () => {
             sidemenu.classList.toggle('active');
         });
     }
 
-    // --- LÓGICA DEL CARRITO Y OTROS MÓDULOS (AÑADIDA AL DASHBOARD) ---
-    
-    // 1. Actualiza el total en el header al cargar la página.
     updateCartHeader();
-
-    // 2. Inicializa la lógica para abrir/cerrar el panel del carrito.
     initializeCartView();
-
-    // 3. Inicializa los contadores de cantidad para que funcionen dentro del panel del carrito.
-    //    Esto soluciona el problema de que al disminuir a 0, el producto no se eliminaba.
     initializeQuantityHandlers();
-
-    // 4. Inicializa el manejador de favoritos para los botones de corazón.
-    initializeFavoritesHandler(); // <-- AÑADIDO
-
-    // 5. Inicializa los modales (ej. para pedir inicio de sesión al usar favoritos sin sesión).
-    initializeModals(); // <-- AÑADIDO
+    initializeFavoritesHandler();
+    initializeModals();
 });

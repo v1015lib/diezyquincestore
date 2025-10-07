@@ -2,6 +2,7 @@
 import { updateCartHeader } from './cart_updater.js';
 import { loadCartDetails } from './cart_view_handler.js';
 import { showLoginPrompt } from './modal_handler.js';
+let isInitialized = false;//Se puso para evitar que en pageuniquecontent se ejecute dos veces las acciones de agregar items al carrito y demaa
 
 // En: public_html/js/cart_quantity_handler.js
 async function updateCartAPI(productId, quantity) {
@@ -110,6 +111,11 @@ function handleQuantityInteraction(event) {
 }
 
 export function initializeQuantityHandlers() {
+    if (isInitialized) {
+        return;
+    }
+    // Si es la primera vez que se ejecuta, marcamos la bandera como verdadera.
+    isInitialized = true;
     // Volvemos al listener en el body, que tus propias pruebas demostraron que sí funciona.
     // Esto es más simple y robusto para capturar todos los clics.
     document.body.addEventListener('click', event => {

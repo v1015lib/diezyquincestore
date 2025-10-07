@@ -1,6 +1,7 @@
 // js/favorites_handler.js
 import { showNotification } from './notification_handler.js';
 import { showLoginPrompt } from './modal_handler.js'; // <-- Importamos la nueva función
+let isInitialized = false;
 
 async function toggleFavorite(productId, button) {
     const isCurrentlyFavorite = button.classList.contains('is-favorite');
@@ -34,6 +35,11 @@ async function toggleFavorite(productId, button) {
 }
 
 export function initializeFavoritesHandler() {
+
+    if (isInitialized) {
+        return;
+    }
+    isInitialized = true;
     document.body.addEventListener('click', (event) => {
         const favoriteButton = event.target.closest('.favorite-btn');
         if (favoriteButton) {

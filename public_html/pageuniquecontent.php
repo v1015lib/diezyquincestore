@@ -100,7 +100,35 @@ $base_url = "{$protocol}://{$host}{$path}/";
             </div>
         </div>
     </div>
-
+<div id="share-modal" class="modal-overlay">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h3>Compartir Producto</h3>
+                <button id="share-modal-close" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="share-product-name" style="font-weight: 600; margin-bottom: 1.5rem;"></p>
+                <div class="share-options">
+                    <a href="#" id="share-whatsapp" class="share-option whatsapp" target="_blank" rel="noopener noreferrer">
+                        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/whatsapp.svg" alt="WhatsApp">
+                        <span>WhatsApp</span>
+                    </a>
+                    <a href="#" id="share-facebook" class="share-option facebook" target="_blank" rel="noopener noreferrer">
+                        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/facebook.svg" alt="Facebook">
+                        <span>Facebook</span>
+                    </a>
+                    <a href="#" id="share-twitter" class="share-option twitter" target="_blank" rel="noopener noreferrer">
+                        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/x.svg" alt="X (Twitter)">
+                        <span>X</span>
+                    </a>
+                    <button id="share-copy-link" class="share-option copy-link">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'%3E%3C/path%3E%3Crect x='8' y='2' width='8' height='4' rx='1' ry='1'%3E%3C/rect%3E%3C/svg%3E" alt="Copiar">
+                        <span>Copiar Enlace</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         // --- INICIO: CÓDIGO AÑADIDO ---
         // Ahora también se imprime la configuración global para que los scripts la usen

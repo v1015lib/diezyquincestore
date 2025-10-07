@@ -1,4 +1,4 @@
-// public_html/js/pageuniquecontent.js
+    // public_html/js/pageuniquecontent.js
 
 import { loadProducts } from './ajax/product_loader.js';
 import { initializeSearch } from './ajax/search_handler.js';
@@ -10,6 +10,7 @@ import { initializeFavoritesHandler } from './favorites_handler.js';
 import { initializeModals } from './modal_handler.js';
 // --- INICIO: CÓDIGO AÑADIDO ---
 import { loadDepartments } from './main.js'; // Importamos la función desde main.js
+import { initializeShareHandler } from './share_handler.js'; 
 // --- FIN: CÓDIGO AÑADIDO ---
 
 const API_BASE_URL = 'api/index.php'; 
@@ -23,7 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeFavoritesHandler();
     initializeModals();
     initializeSearch('search-input', 'search-button', 'product-list', 'pagination-controls', API_BASE_URL);
-    
+    initializeShareHandler(); 
+
     // --- INICIO: CÓDIGO AÑADIDO ---
     loadDepartments(); // ¡Llamamos a la función para cargar los departamentos aquí!
     // --- FIN: CÓDIGO AÑADIDO ---
