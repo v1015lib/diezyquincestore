@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelector = document.getElementById('selector-imagen');
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
+    
     let imageTargetInputId = null;
     const galleryCache = {
         images: [], // Almacenará todas las imágenes cargadas
@@ -55,7 +56,67 @@ let isLoading = false;
 
 
 
+// --- LÓGICA PARA MODAL DE CAMBIO DE PRECIO ---
 
+    const priceModal = document.getElementById('price-modal');
+
+    function openPriceModal() {
+        if (!priceModal) return;
+        priceModal.style.display = 'flex';
+    }
+
+    function closePriceModal() {
+        if (!priceModal) return;
+        priceModal.style.display = 'none';
+        document.getElementById('modal-price-error-message').textContent = '';
+        document.getElementById('modal-new-price').value = '';
+    }
+
+    if (priceModal) {
+        priceModal.addEventListener('click', async (event) => {
+            if (event.target.matches('.modal-close-btn, #modal-price-cancel-btn')) {
+                closePriceModal();
+            }
+            if (event.target.id === 'modal-price-confirm-btn') {
+                const newPrice = document.getElementById('modal-new-price').value;
+                const errorDiv = document.getElementById('modal-price-error-message');
+
+                if (newPrice === '' || isNaN(newPrice) || parseFloat(newPrice) < 0) {
+                    errorDiv.textContent = 'Por favor, ingresa un precio válido.';
+                    return;
+                }
+
+                const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
+                
+                event.target.textContent = 'Guardando...';
+                event.target.disabled = true;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}?resource=admin/changePriceMassive`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            productIds,
+                            newPrice: parseFloat(newPrice)
+                        })
+                    });
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+                    
+                    alert(result.message);
+                    closePriceModal();
+                    currentFilters.page = 1; // Resetea para ver los cambios
+                    await fetchAndRenderProducts();
+
+                } catch (error) {
+                    errorDiv.textContent = `Error: ${error.message}`;
+                } finally {
+                    event.target.textContent = 'Confirmar Cambio';
+                    event.target.disabled = false;
+                }
+            }
+        });
+    }
 
 // AÑADE este bloque dentro del listener de 'click' en mainContent en admin/js/admin.js
 
@@ -2273,7 +2334,7 @@ mainContent.addEventListener('click', async (event) => {
         return;
     }
 
-    if (target.id === 'batch-action-execute') {
+if (target.id === 'batch-action-execute') {
         const selector = mainContent.querySelector('#batch-action-selector');
         const action = selector.value;
         const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
@@ -2285,6 +2346,11 @@ mainContent.addEventListener('click', async (event) => {
 
         if (action === 'change-department') {
             openDepartmentModal();
+            return;
+        }
+
+        if (action === 'change-price-massive') {
+            openPriceModal();
             return;
         }
 

@@ -5153,6 +5153,39 @@ case 'admin/updateProductField':
     }
     break;
 
+case 'admin/changePriceMassive':
+    // require_admin(); // Seguridad
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productIds = $data['productIds'] ?? [];
+    $newPrice = $data['newPrice'] ?? null;
+    $userId = $_SESSION['id_usuario'] ?? null;
+
+    if (empty($productIds) || $newPrice === null || !is_numeric($newPrice) || $newPrice < 0 || !$userId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos inválidos para el cambio de precio.']);
+        break;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("UPDATE productos SET precio_venta = ? WHERE id_producto IN ($placeholders)");
+        $params = array_merge([$newPrice], $productIds);
+        $stmt->execute($params);
+
+        logActivity($pdo, $userId, 'Cambio de Precio Masivo', "Cambió el precio de " . count($productIds) . " productos a $" . number_format($newPrice, 2));
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'El precio de los productos ha sido actualizado.']);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar precios: ' . $e->getMessage()]);
+    }
+    break;
+
+
+
 case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)
      

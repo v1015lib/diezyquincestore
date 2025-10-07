@@ -22,15 +22,18 @@
         <?php endif; ?>
 
     </div>
-    <div class="batch-actions-container">
-        <select id="batch-action-selector" class="form-control" disabled>
-            <option value="">Acciones en lote...</option>
-            <option value="activate" style="display:none;">Activar seleccionados</option>
-            <option value="deactivate" style="display:none;">Desactivar seleccionados</option>
-            <option value="change-department">Cambiar departamento</option>
-        </select>
-        <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
-    </div>
+<div class="batch-actions-container">
+    <select id="batch-action-selector" class="form-control" disabled>
+        <option value="">Acciones en lote...</option>
+        <option value="activate" style="display:none;">Activar seleccionados</option>
+        <option value="deactivate" style="display:none;">Desactivar seleccionados</option>
+        <option value="change-department">Cambiar departamento</option>
+        
+        <option value="change-price-massive">Cambiar Precio</option>
+
+    </select>
+    <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
+</div>
 </div>
 <div id="product-list-container" class="table-container">
 <table class="product-table">

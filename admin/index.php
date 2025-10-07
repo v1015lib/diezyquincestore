@@ -55,6 +55,26 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
         </div>
     </div>
 
+    <div id="price-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Cambiar Precio de Venta</h3>
+            <button class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Ingresa el nuevo precio para los productos seleccionados:</p>
+            <input type="number" id="modal-new-price" class="modal-select" step="0.01" min="0" placeholder="0.00">
+            <div id="modal-price-error-message" class="modal-error"></div>
+        </div>
+        <div class="modal-footer">
+            <button id="modal-price-cancel-btn" class="modal-btn modal-btn-secondary">Cancelar</button>
+            <button id="modal-price-confirm-btn" class="modal-btn modal-btn-primary">Confirmar Cambio</button>
+        </div>
+    </div>
+</div>
+
+
+
 <div id="image-gallery-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content modal-lg">
         <div class="modal-header">
