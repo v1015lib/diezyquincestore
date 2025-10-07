@@ -1,4 +1,3 @@
-// public_html/dashboard.php
 
 <?php
 // dashboard.php

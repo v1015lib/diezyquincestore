@@ -1,25 +1,22 @@
 RewriteEngine On
 
-# Le dice a Apache que la base para estas reglas es la carpeta /diezyquincestore/public_html/
 # En produccion solo dejar la barra /
-RewriteBase /diezyquincestore/public_html/
 
-# Regla para evitar que el motor se aplique a archivos o directorios existentes
+
+
+RewriteEngine On
+RewriteBase /diezyquincestore/public_html/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# --- REGLAS PARA URLS AMIGABLES ---
+# Regla para Productos (NUEVA)
+RewriteRule ^producto/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?product_slug=$1 [L,QSA]
 
-# Regla para Productos individuales
-RewriteRule ^producto/([0-9]+)/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?product_id=$1&campaign=$2 [L,QSA]
+# Regla para Departamentos (NUEVA)
+RewriteRule ^departamento/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?department_slug=$1 [L,QSA]
 
-# Regla para Departamentos
-RewriteRule ^departamento/([0-9]+)/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?department_id=$1&campaign=$2 [L,QSA]
-
-# Regla para Ofertas
+# Regla para Ofertas (sin cambios)
 RewriteRule ^ofertas/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?ofertas=true&campaign=$1 [L,QSA]
 
-# --- ¡NUEVA REGLA AÑADIDA! ---
-# Regla para Todos los Productos
+# Regla para Todos los Productos (sin cambios)
 RewriteRule ^productos/([a-zA-Z0-9-]+)/?$ index.php?campaign=$1 [L,QSA]
-

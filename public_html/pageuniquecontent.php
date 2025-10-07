@@ -1,46 +1,45 @@
 <?php
-// public_html/pageuniquecontent.php
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/../config/config.php';
 
-// --- INICIO: CÓDIGO AÑADIDO ---
-// 1. Obtener la configuración de la tienda desde la API
 $settings_json = @file_get_contents('http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/api/index.php?resource=layout-settings');
 $layout_settings = json_decode($settings_json, true)['settings'] ?? [];
-// --- FIN: CÓDIGO AÑADIDO ---
 
-
-// 2. Determinar los filtros a partir de la URL (esto ya existía)
 $filter_params = [];
 $page_title = "Nuestras Promociones";
 
-if (isset($_GET['department_id'])) {
-    $filter_params['department_id'] = (int)$_GET['department_id'];
-    $page_title = "Departamento"; 
+function getIdBySlug($pdo, $table, $slug) {
+    $id_column = ($table === 'productos') ? 'id_producto' : 'id_departamento';
+    $stmt = $pdo->prepare("SELECT $id_column FROM $table WHERE slug = :slug LIMIT 1");
+    $stmt->execute([':slug' => $slug]);
+    return $stmt->fetchColumn();
 }
 
-if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
+if (isset($_GET['department_slug'])) {
+    $department_id = getIdBySlug($pdo, 'departamentos', $_GET['department_slug']);
+    if ($department_id) $filter_params['department_id'] = $department_id;
+} else if (isset($_GET['product_slug'])) {
+    $product_id = getIdBySlug($pdo, 'productos', $_GET['product_slug']);
+    if ($product_id) $filter_params['product_id'] = $product_id;
+} else if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
     $filter_params['ofertas'] = 'true';
     $page_title = "Productos en Oferta";
 }
 
-if (isset($_GET['department_id']) && isset($_GET['ofertas'])) {
-    $page_title = "Ofertas del Departamento";
+if (!empty($filter_params['department_id'])) {
+    $stmt_title = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
+    $stmt_title->execute([':id' => $filter_params['department_id']]);
+    if($dept_name = $stmt_title->fetchColumn()){ $page_title = $dept_name; }
 }
-// Si viene un ID de producto, se ajusta el título principal de la página.
-// La lógica de las metaetiquetas se gestiona en el include.
-if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
-    $product_id = (int)$_GET['product_id'];
-    $filter_params['product_id'] = $product_id; // <-- ESTA LÍNEA ES LA CLAVE
-    
-    require_once __DIR__ . '/../config/config.php';
+if (!empty($filter_params['product_id'])) {
     $stmt_title = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
-    $stmt_title->execute([':id' => $product_id]);
-    if($product_name = $stmt_title->fetchColumn()){
-        $page_title = $product_name;
-    }
+    $stmt_title->execute([':id' => $filter_params['product_id']]);
+    if($product_name = $stmt_title->fetchColumn()){ $page_title = $product_name; }
 }
-
 ?>
+<!DOCTYPE html>
+<html lang="es">
+
 <!DOCTYPE html>
 <html lang="es">
 <head>

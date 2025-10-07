@@ -3068,73 +3068,61 @@ async function initializeAdsManagement() {
             .replace(/-+$/, '');
     }
 
-    function generateUrl() {
-        const path = window.location.pathname;
-        const subdirectory = path.substring(0, path.indexOf('/admin'));
-        const baseURL = window.location.origin + subdirectory + '/public_html/';
+function generateUrl() {
+    const path = window.location.pathname;
+    const subdirectory = path.substring(0, path.indexOf('/admin'));
+    const baseURL = window.location.origin + subdirectory + '/public_html/';
 
-        const type = linkTypeSelector.value;
-        const decorator = slugify(linkDecoratorInput.value.trim());
-        let generatedUrl = '';
+    const type = linkTypeSelector.value;
+    const mainSlug = slugify(linkDecoratorInput.value.trim());
+    let generatedUrl = '';
 
-        if (!decorator) {
-            urlEnlaceInput.value = '';
-            return;
-        }
-
-        if (type === 'departamento') {
-            const selectedOption = departmentSelector.options[departmentSelector.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                const id = selectedOption.value;
-                generatedUrl = `${baseURL}departamento/${id}/${decorator}`;
-            }
-        } else if (type === 'producto') {
-            if (selectedProductId) {
-                generatedUrl = `${baseURL}producto/${selectedProductId}/${decorator}`;
-            }
-        } else if (type === 'ofertas') {
-            generatedUrl = `${baseURL}ofertas/${decorator}`;
-        } else if (type === 'todos') {
-            generatedUrl = `${baseURL}productos/${decorator}`;
-        }
-        
-        urlEnlaceInput.value = generatedUrl;
+    if (!mainSlug) {
+        urlEnlaceInput.value = '';
+        return;
     }
+
+    if (type === 'departamento') {
+        generatedUrl = `${baseURL}departamento/${mainSlug}`;
+    } else if (type === 'producto') {
+        generatedUrl = `${baseURL}producto/${mainSlug}`;
+    } else if (type === 'ofertas') {
+        generatedUrl = `${baseURL}ofertas/${mainSlug}`;
+    } else if (type === 'todos') {
+        generatedUrl = `${baseURL}productos/${mainSlug}`;
+    }
+
+    urlEnlaceInput.value = generatedUrl;
+}
 
     /* //DESCOMENTAR EN PRDDUCCION
 
-    
-    function generateUrl() {
-        // --- ESTA ES LA LÍNEA CLAVE QUE REEMPLAZAS ---
-        const baseURL = 'https://diezyquince.store/'; 
+function generateUrl() {
+    const path = 'https://diezyquince.store/';
+    const subdirectory = path.substring(0, path.indexOf('/admin'));
+    const baseURL = window.location.origin + subdirectory + '/public_html/';
 
-        const type = linkTypeSelector.value;
-        const decorator = slugify(linkDecoratorInput.value.trim());
-        let generatedUrl = '';
+    const type = linkTypeSelector.value;
+    const mainSlug = slugify(linkDecoratorInput.value.trim());
+    let generatedUrl = '';
 
-        if (!decorator) {
-            urlEnlaceInput.value = '';
-            return;
-        }
-
-        if (type === 'departamento') {
-            const selectedOption = departmentSelector.options[departmentSelector.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                const id = selectedOption.value;
-                generatedUrl = `${baseURL}departamento/${id}/${decorator}`;
-            }
-        } else if (type === 'producto') {
-            if (selectedProductId) {
-                generatedUrl = `${baseURL}producto/${selectedProductId}/${decorator}`;
-            }
-        } else if (type === 'ofertas') {
-            generatedUrl = `${baseURL}ofertas/${decorator}`;
-        } else if (type === 'todos') {
-            generatedUrl = `${baseURL}productos/${decorator}`;
-        }
-        
-        urlEnlaceInput.value = generatedUrl;
+    if (!mainSlug) {
+        urlEnlaceInput.value = '';
+        return;
     }
+
+    if (type === 'departamento') {
+        generatedUrl = `${baseURL}departamento/${mainSlug}`;
+    } else if (type === 'producto') {
+        generatedUrl = `${baseURL}producto/${mainSlug}`;
+    } else if (type === 'ofertas') {
+        generatedUrl = `${baseURL}ofertas/${mainSlug}`;
+    } else if (type === 'todos') {
+        generatedUrl = `${baseURL}productos/${mainSlug}`;
+    }
+
+    urlEnlaceInput.value = generatedUrl;
+}
     */
 
     async function populateDepartmentSelect() {
