@@ -4971,23 +4971,30 @@ case 'admin/createProduct':
         if (empty($codigo_producto) || empty($nombre_producto) || !$departamento_id || $precio_venta === false) {
             throw new Exception("Por favor, completa todos los campos obligatorios.");
         }
+
+        // ================== INICIO DE LA MODIFICACIÓN ==================
         
-        // ================== INICIO DE LA CORRECCIÓN CLAVE ==================
-        // Se ha eliminado la columna `stock_actual` de la consulta SQL
+        // 1. Se genera el slug automáticamente a partir del nombre del producto.
+        $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto');
+
+        // 2. Se añade la columna `slug` a la consulta SQL.
         $sql_insert = "INSERT INTO productos 
-            (codigo_producto, nombre_producto, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor) 
+            (codigo_producto, nombre_producto, slug, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor) 
             VALUES 
-            (:codigo_producto, :nombre_producto, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id)";
-        // =================== FIN DE LA CORRECCIÓN CLAVE ====================
+            (:codigo_producto, :nombre_producto, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id)";
         
         $stmt_insert = $pdo->prepare($sql_insert);
+        
+        // 3. Se añade el nuevo parámetro `:slug` a la ejecución.
         $stmt_insert->execute([
-            ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':departamento_id' => $departamento_id,
-            ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta, ':precio_mayoreo' => $precio_mayoreo,
-            ':url_imagen' => $url_imagen, ':stock_minimo' => $stock_minimo, ':stock_maximo' => $stock_maximo, 
-            ':tipo_de_venta_id' => $tipo_de_venta_id, ':estado_id' => $estado_id, ':creado_por' => $creado_por, 
-            ':proveedor_id' => $proveedor_id
+            ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':slug' => $slug,
+            ':departamento_id' => $departamento_id, ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta,
+            ':precio_mayoreo' => $precio_mayoreo, ':url_imagen' => $url_imagen, ':stock_minimo' => $stock_minimo,
+            ':stock_maximo' => $stock_maximo, ':tipo_de_venta_id' => $tipo_de_venta_id, ':estado_id' => $estado_id,
+            ':creado_por' => $creado_por, ':proveedor_id' => $proveedor_id
         ]);
+        
+        // =================== FIN DE LA MODIFICACIÓN ====================
         
         logActivity($pdo, $creado_por, 'Producto Creado', 'Se creó el nuevo producto: ' . $nombre_producto . ' (Código: ' . $codigo_producto . ')');
 
@@ -5023,7 +5030,7 @@ case 'admin/updateProduct':
             throw new Exception('ID de producto o de usuario no válido.');
         }
 
-        // Se recopilan todos los datos del formulario, excepto los de inventario.
+        // Se recopilan todos los datos del formulario (sin cambios)
         $codigo_producto = trim($_POST['codigo_producto'] ?? '');
         $nombre_producto = trim($_POST['nombre_producto'] ?? '');
         $departamento_id = filter_var($_POST['departamento'] ?? 0, FILTER_VALIDATE_INT);
@@ -5037,23 +5044,32 @@ case 'admin/updateProduct':
         $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
         $url_imagen = $_POST['url_imagen'] ?? '';
         
-        // CORRECCIÓN CLAVE: La consulta UPDATE ya no toca las columnas 'stock_actual' ni 'usa_inventario'.
+        // ================== INICIO DE LA MODIFICACIÓN ==================
+        
+        // 1. Se genera el slug automáticamente a partir del nombre, asegurando que sea único para otros productos.
+        $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto', $productId);
+
+        // 2. Se añade la columna `slug` a la consulta de actualización.
         $sql_update = "UPDATE productos SET 
-                        codigo_producto = :codigo, nombre_producto = :nombre, departamento = :depto, 
+                        codigo_producto = :codigo, nombre_producto = :nombre, slug = :slug, departamento = :depto, 
                         precio_compra = :p_compra, precio_venta = :p_venta, precio_mayoreo = :p_mayoreo, 
                         url_imagen = :url, stock_minimo = :stock_min, 
                         stock_maximo = :stock_max, tipo_de_venta = :tipo_venta, estado = :estado, 
                         proveedor = :prov, modificado_por_usuario_id = :user_id 
-                       WHERE id_producto = :id";
+                        WHERE id_producto = :id";
         
         $stmt_update = $pdo->prepare($sql_update);
+        
+        // 3. Se añade el nuevo parámetro `:slug` a la ejecución.
         $stmt_update->execute([
-            ':codigo' => $codigo_producto, ':nombre' => $nombre_producto, ':depto' => $departamento_id,
-            ':p_compra' => $precio_compra, ':p_venta' => $precio_venta, ':p_mayoreo' => $precio_mayoreo,
-            ':url' => $url_imagen, ':stock_min' => $stock_minimo, ':stock_max' => $stock_maximo, 
-            ':tipo_venta' => $tipo_de_venta_id, ':estado' => $estado_id, ':prov' => $proveedor_id, 
-            ':user_id' => $userId, ':id' => $productId
+            ':codigo' => $codigo_producto, ':nombre' => $nombre_producto, ':slug' => $slug,
+            ':depto' => $departamento_id, ':p_compra' => $precio_compra, ':p_venta' => $precio_venta,
+            ':p_mayoreo' => $precio_mayoreo, ':url' => $url_imagen, ':stock_min' => $stock_minimo,
+            ':stock_max' => $stock_maximo, ':tipo_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
+            ':prov' => $proveedor_id, ':user_id' => $userId, ':id' => $productId
         ]);
+        
+        // =================== FIN DE LA MODIFICACIÓN ====================
         
         logActivity($pdo, $userId, 'Producto Modificado', "Se actualizó el producto (formulario): '{$nombre_producto}' (Código: {$codigo_producto})");
 
@@ -5066,7 +5082,6 @@ case 'admin/updateProduct':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
-
 
 
 
@@ -5094,13 +5109,26 @@ case 'admin/updateProductField':
             $stmt_info->execute([':id' => $productId]);
             $productName = $stmt_info->fetchColumn();
 
-            // Actualizamos el producto (como antes, pero ahora también modificado_por_usuario_id)
-            $stmt = $pdo->prepare(
-                "UPDATE productos SET {$field} = :value, modificado_por_usuario_id = :user_id WHERE id_producto = :id"
-            );
-            $stmt->execute([':value' => $value, ':user_id' => $userId, ':id' => $productId]);
+            // ================== INICIO DE LA MODIFICACIÓN ==================
+
+            $sql_update = "UPDATE productos SET {$field} = :value, modificado_por_usuario_id = :user_id";
+            $params = [':value' => $value, ':user_id' => $userId, ':id' => $productId];
+
+            // Si el campo que se está cambiando es el nombre, también actualizamos el slug.
+            if ($field === 'nombre_producto') {
+                $slug = createSlug($value, $pdo, 'productos', 'id_producto', $productId);
+                $sql_update .= ", slug = :slug"; // Añadimos la actualización del slug a la consulta
+                $params[':slug'] = $slug; // Añadimos el slug a los parámetros
+            }
+
+            $sql_update .= " WHERE id_producto = :id";
             
-            // Insertamos el registro del evento
+            $stmt = $pdo->prepare($sql_update);
+            $stmt->execute($params);
+
+            // =================== FIN DE LA MODIFICACIÓN ====================
+            
+            // Insertamos el registro del evento (sin cambios)
             $stmt_log = $pdo->prepare(
                 "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion) 
                  VALUES (:id_usuario, :tipo_accion, :descripcion)"
@@ -5124,7 +5152,6 @@ case 'admin/updateProductField':
         echo json_encode(['success' => false, 'error' => 'Datos inválidos o sesión no iniciada.']);
     }
     break;
-
 
 case 'admin/batchAction':
       // require_admin(); // Seguridad (descomentar en producción)
@@ -5540,7 +5567,37 @@ case 'layout-settings':
     http_response_code($code);
     echo json_encode(['error' => $e->getMessage()]);
 }
+function createSlug($text, $pdo, $table, $id_column, $id = null) {
+    $slug = preg_replace('~[^\pL\d]+~u', '-', $text);
+    $slug = iconv('utf-8', 'us-ascii//TRANSLIT', $slug);
+    $slug = preg_replace('~[^-\w]+~', '', $slug);
+    $slug = strtolower(trim($slug, '-'));
+    $slug = preg_replace('~-+~', '-', $slug);
 
+    if (empty($slug)) {
+        return 'n-a';
+    }
+
+    // Bucle para asegurar que el slug sea siempre único
+    $originalSlug = $slug;
+    $counter = 1;
+    while (true) {
+        $sql = "SELECT COUNT(*) FROM $table WHERE slug = :slug";
+        $params = [':slug' => $slug];
+        if ($id !== null) {
+            $sql .= " AND $id_column != :id";
+            $params[':id'] = $id;
+        }
+        $checkStmt = $pdo->prepare($sql);
+        $checkStmt->execute($params);
+        if ($checkStmt->fetchColumn() == 0) {
+            break;
+        }
+        // Si ya existe, añade un número al final (ej. mi-producto-2)
+        $slug = $originalSlug . '-' . $counter++;
+    }
+    return $slug;
+}
 
 /**
  * Obtiene el historial de pedidos de un cliente, incluyendo el nuevo estado 'Pedido finalizado'.
