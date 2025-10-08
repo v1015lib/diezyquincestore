@@ -5552,17 +5552,43 @@ case 'layout-settings':
         case 'reorder':
             if ($method === 'POST' && isset($_SESSION['id_cliente'])) { handleReorderRequest($pdo, $_SESSION['id_cliente'], $inputData['order_id'] ?? 0); }
             break;
-        case 'ofertas':
+         case 'ofertas':
             if (isset($_SESSION['id_cliente'])) {
-                $id_cliente = $_SESSION['id_cliente'];
-                $stmt = $pdo->prepare("
+                $id_cliente = (int)$_SESSION['id_cliente'];
+                
+                // --- INICIO DE LA CORRECCIÓN ---
+                // 1. Obtenemos el tipo de cliente para la validación
+                $stmt_cliente = $pdo->prepare("SELECT id_tipo_cliente FROM clientes WHERE id_cliente = :id_cliente");
+                $stmt_cliente->execute([':id_cliente' => $id_cliente]);
+                $id_tipo_cliente = $stmt_cliente->fetchColumn();
+
+                // 2. Construimos la consulta con las condiciones de oferta correctas
+                $sql_ofertas = "
                     SELECT p.id_producto, p.nombre_producto, p.codigo_producto, p.precio_venta, p.precio_oferta, p.url_imagen, d.departamento AS nombre_departamento
                     FROM productos p
                     JOIN departamentos d ON p.departamento = d.id_departamento
                     JOIN preferencias_cliente pc ON p.departamento = pc.id_departamento
-                    WHERE pc.id_cliente = :id_cliente AND p.precio_oferta IS NOT NULL AND p.precio_oferta > 0
-                ");
-                $stmt->execute([':id_cliente' => $id_cliente]);
+                    WHERE pc.id_cliente = :id_cliente 
+                      AND p.precio_oferta IS NOT NULL 
+                      AND p.precio_oferta > 0
+                      AND p.precio_oferta < p.precio_venta
+                      AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW())
+                      AND (
+                          -- Condición 1: La oferta es pública
+                          (p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)
+                          OR
+                          -- Condición 2: La oferta es para usuarios registrados en general
+                          (p.oferta_exclusiva = 1 AND p.oferta_tipo_cliente_id IS NULL)
+                          OR
+                          -- Condición 3: La oferta es para el tipo de cliente específico del usuario
+                          (p.oferta_tipo_cliente_id = :id_tipo_cliente)
+                      )
+                ";
+                
+                $stmt = $pdo->prepare($sql_ofertas);
+                $stmt->execute([':id_cliente' => $id_cliente, ':id_tipo_cliente' => $id_tipo_cliente]);
+                // --- FIN DE LA CORRECCIÓN ---
+
                 $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 echo json_encode(['success' => true, 'ofertas' => $data]);
             } else {
@@ -5867,14 +5893,50 @@ function handleCheckoutRequest(PDO $pdo) {
     }
 }
 function handleGetFavoriteDetailsRequest(PDO $pdo, int $client_id) {
-    $stmt = $pdo->prepare("
-        SELECT p.id_producto, p.nombre_producto, p.precio_venta, p.url_imagen
+    // --- INICIO DE LA CORRECCIÓN ---
+    // 1. Obtenemos el tipo de cliente para poder calcular el precio correcto
+    $stmt_client_type = $pdo->prepare("SELECT id_tipo_cliente FROM clientes WHERE id_cliente = :id");
+    $stmt_client_type->execute([':id' => $client_id]);
+    $client_type_id = $stmt_client_type->fetchColumn();
+
+    // 2. La consulta ahora incluye un CASE para determinar el precio final
+    $sql = "
+        SELECT 
+            p.id_producto, 
+            p.nombre_producto, 
+            p.url_imagen,
+            -- Lógica para seleccionar el precio final
+            CASE
+                -- Condición 1: La oferta es válida (precio > 0, no caducada)
+                WHEN p.precio_oferta > 0 AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW()) THEN
+                    -- Condición 1.1: La oferta es para el tipo de cliente específico
+                    CASE
+                        WHEN p.oferta_tipo_cliente_id IS NOT NULL THEN
+                            IF(p.oferta_tipo_cliente_id = :client_type_id, p.precio_oferta, p.precio_venta)
+                        -- Condición 1.2: La oferta es para cualquier usuario logueado
+                        WHEN p.oferta_exclusiva = 1 THEN
+                            p.precio_oferta
+                        -- Condición 1.3: La oferta es pública
+                        WHEN p.oferta_exclusiva = 0 THEN
+                            p.precio_oferta
+                        -- Si no cumple ninguna condición de oferta, precio normal
+                        ELSE
+                            p.precio_venta
+                    END
+                -- Si no hay oferta válida, precio normal
+                ELSE
+                    p.precio_venta
+            END AS precio_venta
         FROM favoritos f
         JOIN productos p ON f.id_producto = p.id_producto
         WHERE f.id_cliente = :client_id
         ORDER BY p.nombre_producto ASC
-    ");
-    $stmt->execute([':client_id' => $client_id]);
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':client_id' => $client_id, ':client_type_id' => $client_type_id]);
+    // --- FIN DE LA CORRECCIÓN ---
+
     $favorites = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'favorites' => $favorites]);
 }

@@ -1,12 +1,14 @@
-// js/dashboard_offers.js
+// REEMPLAZA EL CONTENIDO COMPLETO de public_html/js/dashboards_offers.js
+
+// 1. Importamos la función para obtener el estado del carrito
+import { getCartState } from './ajax/product_loader.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('ofertas-container');
     if (!container) return;
 
-    // --- FUNCIÓN PARA RENDERIZAR LAS TARJETAS ---
-    // Genera el HTML idéntico al de la tienda para que el manejador de cantidad global funcione.
-    const renderOffers = (ofertas) => {
+    // 2. Modificamos renderOffers para que acepte el estado del carrito
+    const renderOffers = (ofertas, cartState) => {
         container.innerHTML = '';
         
         ofertas.forEach(product => {
@@ -15,27 +17,31 @@ document.addEventListener('DOMContentLoaded', () => {
             let discountHtml = '';
             if (precioVenta > precioOferta) {
                 const discountPercent = Math.round(((precioVenta - precioOferta) / precioVenta) * 100);
-                discountHtml = `<div class="discount-badge">-${discountPercent}%</div>`;
+                discountHtml = `-${discountPercent}%`;
             }
+
+            // 3. Obtenemos la cantidad actual del producto desde el cartState
+            const currentQuantity = cartState[product.id_producto] || 0;
 
             const productCardHtml = `
                 <div class="product-card" data-product-id="${product.id_producto}">
                     <div class="product-image-container">
                         <img src="${product.url_imagen || 'https://via.placeholder.com/200'}" alt="${product.nombre_producto}" loading="lazy">
-                        ${discountHtml}
+                        <div class="discount-badge">${discountHtml}</div>
                     </div>
                     <div class="product-info">
                         <h3>${product.nombre_producto}</h3>
                         <p class="department">${product.nombre_departamento}</p>
                         <div class="price-container">
-                            <p class="price-offer" ">$${precioOferta.toFixed(2)}</p>
+                            <p class="price-offer">$${precioOferta.toFixed(2)}</p>
                             <p class="price-older">$${precioVenta.toFixed(2)}</p>
                         </div>
-                    <p class="code"># ${product.codigo_producto}</p>
-
+                        <p class="code"># ${product.codigo_producto}</p>
                         <div class="quantity-selector">
                             <button class="quantity-btn minus" data-action="decrease">-</button>
-                            <input type="number" class="quantity-input" value="0" min="0" max="99" data-product-id="${product.id_producto}" aria-label="Cantidad">
+                            
+                            <input type="number" class="quantity-input" value="${currentQuantity}" min="0" max="99" data-product-id="${product.id_producto}" aria-label="Cantidad">
+                            
                             <button class="quantity-btn plus" data-action="increase">+</button>
                         </div>
                     </div>
@@ -45,15 +51,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- FUNCIÓN PRINCIPAL PARA CARGAR LAS OFERTAS ---
     const loadOffers = async () => {
         container.innerHTML = '<p>Buscando ofertas para ti...</p>';
         try {
-            const response = await fetch('api/index.php?resource=ofertas');
-            const result = await response.json();
+            // 5. Obtenemos el estado del carrito y las ofertas al mismo tiempo
+            const [cartState, offersResponse] = await Promise.all([
+                getCartState(),
+                fetch('api/index.php?resource=ofertas')
+            ]);
+            
+            const offersResult = await offersResponse.json();
 
-            if (result.success && result.ofertas.length > 0) {
-                renderOffers(result.ofertas);
+            if (offersResult.success && offersResult.ofertas.length > 0) {
+                // 6. Pasamos el estado del carrito a la función que renderiza
+                renderOffers(offersResult.ofertas, cartState);
             } else {
                 container.innerHTML = '<p>Por el momento, no hay ofertas para tus departamentos de interés.</p>';
             }
@@ -62,6 +73,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Iniciar la carga
     loadOffers();
 });

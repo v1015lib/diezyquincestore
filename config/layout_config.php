@@ -9,8 +9,8 @@ return [
     'show_product_code' => true,
     'show_product_department' => true,
     'details_for_logged_in_only' => true,
-    'offers_carousel_title' => 'No dejes paasar estas ofertas!',
-    'offers_carousel_dept' => 2,
-    'dept_carousel_title_prefix' => 'Lo mejor en ',
-    'dept_carousel_dept' => 3,
+    'offers_carousel_title' => 'Aprovecha estas oportunidades',
+    'offers_carousel_dept' => 0,
+    'dept_carousel_title_prefix' => 'Lo que siempre buscas en ',
+    'dept_carousel_dept' => 8,
 ];
