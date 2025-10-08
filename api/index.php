@@ -6363,7 +6363,8 @@ function handleProductsRequest(PDO $pdo) {
     if (!in_array($sort_by, $allowedSorts)) { $sort_by = 'random'; }
     if (!in_array($order, ['ASC', 'DESC'])) { $order = 'ASC'; }
 
-    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.departamento, p.precio_venta, p.url_imagen,
+    // ▼▼▼ CORRECCIÓN AQUÍ ▼▼▼
+    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.departamento, p.precio_venta, p.url_imagen,
                       p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
                       CASE
                           WHEN p.oferta_caducidad IS NOT NULL AND p.oferta_caducidad < NOW() THEN 0
@@ -6372,15 +6373,11 @@ function handleProductsRequest(PDO $pdo) {
                           WHEN p.oferta_exclusiva = 1 AND " . ($is_user_logged_in ? "1=1" : "1=0") . " THEN p.precio_oferta
                           WHEN p.oferta_exclusiva = 0 THEN p.precio_oferta
                           ELSE 0
-                      END AS precio_oferta, e.nombre_estado"; // <-- Se añade el nombre del estado
+                      END AS precio_oferta, e.nombre_estado";
 
-    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento LEFT JOIN estados e ON p.estado = e.id_estado"; // <-- Se une con la tabla estados
+    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento LEFT JOIN estados e ON p.estado = e.id_estado";
     
-    // --- INICIO DE LA CORRECCIÓN CLAVE ---
-    // Ahora se permiten los estados 1 (Activo) y 4 (Agotado)
     $where_clauses = ["p.estado IN (1, 4)"]; 
-    // --- FIN DE LA CORRECCIÓN CLAVE ---
-
     $params = [];
 
     if ($product_id !== null && $product_id > 0) {

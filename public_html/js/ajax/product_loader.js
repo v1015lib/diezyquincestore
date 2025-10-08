@@ -52,7 +52,6 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
     const isLoggedIn = document.querySelector('.my-account-link');
     const canShowDetails = !layoutSettings.details_for_logged_in_only || isLoggedIn;
     
-    // --- SCHEMA MEJORADO CON MÁS PROPIEDADES SEO ---
     const finalPrice = (precioOferta > 0 && precioOferta < precioVenta) ? precioOferta : precioVenta;
     
     const schema = {
@@ -81,12 +80,10 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
       }
     };
 
-    // Agregar categoría si existe
     if (product.nombre_departamento) {
         schema.category = product.nombre_departamento;
     }
 
-    // Agregar precio regular si hay oferta
     if (precioOferta > 0 && precioOferta < precioVenta) {
         schema.offers.priceSpecification = {
             "@type": "PriceSpecification",
@@ -95,13 +92,11 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         };
     }
 
-    // Agregar identificador único
     schema.identifier = {
         "@type": "PropertyValue",
         "propertyID": "product_id",
         "value": product.id_producto
     };
-    // --- FIN SCHEMA MEJORADO ---
 
     let priceContainerContent = '';
     let departmentHtml = '';
@@ -153,9 +148,9 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
 
     const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card';
 
-    // Estructura HTML limpia con Schema JSON-LD únicamente
+    // ▼▼▼ CORRECCIÓN AQUÍ ▼▼▼
     return `
-        <article class="${cardClass}" data-product-id="${product.id_producto}">
+        <article class="${cardClass}" data-product-id="${product.id_producto}" data-product-slug="${product.slug}">
             
             <script type="application/ld+json">
 ${JSON.stringify(schema, null, 2)}

@@ -41,9 +41,9 @@ function closeShareModal() {
     shareModal.classList.remove('visible');
 }
 
+
 export function initializeShareHandler() {
     // --- INICIO DE LA CORRECCIÓN ---
-    // Si ya fue inicializado, nos detenemos para evitar duplicados.
     if (isInitialized) {
         return;
     }
@@ -55,11 +55,14 @@ export function initializeShareHandler() {
         const shareButton = event.target.closest('.share-btn');
         if (shareButton) {
             const productCard = shareButton.closest('.product-card');
-            const productId = productCard.dataset.productId;
+            // ▼▼▼ CORRECCIÓN AQUÍ ▼▼▼
+            const productSlug = productCard.dataset.productSlug; // Obtenemos el slug
             const productName = productCard.querySelector('h3').textContent;
             
-            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-            const productUrl = `${baseUrl}pageuniquecontent.php?product_id=${productId}`;
+            // Construimos la URL base de forma segura
+            const baseUrl = `${window.location.origin}/`; 
+            // Usamos el slug para la URL amigable
+            const productUrl = `${baseUrl}producto/${productSlug}`;
 
             openShareModal(productName, productUrl);
         }

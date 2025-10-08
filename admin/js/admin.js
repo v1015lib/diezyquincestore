@@ -3161,12 +3161,11 @@ function generateUrl() {
     urlEnlaceInput.value = generatedUrl;
 }
 
-    /* //DESCOMENTAR EN PRDDUCCION
-
+ //DESCOMENTAR EN PRDDUCCION
+/*
 function generateUrl() {
-    const path = 'https://diezyquince.store/';
-    const subdirectory = path.substring(0, path.indexOf('/admin'));
-    const baseURL = window.location.origin + subdirectory + '/public_html/';
+    // En producción, la URL base es simplemente tu dominio.
+    const baseURL = 'https://diezyquince.store/'; 
 
     const type = linkTypeSelector.value;
     const mainSlug = slugify(linkDecoratorInput.value.trim());
@@ -3189,7 +3188,7 @@ function generateUrl() {
 
     urlEnlaceInput.value = generatedUrl;
 }
-    */
+*/
 
     async function populateDepartmentSelect() {
         try {
