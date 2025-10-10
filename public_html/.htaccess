@@ -1,3 +1,6 @@
+# Redirige todos los errores 404 a nuestra página personalizada
+ErrorDocument 404 /404.php
+
 # Desarrollo colocar diezyquincestore/public_html/ despues de RewriteBase / y en produccion quitarlo
 
 RewriteEngine On
@@ -5,14 +8,19 @@ RewriteBase /diezyquincestore/public_html/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Regla para Productos (NUEVA)
+# Regla para Productos
 RewriteRule ^producto/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?product_slug=$1 [L,QSA]
 
-# Regla para Departamentos (NUEVA)
+# Regla para Departamentos
 RewriteRule ^departamento/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?department_slug=$1 [L,QSA]
 
-# Regla para Ofertas (sin cambios)
+# --- REGLAS DE OFERTAS MODIFICADAS ---
+
+# Regla #1: Captura SOLAMENTE "ofertas" o "ofertas/"
+RewriteRule ^ofertas/?$ pageuniquecontent.php?ofertas=true [L,QSA]
+
+# Regla #2: Captura "ofertas/" seguido por un nombre de campaña
 RewriteRule ^ofertas/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?ofertas=true&campaign=$1 [L,QSA]
 
-# Regla para Todos los Productos (sin cambios)
+# Regla para Todos los Productos
 RewriteRule ^productos/([a-zA-Z0-9-]+)/?$ index.php?campaign=$1 [L,QSA]

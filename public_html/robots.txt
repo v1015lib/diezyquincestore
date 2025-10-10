@@ -1,12 +1,17 @@
-# robots.txt
 User-agent: *
 
-# Bloquear el rastreo de páginas de sesión y paneles de usuario
+# Directorios y archivos que NO se deben rastrear
+Disallow: /api/
+Disallow: /admin/
 Disallow: /dashboard.php
 Disallow: /login.php
 Disallow: /registro.php
 Disallow: /finalizar_compra.php
 Disallow: /logout.php
 
-# Bloquear el acceso a la carpeta de la API
-Disallow: /api/
+# Archivos PHP que generan las páginas (evita contenido duplicado)
+Disallow: /pageuniquecontent.php
+Disallow: /index.php
+
+# Ubicación del mapa del sitio
+Sitemap: https://diezyquince.store/sitemap.xml
