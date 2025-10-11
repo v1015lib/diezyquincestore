@@ -142,59 +142,58 @@ case 'rename_bucket_image':
     break;
 
 
-    	case 'upload_for_processing':
-	    	try {
-	    		if (empty($_FILES['images'])) {
-	    			throw new Exception('No se recibieron archivos.');
-	    		}
+        case 'upload_for_processing':
+            try {
+                if (empty($_FILES['images'])) {
+                    throw new Exception('No se recibieron archivos.');
+                }
 
-	    		$inputDir = '../scripts/entrada/';
-	    		if (!is_dir($inputDir)) {
-	    			mkdir($inputDir, 0777, true);
-	    		}
+                $inputDir = '../scripts/entrada/';
+                if (!is_dir($inputDir)) {
+                    mkdir($inputDir, 0777, true);
+                }
 
-	        // Opcional: Limpiar la carpeta de entrada antes de subir nuevos archivos
-	    		$existingFiles = glob($inputDir . '*');
-	    		foreach ($existingFiles as $file) {
-	    			if (is_file($file)) {
-	    				unlink($file);
-	    			}
-	    		}
+            // Opcional: Limpiar la carpeta de entrada antes de subir nuevos archivos
+                $existingFiles = glob($inputDir . '*');
+                foreach ($existingFiles as $file) {
+                    if (is_file($file)) {
+                        unlink($file);
+                    }
+                }
 
-	    		$fileCount = 0;
-	    		$errors = [];
+                $fileCount = 0;
+                $errors = [];
 
-	    		foreach ($_FILES['images']['tmp_name'] as $key => $tmpName) {
-	    			if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
-	    				$fileName = basename($_FILES['images']['name'][$key]);
-	    				$destination = $inputDir . $fileName;
-	    				if (move_uploaded_file($tmpName, $destination)) {
-	    					$fileCount++;
-	    				} else {
-	    					$errors[] = "No se pudo mover el archivo: " . htmlspecialchars($fileName);
-	    				}
-	    			} else {
-	    				$errors[] = "Error al subir el archivo: " . htmlspecialchars($_FILES['images']['name'][$key]);
-	    			}
-	    		}
+                foreach ($_FILES['images']['tmp_name'] as $key => $tmpName) {
+                    if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                        $fileName = basename($_FILES['images']['name'][$key]);
+                        $destination = $inputDir . $fileName;
+                        if (move_uploaded_file($tmpName, $destination)) {
+                            $fileCount++;
+                        } else {
+                            $errors[] = "No se pudo mover el archivo: " . htmlspecialchars($fileName);
+                        }
+                    } else {
+                        $errors[] = "Error al subir el archivo: " . htmlspecialchars($_FILES['images']['name'][$key]);
+                    }
+                }
 
-	    		if ($fileCount > 0) {
-	    			echo json_encode(['success' => true, 'message' => "Se subieron {$fileCount} imágenes correctamente."]);
-	    		} else {
-	    			throw new Exception("No se pudo procesar ningún archivo. Detalles: " . implode(", ", $errors));
-	    		}
+                if ($fileCount > 0) {
+                    echo json_encode(['success' => true, 'message' => "Se subieron {$fileCount} imágenes correctamente."]);
+                } else {
+                    throw new Exception("No se pudo procesar ningún archivo. Detalles: " . implode(", ", $errors));
+                }
 
-	    	} catch (Exception $e) {
-	    		http_response_code(400);
-	    		echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-	    	}
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
 
-    	break;
+        break;
 
         case 'run_processor':
-            // Ahora PHP hace el trabajo, no Python.
             header('Content-Type: text/plain; charset=utf-8');
-            if (ob_get_level()) ob_end_clean(); // Limpia buffers de salida
+            if (ob_get_level()) ob_end_clean();
 
             $inputDir = '../scripts/entrada/';
             $outputDir = '../scripts/salida_ia/';
@@ -203,27 +202,26 @@ case 'rename_bucket_image':
             $max_height = 500;
             $quality = 80;
 
-            if (!function_exists('imagecreatefromjpeg')) {
-                die("Error Crítico del Servidor: La librería GD de PHP no está habilitada.");
+            if (!function_exists('imagewebp')) {
+                die("Error Crítico del Servidor: La librería GD de PHP no tiene soporte para WebP.");
             }
             if (!is_dir($outputDir)) { mkdir($outputDir, 0777, true); }
 
             $files = glob($inputDir . '*');
             if (empty($files)) { echo "AVISO: La carpeta 'entrada' está vacía."; exit; }
 
-            echo "--- INICIO DE OPTIMIZACIÓN PHP ---\n";
+            echo "--- INICIO DE OPTIMIZACIÓN PHP A WEBP ---\n";
             $processed_count = 0;
 
             foreach ($files as $file) {
                 $info = getimagesize($file);
-                $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
                 $original_filename = basename($file);
                 echo "Procesando: " . $original_filename . "...\n";
 
                 $source_image = null;
                 switch ($info['mime']) {
                     case 'image/jpeg': $source_image = imagecreatefromjpeg($file); break;
-                    case 'image/png':  $source_image = imagecreatefrompng($file); break;
+                    case 'image/png':  $source_image = imagecreatefrompng($file); imagepalettetotruecolor($source_image); imagealphablending($source_image, true); imagesavealpha($source_image, true); break;
                     case 'image/webp': $source_image = imagecreatefromwebp($file); break;
                     default: echo "-> AVISO: Formato no soportado para {$original_filename}.\n"; continue 2;
                 }
@@ -232,15 +230,12 @@ case 'rename_bucket_image':
                     $width = imagesx($source_image);
                     $height = imagesy($source_image);
 
-                    // Rotar si es necesario
                     if ($rotation === 'left') { $source_image = imagerotate($source_image, 90, 0); }
                     if ($rotation === 'right') { $source_image = imagerotate($source_image, -90, 0); }
                     
-                    // Recalcular dimensiones después de rotar
                     $width = imagesx($source_image);
                     $height = imagesy($source_image);
                     
-                    // Redimensionar
                     $ratio = $width / $height;
                     if ($width > $max_width || $height > $max_height) {
                         if (($max_width / $max_height) > $ratio) { $new_width = $max_height * $ratio; $new_height = $max_height; } 
@@ -252,10 +247,9 @@ case 'rename_bucket_image':
                         $source_image = $new_image;
                     }
 
-                    // Guardar como JPG
-                    $output_filename = pathinfo($original_filename, PATHINFO_FILENAME) . '_' . time() . '.jpg';
+                    $output_filename = pathinfo($original_filename, PATHINFO_FILENAME) . '_' . time() . '.webp';
                     $outputPath = $outputDir . $output_filename;
-                    imagejpeg($source_image, $outputPath, $quality);
+                    imagewebp($source_image, $outputPath, $quality);
                     imagedestroy($source_image);
                     echo "-> ¡Éxito! Guardado como '{$output_filename}'\n";
                     $processed_count++;
@@ -266,23 +260,23 @@ case 'rename_bucket_image':
             break;
 
         case 'get_processed_images':
-	        header('Content-Type: application/json');
-    		$outputDir = __DIR__ . '/../scripts/salida_ia/';	        
-			$baseUrl = 'scripts/salida_ia/'; // Ruta relativa para el src de la imagen
-	        $files = [];
-	        if (is_dir($outputDir)) {
-	            $items = array_diff(scandir($outputDir), array('..', '.'));
-	            foreach ($items as $item) {
-	                if (!is_dir($outputDir . $item)) {
-	                    $files[] = [
-	                        'name' => $item,
-	                        'url' => $baseUrl . $item
-	                    ];
-	                }
-	            }
-	        }
-	        echo json_encode(['success' => true, 'files' => $files]);
-    	break;
+            header('Content-Type: application/json');
+            $outputDir = __DIR__ . '/../scripts/salida_ia/';            
+            $baseUrl = 'scripts/salida_ia/'; // Ruta relativa para el src de la imagen
+            $files = [];
+            if (is_dir($outputDir)) {
+                $items = array_diff(scandir($outputDir), array('..', '.'));
+                foreach ($items as $item) {
+                    if (!is_dir($outputDir . $item)) {
+                        $files[] = [
+                            'name' => $item,
+                            'url' => $baseUrl . $item
+                        ];
+                    }
+                }
+            }
+            echo json_encode(['success' => true, 'files' => $files]);
+        break;
 
     // PEGA ESTE NUEVO BLOQUE EN api/index.php
 
