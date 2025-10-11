@@ -5980,7 +5980,8 @@ function initializeBarcodeGenerator() {
 
 
 
-    function initializeBucketManager() {
+
+function initializeBucketManager() {
         const gridContainer = document.getElementById('bucket-image-grid');
         const loadingIndicator = document.getElementById('bucket-loading-indicator');
         const feedbackDiv = document.getElementById('bucket-manager-feedback');
@@ -6079,12 +6080,11 @@ function initializeBarcodeGenerator() {
             form.submit();
             document.body.removeChild(form);
         });
-    }
+}
 
 
 
 
-//función para añadir la lógica de reordenamiento automático.
 
 async function saveBucketImageRename(itemDiv, newValue, cell) {
     const feedbackDiv = document.getElementById('bucket-manager-feedback');
@@ -6102,42 +6102,33 @@ async function saveBucketImageRename(itemDiv, newValue, cell) {
         if (!result.success) throw new Error(result.error);
 
         const newObjectKey = result.newName;
-        
-        // --- INICIO DE LA LÓGICA DE ACTUALIZACIÓN Y REORDENAMIENTO ---
+        const newBaseName = newObjectKey.replace('productos/', '');
 
-        // 1. Actualizar la entrada correspondiente en la caché
+        cell.textContent = newBaseName;
+        itemDiv.dataset.imageName = newObjectKey;
+        
+        const img = itemDiv.querySelector('img');
+        if (img) {
+            const oldUrl = new URL(img.src);
+            const newUrl = `${oldUrl.origin}/${newObjectKey}`;
+            img.src = `${newUrl}?t=${new Date().getTime()}`;
+        }
+        
         const cachedImage = window.bucketCache.images.find(img => img.name === oldName);
         if (cachedImage) {
             cachedImage.name = newObjectKey;
-            // Se asume que la URL base no cambia, solo la clave del objeto.
-            const oldUrl = new URL(cachedImage.url);
-            cachedImage.url = `${oldUrl.origin}/${newObjectKey}`;
-            // Se actualiza el timestamp para que aparezca primero
-            cachedImage.updated = Math.floor(Date.now() / 1000); 
-        }
-
-        // 2. Reordenar toda la caché por fecha de actualización (más nuevo primero)
-        window.bucketCache.images.sort((a, b) => b.updated - a.updated);
-
-        // 3. Limpiar y volver a renderizar la galería desde la caché ordenada
-        const gridContainer = document.getElementById('bucket-image-grid');
-        if (gridContainer) {
-            gridContainer.innerHTML = ''; // Limpiar la vista
-            window.bucketCache.images.forEach(image => {
-                // Se reutiliza la función existente para crear el elemento del DOM
-                // (Asegúrate de que la función createBucketItemElement esté disponible en este scope)
-                gridContainer.appendChild(createBucketItemElement(image));
-            });
+            if (cachedImage.url) {
+                 const cachedUrl = new URL(cachedImage.url);
+                 cachedImage.url = `${cachedUrl.origin}/${newObjectKey}`;
+            }
         }
         
-        // --- FIN DE LA LÓGICA DE ACTUALIZACIÓN Y REORDENAMIENTO ---
+        const downloadLink = itemDiv.querySelector('a');
+        if (downloadLink) downloadLink.href = `api/download_images.php?file=${encodeURIComponent(newObjectKey)}`;
 
         feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
-        setTimeout(() => feedbackDiv.innerHTML = '', 3000);
-
     } catch (error) {
         feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
-        // En caso de error, se revierte visualmente al texto original.
         cell.textContent = originalText;
     }
 }
