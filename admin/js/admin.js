@@ -832,6 +832,7 @@ async function loadModule(moduleName) {
             case 'pos': defaultAction = 'pos/vista_principal'; break; 
             case 'tiendas': defaultAction = 'tiendas/gestion'; break; 
             case 'proveedores': defaultAction = 'proveedores/gestion'; break;
+            case 'marcas': defaultAction = 'marcas/gestion'; break;
             case 'listas_compras': defaultAction = 'listas_compras/gestion'; break; // ESTA ES LA LÍNEA CORRECTA Y ÚNICA
 
         }
@@ -1415,6 +1416,7 @@ async function loadActionContent(actionPath) {
             case 'listas_compras/ver_lista': await initializeListasCompras(actionContent); break;
             case 'tiendas/gestion': initializeTiendaManagement(); break; 
             case 'proveedores/gestion': initializeProveedorManagement(); break;
+            case 'marcas/gestion': initializeMarcaManagement(); break;
             case 'utilidades/procesador_imagenes': initializeImageProcessor(); break;
             case 'utilidades/generador_codigos': initializeBarcodeGenerator(); break;
             case 'utilidades/bucket_manager': initializeBucketManager(); break;
@@ -1683,7 +1685,7 @@ async function renderEditForm(product) {
     const fields = [
         'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
-        'proveedor', 'stock_minimo', 'stock_maximo', 'url_imagen'
+        'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen'
     ];
     
     fields.forEach(field => {
@@ -2710,6 +2712,15 @@ if (target.id === 'download-zip-btn') {
         }
         return;
     }
+        if (target.classList.contains('delete-marca-btn')) {
+        const row = target.closest('tr');
+        const marcaId = row.dataset.marcaId;
+        const marcaName = row.querySelector('td:nth-child(2)').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar la marca "${marcaName}"?`)) {
+            deleteMarca(marcaId);
+        }
+        return;
+    }
 });
 
 
@@ -3489,13 +3500,15 @@ mainContent.addEventListener('focusout', (event) => {
             const departmentId = row.dataset.departmentId;
             const tiendaId = row.dataset.tiendaId;
             const proveedorId = row.dataset.proveedorId;
+            const marcaId = row.dataset.marcaId;
             const field = cell.dataset.field;
 
             if (productId) saveFieldUpdate(productId, field, newValue, cell);
             else if (departmentId) saveDepartmentFieldUpdate(departmentId, field, newValue, cell);
             else if (tiendaId) saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
             else if (proveedorId) saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
-        } else if (itemDiv) {
+            else if (marcaId) saveMarcaFieldUpdate(marcaId, field, newValue, cell);
+            }else if (itemDiv) {
             saveBucketImageRename(itemDiv, newValue, cell);
         }
     }
@@ -6207,6 +6220,132 @@ function initializeResizableColumns(tableSelector, storageKey) {
     }
 }
 // --- FIN: LÓGICA PARA REDIMENSIONAR COLUMNAS ---
+
+
+
+
+// --- INICIO: LÓGICA COMPLETA PARA GESTOR DE MARCAS ---
+
+function initializeMarcaManagement() {
+    fetchAndRenderMarcas();
+
+    const createForm = document.getElementById('create-marca-form');
+    if (createForm) {
+        createForm.addEventListener('submit', handleMarcaFormSubmit);
+    }
+}
+
+async function fetchAndRenderMarcas() {
+    const tableBody = document.getElementById('marcas-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="4">Cargando marcas...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getMarcas`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.marcas.length > 0) {
+            result.marcas.forEach(marca => {
+                const row = document.createElement('tr');
+                row.dataset.marcaId = marca.id_marca;
+                row.innerHTML = `
+                    <td>${marca.id_marca}</td>
+                    <td class="editable" data-field="nombre_marca">${marca.nombre_marca}</td>
+                    <td>${marca.total_productos}</td>
+                    <td>
+                        <button class="action-btn delete-marca-btn" style="background-color: #f8d7da;">Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="4">No hay marcas registradas.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar las marcas.</td></tr>`;
+    }
+}
+
+async function handleMarcaFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-marca-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    const data = {
+        nombre_marca: form.querySelector('#nombre_marca').value,
+    };
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createMarca`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        form.reset();
+        fetchAndRenderMarcas();
+        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Crear Marca';
+    }
+}
+
+async function saveMarcaFieldUpdate(marcaId, field, value, cell) {
+    const originalText = cell.textContent;
+    cell.textContent = 'Guardando...';
+    
+    const dataToSend = {
+        id_marca: marcaId,
+        nombre_marca: value
+    };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateMarca`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        cell.textContent = value;
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.textContent = originalText;
+        alert("Error al guardar el cambio.");
+    }
+}
+
+async function deleteMarca(marcaId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteMarca`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_marca: marcaId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        document.querySelector(`tr[data-marca-id="${marcaId}"]`).remove();
+        alert('Marca eliminada.');
+
+    } catch (error) {
+        alert(`Error al eliminar: ${error.message}`);
+    }
+}
+// --- FIN: LÓGICA COMPLETA PARA GESTOR DE MARCAS ---
 
 
 

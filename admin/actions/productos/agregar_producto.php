@@ -6,6 +6,8 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
 $estados = $pdo->query("SELECT id_estado, nombre_estado FROM estados ORDER BY nombre_estado")->fetchAll(PDO::FETCH_ASSOC);
 $proveedores = $pdo->query("SELECT id_proveedor, nombre_proveedor FROM proveedor ORDER BY nombre_proveedor")->fetchAll(PDO::FETCH_ASSOC);
 $unidades_medida = $pdo->query("SELECT id_unidad_medida, nombre_unidad FROM unidad_medida ORDER BY nombre_unidad")->fetchAll(PDO::FETCH_ASSOC);
+$marcas = $pdo->query("SELECT id_marca, nombre_marca FROM marcas ORDER BY nombre_marca")->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 
 <div class="form-container">
@@ -88,7 +90,17 @@ $unidades_medida = $pdo->query("SELECT id_unidad_medida, nombre_unidad FROM unid
                 <?php endforeach; ?>
             </select>
         </div>
-        
+                <?php // --- INICIO DEL BLOQUE A AÑADIR --- ?>
+        <div class="form-group">
+            <label for="id_marca">Marca</label>
+            <select id="id_marca" name="id_marca">
+                <option value="">(Opcional) Selecciona una marca</option>
+                <?php foreach ($marcas as $marca): ?>
+                    <option value="<?php echo htmlspecialchars($marca['id_marca']); ?>"><?php echo htmlspecialchars($marca['nombre_marca']); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php // --- FIN DEL BLOQUE --- ?>
         <div class="form-group">
             <label for="stock_minimo">Stock Mínimo</label>
             <input type="number" id="stock_minimo" name="stock_minimo" min="0" value="0">

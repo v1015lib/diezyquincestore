@@ -46,6 +46,16 @@
             </a></li>
             <?php endif; ?>
 
+
+            <?php // --- BLOQUE A AÑADIR --- ?>
+            <?php if (can_access('marcas', $rol, $permisos)): ?>
+            <li><a href="#" class="nav-link" data-module="marcas">
+                <span class="menu-icon">🏷️</span>
+                <span class="menu-text">Marcas</span>
+            </a></li>
+            <?php endif; ?>
+            <?php // --- FIN DEL BLOQUE --- ?>
+
             <?php if (can_access('pos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="pos">
                 <span class="menu-icon">🛒</span>

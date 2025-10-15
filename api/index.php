@@ -52,6 +52,121 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+///
+case 'admin/getMarcas':
+    try {
+        $stmt = $pdo->query("
+            SELECT 
+                m.id_marca, 
+                m.nombre_marca,
+                (SELECT COUNT(p.id_producto) FROM productos p WHERE p.id_marca = m.id_marca) as total_productos
+            FROM marcas m 
+            ORDER BY m.nombre_marca ASC
+        ");
+        $marcas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'marcas' => $marcas]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las marcas.']);
+    }
+    break;
+
+case 'admin/createMarca':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $nombre = trim($data['nombre_marca'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (empty($nombre)) throw new Exception('El nombre de la marca es obligatorio.');
+        if (!$userId) throw new Exception('Sesión de usuario no válida.');
+
+        $slug = createSlug($nombre, $pdo, 'marcas', 'id_marca');
+
+        $stmt = $pdo->prepare("INSERT INTO marcas (nombre_marca, slug, creado_por_usuario_id) VALUES (:nombre, :slug, :user_id)");
+        $stmt->execute([':nombre' => $nombre, ':slug' => $slug, ':user_id' => $userId]);
+        
+        logActivity($pdo, $userId, 'Marca Creada', "Se creó la nueva marca: '{$nombre}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Marca creada con éxito.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $errorCode = ($e instanceof PDOException && $e->getCode() == '23000') ? 409 : 400;
+        http_response_code($errorCode);
+        $errorMsg = ($errorCode === 409) ? 'Ya existe una marca con ese nombre.' : $e->getMessage();
+        echo json_encode(['success' => false, 'error' => $errorMsg]);
+    }
+    break;
+
+case 'admin/updateMarca':
+     $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_marca'] ?? 0, FILTER_VALIDATE_INT);
+        $nombre = trim($data['nombre_marca'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || empty($nombre) || !$userId) throw new Exception('Datos inválidos o sesión no válida.');
+
+        $slug = createSlug($nombre, $pdo, 'marcas', 'id_marca', $id);
+
+        $stmt = $pdo->prepare("UPDATE marcas SET nombre_marca = :nombre, slug = :slug, modificado_por_usuario_id = :user_id WHERE id_marca = :id");
+        $stmt->execute([':nombre' => $nombre, ':slug' => $slug, ':user_id' => $userId, ':id' => $id]);
+        
+        logActivity($pdo, $userId, 'Marca Modificada', "Se actualizó la marca ID #{$id} a '{$nombre}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Marca actualizada.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar la marca.']);
+    }
+    break;
+
+case 'admin/deleteMarca':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_marca'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || !$userId) throw new Exception('ID de marca o de usuario no válido.');
+
+        $stmt_info = $pdo->prepare("SELECT nombre_marca FROM marcas WHERE id_marca = :id");
+        $stmt_info->execute([':id' => $id]);
+        $marcaName = $stmt_info->fetchColumn();
+        if (!$marcaName) throw new Exception('La marca no existe.');
+
+        $stmt = $pdo->prepare("DELETE FROM marcas WHERE id_marca = :id");
+        $stmt->execute([':id' => $id]);
+
+        logActivity($pdo, $userId, 'Marca Eliminada', "Se eliminó la marca: '{$marcaName}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Marca eliminada con éxito.']);
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($e->getCode() == '23000') {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'error' => 'No se puede eliminar. Esta marca tiene productos asociados.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error de base de datos al eliminar.']);
+        }
+    }
+    break;
+
+
+
+
+
+
+
+
+
+///
 case 'save-push-subscription':
     if ($method === 'POST') {
         if (!isset($_SESSION['id_cliente'])) {
@@ -4963,6 +5078,7 @@ case 'admin/createProduct':
         $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? '', FILTER_VALIDATE_INT);
         $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
         $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
+        $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
         $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
         $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
         $url_imagen = trim($_POST['url_imagen'] ?? '');
@@ -4979,9 +5095,9 @@ case 'admin/createProduct':
 
         // 2. Se añade la columna `slug` a la consulta SQL.
         $sql_insert = "INSERT INTO productos 
-            (codigo_producto, nombre_producto, slug, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor) 
+            (codigo_producto, nombre_producto, slug, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, id_marca) 
             VALUES 
-            (:codigo_producto, :nombre_producto, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id)";
+            (:codigo_producto, :nombre_producto, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id, :id_marca)";
         
         $stmt_insert = $pdo->prepare($sql_insert);
         
@@ -4991,7 +5107,7 @@ case 'admin/createProduct':
             ':departamento_id' => $departamento_id, ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta,
             ':precio_mayoreo' => $precio_mayoreo, ':url_imagen' => $url_imagen, ':stock_minimo' => $stock_minimo,
             ':stock_maximo' => $stock_maximo, ':tipo_de_venta_id' => $tipo_de_venta_id, ':estado_id' => $estado_id,
-            ':creado_por' => $creado_por, ':proveedor_id' => $proveedor_id
+            ':creado_por' => $creado_por, ':proveedor_id' => $proveedor_id,':id_marca' => $id_marca
         ]);
         
         // =================== FIN DE LA MODIFICACIÓN ====================
@@ -5040,6 +5156,7 @@ case 'admin/updateProduct':
         $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? 0, FILTER_VALIDATE_INT);
         $estado_id = filter_var($_POST['estado'] ?? 0, FILTER_VALIDATE_INT);
         $proveedor_id = filter_var($_POST['proveedor'] ?? 0, FILTER_VALIDATE_INT);
+        $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
         $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
         $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
         $url_imagen = $_POST['url_imagen'] ?? '';
@@ -5055,9 +5172,8 @@ case 'admin/updateProduct':
                         precio_compra = :p_compra, precio_venta = :p_venta, precio_mayoreo = :p_mayoreo, 
                         url_imagen = :url, stock_minimo = :stock_min, 
                         stock_maximo = :stock_max, tipo_de_venta = :tipo_venta, estado = :estado, 
-                        proveedor = :prov, modificado_por_usuario_id = :user_id 
+                        proveedor = :prov, modificado_por_usuario_id = :user_id, id_marca = :id_marca 
                         WHERE id_producto = :id";
-        
         $stmt_update = $pdo->prepare($sql_update);
         
         // 3. Se añade el nuevo parámetro `:slug` a la ejecución.
@@ -5066,7 +5182,7 @@ case 'admin/updateProduct':
             ':depto' => $departamento_id, ':p_compra' => $precio_compra, ':p_venta' => $precio_venta,
             ':p_mayoreo' => $precio_mayoreo, ':url' => $url_imagen, ':stock_min' => $stock_minimo,
             ':stock_max' => $stock_maximo, ':tipo_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
-            ':prov' => $proveedor_id, ':user_id' => $userId, ':id' => $productId
+            ':prov' => $proveedor_id, ':user_id' => $userId, ':id' => $productId, ':id_marca' => $id_marca
         ]);
         
         // =================== FIN DE LA MODIFICACIÓN ====================
