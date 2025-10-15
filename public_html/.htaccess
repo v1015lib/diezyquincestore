@@ -14,8 +14,14 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^(.+)/$ 404.php [L]
 # --- FIN: Bloquear acceso a directorios ---
 
+# --- INICIO: Reescribe las URLs amigables al archivo PHP correspondiente ---
+# La condición evita que las reglas se apliquen a archivos o directorios que ya existen
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+
+# Reglas para login y registro (SIN redirección)
+RewriteRule ^ingresar/?$ login.php [L,QSA]
+RewriteRule ^registro/?$ registro.php [L,QSA]
 
 # Regla para Productos
 RewriteRule ^producto/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?product_slug=$1 [L,QSA]
@@ -33,3 +39,4 @@ RewriteRule ^ofertas/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?ofertas=true&campa
 
 # Regla para Todos los Productos
 RewriteRule ^productos/([a-zA-Z0-9-]+)/?$ index.php?campaign=$1 [L,QSA]
+# --- FIN: Reescribe las URLs amigables ---
