@@ -2,9 +2,18 @@
 ErrorDocument 404 /404.php
 
 # Desarrollo colocar diezyquincestore/public_html/ despues de RewriteBase / y en produccion quitarlo
-
 RewriteEngine On
 RewriteBase /diezyquincestore/public_html/
+
+# --- INICIO: Bloquear y redirigir acceso a directorios ---
+# Deshabilita la generación de listados de archivos
+Options -Indexes
+
+# Si la petición es para un directorio existente, trátala como "no encontrada"
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^(.+)/$ 404.php [L]
+# --- FIN: Bloquear acceso a directorios ---
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 

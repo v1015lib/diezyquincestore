@@ -10,7 +10,7 @@ Disallow: /finalizar_compra.php
 Disallow: /logout.php
 
 # Archivos PHP que generan las páginas (evita contenido duplicado)
-Disallow: /pageuniquecontent.php
+
 Disallow: /index.php
 
 # Ubicación del mapa del sitio
