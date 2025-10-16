@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Configura las variables de sesión
                 $_SESSION['loggedin'] = true;
-                $_SESSION['user_id'] = $user['id_usuario'];
+                $_SESSION['id_usuario'] = $user['id_usuario'];
                 $_SESSION['nombre_usuario'] = $user['nombre_usuario'];
                 $_SESSION['rol'] = $user['rol'];
 

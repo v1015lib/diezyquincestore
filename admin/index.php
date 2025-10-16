@@ -1,6 +1,5 @@
 <?php
 session_start();
-
 // --- Bloque de Seguridad (Comentado para desarrollo) ---
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['rol'])) {
    // Asumiendo que el login está en la raíz del dominio principal

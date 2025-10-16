@@ -2408,6 +2408,10 @@ function initializeBackupControls() {
         }
     });
 }
+
+
+
+
 function initializeInventoryForm(type) {
     const searchForm = document.getElementById(`product-search-form-${type}`);
     if (!searchForm) return;
@@ -2799,7 +2803,7 @@ async function loadStatisticsWidgets() {
 
 async function loadStatisticsWidgets() {
     const endDate = new Date();
-    const startDate = new Date(endDate.getFullYear(), 7);
+    const startDate = new Date(endDate.getFullYear(), 0);
     startDate.setFullYear(startDate.getFullYear() - 0); // Rango por defecto:  año actual 0
 
     const formatDate = (date) => date.toISOString().split('T')[0];

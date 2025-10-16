@@ -1,3 +1,6 @@
+<?php  
+session_start();
+?>
 <fieldset class="form-fieldset">
     <legend class="form-section-header">Crear Nuevas Tarjetas en Lote</legend>
     <form id="create-cards-form" class="form-container" style="padding: 1rem; border: none; box-shadow: none;">
