@@ -56,6 +56,17 @@
             <?php endif; ?>
             <?php // --- FIN DEL BLOQUE --- ?>
 
+
+            <?php // --- BLOQUE A AÑADIR --- ?>
+            <?php if (can_access('etiquetas', $rol, $permisos)): ?>
+            <li><a href="#" class="nav-link" data-module="etiquetas">
+                <span class="menu-icon">🔖</span>
+                <span class="menu-text">Etiquetas</span>
+            </a></li>
+            <?php endif; ?>
+            <?php // --- FIN DEL BLOQUE --- ?>
+
+
             <?php if (can_access('pos', $rol, $permisos)): ?>
             <li><a href="#" class="nav-link" data-module="pos">
                 <span class="menu-icon">🛒</span>

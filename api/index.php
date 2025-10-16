@@ -52,6 +52,116 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+
+
+
+
+
+case 'admin/getEtiquetas':
+    try {
+        $stmt = $pdo->query("
+            SELECT 
+                e.id_etiqueta, 
+                e.nombre_etiqueta,
+                (SELECT COUNT(pe.id_producto) FROM producto_etiquetas pe WHERE pe.id_etiqueta = e.id_etiqueta) as total_productos
+            FROM etiquetas e 
+            ORDER BY e.nombre_etiqueta ASC
+        ");
+        $etiquetas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'etiquetas' => $etiquetas]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las etiquetas.']);
+    }
+    break;
+
+case 'admin/createEtiqueta':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $nombre = trim($data['nombre_etiqueta'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (empty($nombre)) throw new Exception('El nombre de la etiqueta es obligatorio.');
+        if (!$userId) throw new Exception('Sesión de usuario no válida.');
+
+        $stmt = $pdo->prepare("INSERT INTO etiquetas (nombre_etiqueta) VALUES (:nombre)");
+        $stmt->execute([':nombre' => $nombre]);
+        
+        logActivity($pdo, $userId, 'Etiqueta Creada', "Se creó la nueva etiqueta: '{$nombre}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Etiqueta creada con éxito.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $errorCode = ($e instanceof PDOException && $e->getCode() == '23000') ? 409 : 400;
+        http_response_code($errorCode);
+        $errorMsg = ($errorCode === 409) ? 'Ya existe una etiqueta con ese nombre.' : $e->getMessage();
+        echo json_encode(['success' => false, 'error' => $errorMsg]);
+    }
+    break;
+
+case 'admin/updateEtiqueta':
+     $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_etiqueta'] ?? 0, FILTER_VALIDATE_INT);
+        $nombre = trim($data['nombre_etiqueta'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || empty($nombre) || !$userId) throw new Exception('Datos inválidos o sesión no válida.');
+
+        $stmt = $pdo->prepare("UPDATE etiquetas SET nombre_etiqueta = :nombre WHERE id_etiqueta = :id");
+        $stmt->execute([':nombre' => $nombre, ':id' => $id]);
+        
+        logActivity($pdo, $userId, 'Etiqueta Modificada', "Se actualizó la etiqueta ID #{$id} a '{$nombre}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Etiqueta actualizada.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar la etiqueta.']);
+    }
+    break;
+
+case 'admin/deleteEtiqueta':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_etiqueta'] ?? 0, FILTER_VALIDATE_INT);
+        $userId = $_SESSION['id_usuario'] ?? null;
+
+        if (!$id || !$userId) throw new Exception('ID de etiqueta o de usuario no válido.');
+
+        $stmt_info = $pdo->prepare("SELECT nombre_etiqueta FROM etiquetas WHERE id_etiqueta = :id");
+        $stmt_info->execute([':id' => $id]);
+        $etiquetaName = $stmt_info->fetchColumn();
+        if (!$etiquetaName) throw new Exception('La etiqueta no existe.');
+
+        // Primero eliminamos las asociaciones en la tabla pivote
+        $stmt_pivot = $pdo->prepare("DELETE FROM producto_etiquetas WHERE id_etiqueta = :id");
+        $stmt_pivot->execute([':id' => $id]);
+
+        // Luego eliminamos la etiqueta
+        $stmt = $pdo->prepare("DELETE FROM etiquetas WHERE id_etiqueta = :id");
+        $stmt->execute([':id' => $id]);
+
+        logActivity($pdo, $userId, 'Etiqueta Eliminada', "Se eliminó la etiqueta: '{$etiquetaName}'.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Etiqueta eliminada con éxito.']);
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos al eliminar.']);
+    }
+    break;
+
+
+
+
+
 ///
 // Busca este case:
 

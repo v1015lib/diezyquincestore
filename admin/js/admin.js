@@ -833,7 +833,8 @@ async function loadModule(moduleName) {
             case 'tiendas': defaultAction = 'tiendas/gestion'; break; 
             case 'proveedores': defaultAction = 'proveedores/gestion'; break;
             case 'marcas': defaultAction = 'marcas/gestion'; break;
-            case 'listas_compras': defaultAction = 'listas_compras/gestion'; break; // ESTA ES LA LÍNEA CORRECTA Y ÚNICA
+            case 'etiquetas': defaultAction = 'etiquetas/gestion'; break;
+            case 'listas_compras': defaultAction = 'listas_compras/gestion'; break;
 
         }
         if (defaultAction) {
@@ -1420,7 +1421,7 @@ async function loadActionContent(actionPath) {
             case 'utilidades/procesador_imagenes': initializeImageProcessor(); break;
             case 'utilidades/generador_codigos': initializeBarcodeGenerator(); break;
             case 'utilidades/bucket_manager': initializeBucketManager(); break;
-
+            case 'etiquetas/gestion': initializeEtiquetaManagement(); break; 
         }
     } catch (error) {
         actionContent.innerHTML = `<p style="color:red;">Error al cargar la acción: ${error.message}</p>`;
@@ -2721,6 +2722,15 @@ if (target.id === 'download-zip-btn') {
         }
         return;
     }
+    if (target.classList.contains('delete-etiqueta-btn')) {
+        const row = target.closest('tr');
+        const etiquetaId = row.dataset.etiquetaId;
+        const etiquetaName = row.querySelector('td:nth-child(2)').textContent;
+        if (confirm(`¿Estás seguro de que quieres eliminar la etiqueta "${etiquetaName}"?`)) {
+            deleteEtiqueta(etiquetaId);
+        }
+        return;
+    }
 });
 
 
@@ -3607,6 +3617,7 @@ mainContent.addEventListener('focusout', (event) => {
             const tiendaId = row.dataset.tiendaId;
             const proveedorId = row.dataset.proveedorId;
             const marcaId = row.dataset.marcaId;
+            const etiquetaId = row.dataset.etiquetaId; 
             const field = cell.dataset.field;
 
             if (productId) saveFieldUpdate(productId, field, newValue, cell);
@@ -3614,6 +3625,7 @@ mainContent.addEventListener('focusout', (event) => {
             else if (tiendaId) saveTiendaFieldUpdate(tiendaId, field, newValue, cell);
             else if (proveedorId) saveProveedorFieldUpdate(proveedorId, field, newValue, cell);
             else if (marcaId) saveMarcaFieldUpdate(marcaId, field, newValue, cell);
+            else if (etiquetaId) saveEtiquetaFieldUpdate(etiquetaId, field, newValue, cell); 
             }else if (itemDiv) {
             saveBucketImageRename(itemDiv, newValue, cell);
         }
@@ -3755,6 +3767,8 @@ async function fetchAndRenderCardReport() {
 let selectedCardId = null;
 
 mainContent.addEventListener('click', event => {
+
+
     if (event.target.classList.contains('assign-btn')) {
         selectedCardId = event.target.dataset.cardId;
         const cardNumber = event.target.dataset.cardNumber;
@@ -6453,7 +6467,128 @@ async function deleteMarca(marcaId) {
 }
 // --- FIN: LÓGICA COMPLETA PARA GESTOR DE MARCAS ---
 
+// --- INICIO: LÓGICA COMPLETA PARA GESTOR DE ETIQUETAS ---
 
+function initializeEtiquetaManagement() {
+    fetchAndRenderEtiquetas();
+
+    const createForm = document.getElementById('create-etiqueta-form');
+    if (createForm) {
+        createForm.addEventListener('submit', handleEtiquetaFormSubmit);
+    }
+}
+
+async function fetchAndRenderEtiquetas() {
+    const tableBody = document.getElementById('etiquetas-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="4">Cargando etiquetas...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getEtiquetas`);
+        const result = await response.json();
+
+        tableBody.innerHTML = '';
+        if (result.success && result.etiquetas.length > 0) {
+            result.etiquetas.forEach(etiqueta => {
+                const row = document.createElement('tr');
+                row.dataset.etiquetaId = etiqueta.id_etiqueta;
+                row.innerHTML = `
+                    <td>${etiqueta.id_etiqueta}</td>
+                    <td class="editable" data-field="nombre_etiqueta">${etiqueta.nombre_etiqueta}</td>
+                    <td>${etiqueta.total_productos}</td>
+                    <td>
+                        <button class="action-btn delete-etiqueta-btn" style="background-color: #f8d7da;">Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="4">No hay etiquetas registradas.</td></tr>';
+        }
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error al cargar las etiquetas.</td></tr>`;
+    }
+}
+
+async function handleEtiquetaFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-etiqueta-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    const data = {
+        nombre_etiqueta: form.querySelector('#nombre_etiqueta').value,
+    };
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createEtiqueta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        feedbackDiv.innerHTML = `<div class="message success">${result.message}</div>`;
+        form.reset();
+        fetchAndRenderEtiquetas();
+        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 3000);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Crear Etiqueta';
+    }
+}
+
+async function saveEtiquetaFieldUpdate(etiquetaId, field, value, cell) {
+    const originalText = cell.textContent;
+    cell.textContent = 'Guardando...';
+    
+    const dataToSend = {
+        id_etiqueta: etiquetaId,
+        nombre_etiqueta: value
+    };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateEtiqueta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        cell.textContent = value;
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.textContent = originalText;
+        alert("Error al guardar el cambio.");
+    }
+}
+
+async function deleteEtiqueta(etiquetaId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteEtiqueta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_etiqueta: etiquetaId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        document.querySelector(`tr[data-etiqueta-id="${etiquetaId}"]`).remove();
+        alert('Etiqueta eliminada.');
+
+    } catch (error) {
+        alert(`Error al eliminar: ${error.message}`);
+    }
+}
+// --- FIN: LÓGICA COMPLETA PARA GESTOR DE ETIQUETAS ---
 
 });
 
