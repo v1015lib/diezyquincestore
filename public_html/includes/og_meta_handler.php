@@ -75,6 +75,33 @@ if (isset($_GET['product_slug'])) {
     $og_description = "Descubre todos nuestros productos con descuentos especiales. ¡Exclusivo online!";
     $og_image = $base_url . $base_path . '/img/add4.jpg';
 
+} else if (isset($_GET['marca_slug'])) {
+    // --- LÓGICA PARA MARCAS (POR SLUG) ---
+    $stmt_marca = $pdo->prepare("SELECT id_marca, nombre_marca FROM marcas WHERE slug = :slug");
+    $stmt_marca->execute([':slug' => $_GET['marca_slug']]);
+    $marca = $stmt_marca->fetch(PDO::FETCH_ASSOC);
+    
+    if ($marca) {
+        $marca_name = htmlspecialchars($marca['nombre_marca']);
+        $og_title = "Línea de productos " . $marca_name . " y más solo en Variedades 10 y 15";
+        $og_description = "Descubre la línea completa de productos " . $marca_name . " en Variedades 10 y 15.";
+
+        // Construct the brand URL to search for in ads
+        $brand_url = $base_url . $base_path . '/' . $_GET['marca_slug'];
+        
+        // Find an ad linking to this brand
+        $stmt_ad = $pdo->prepare("SELECT url_imagen FROM anuncios_web WHERE url_destino LIKE :url AND estado = 1 ORDER BY orden ASC LIMIT 1");
+        $stmt_ad->execute([':url' => '%' . $brand_url . '%']);
+        
+        if ($ad = $stmt_ad->fetch(PDO::FETCH_ASSOC)) {
+            $og_image = htmlspecialchars($ad['url_imagen']);
+        }
+
+    } else {
+        // Fallback if the brand slug is not found
+        $marca_name = ucfirst(str_replace('-', ' ', $_GET['marca_slug']));
+        $og_title = "Productos de " . $marca_name;
+    }
 }
 // Se mantiene la lógica por ID como fallback por si alguna parte antigua del sitio aún la usa
 else if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
