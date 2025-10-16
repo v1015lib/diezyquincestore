@@ -55,7 +55,23 @@ try {
 ///
 // Busca este case:
 
-
+case 'admin/getMarcas':
+    try {
+        $stmt = $pdo->query("
+            SELECT 
+                m.id_marca, 
+                m.nombre_marca,
+                (SELECT COUNT(p.id_producto) FROM productos p WHERE p.id_marca = m.id_marca) as total_productos
+            FROM marcas m 
+            ORDER BY m.nombre_marca ASC
+        ");
+        $marcas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'marcas' => $marcas]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las marcas.']);
+    }
+    break;
 // EN: api/index.php
 case 'get_marcas_para_anuncios':
     try {
