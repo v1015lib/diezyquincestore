@@ -53,21 +53,20 @@ try {
     switch ($resource) {
 
 ///
-case 'admin/getMarcas':
+// Busca este case:
+
+
+// EN: api/index.php
+case 'get_marcas_para_anuncios':
     try {
-        $stmt = $pdo->query("
-            SELECT 
-                m.id_marca, 
-                m.nombre_marca,
-                (SELECT COUNT(p.id_producto) FROM productos p WHERE p.id_marca = m.id_marca) as total_productos
-            FROM marcas m 
-            ORDER BY m.nombre_marca ASC
-        ");
+        // ✅ CORRECCIÓN: Se elimina el alias "AS marca" para que la columna se llame "nombre_marca"
+        $stmt = $pdo->query("SELECT id_marca, nombre_marca FROM marcas ORDER BY nombre_marca ASC");
+        
         $marcas = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'marcas' => $marcas]);
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Error al obtener las marcas.']);
+        echo json_encode(['success' => false, 'error' => 'Error al obtener las marcas: ' . $e->getMessage()]);
     }
     break;
 
@@ -6530,6 +6529,11 @@ function handleProductsRequest(PDO $pdo) {
     $product_id = isset($_GET['product_id']) ? (int)$_GET['product_id'] : null;
 
     $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
+    
+    // --- INICIO DE LA INTEGRACIÓN #1 ---
+    $marca_slug = isset($_GET['marca_slug']) ? trim($_GET['marca_slug']) : '';
+    // --- FIN DE LA INTEGRACIÓN #1 ---
+
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
     $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
@@ -6541,7 +6545,6 @@ function handleProductsRequest(PDO $pdo) {
     if (!in_array($sort_by, $allowedSorts)) { $sort_by = 'random'; }
     if (!in_array($order, ['ASC', 'DESC'])) { $order = 'ASC'; }
 
-    // ▼▼▼ CORRECCIÓN AQUÍ ▼▼▼
     $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.departamento, p.precio_venta, p.url_imagen,
                       p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
                       CASE
@@ -6553,7 +6556,12 @@ function handleProductsRequest(PDO $pdo) {
                           ELSE 0
                       END AS precio_oferta, e.nombre_estado";
 
-    $base_sql = "FROM productos p INNER JOIN departamentos d ON p.departamento = d.id_departamento LEFT JOIN estados e ON p.estado = e.id_estado";
+    // --- INICIO DE LA INTEGRACIÓN #2 ---
+    $base_sql = "FROM productos p 
+                 INNER JOIN departamentos d ON p.departamento = d.id_departamento 
+                 LEFT JOIN estados e ON p.estado = e.id_estado
+                 LEFT JOIN marcas m ON p.id_marca = m.id_marca"; // Se añade el JOIN a la tabla de marcas
+    // --- FIN DE LA INTEGRACIÓN #2 ---
     
     $where_clauses = ["p.estado IN (1, 4)"]; 
     $params = [];
@@ -6570,6 +6578,14 @@ function handleProductsRequest(PDO $pdo) {
             $where_clauses[] = "p.departamento = :department_id";
             $params[':department_id'] = $department_id;
         }
+
+        // --- INICIO DE LA INTEGRACIÓN #3 ---
+        if (!empty($marca_slug)) {
+            $where_clauses[] = "m.slug = :marca_slug";
+            $params[':marca_slug'] = $marca_slug;
+        }
+        // --- FIN DE LA INTEGRACIÓN #3 ---
+
         if (!empty($search_term)) {
             $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
             $params[':search_term'] = '%' . $search_term . '%';

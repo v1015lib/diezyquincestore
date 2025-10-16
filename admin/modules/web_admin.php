@@ -3,6 +3,7 @@
 
 // Obtenemos la conexión a la BD para los departamentos
 require_once __DIR__ . '/../../config/config.php';
+
 $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departamentos ORDER BY departamento")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
@@ -119,36 +120,48 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
                             <input type="url" id="ads-url-enlace" name="url_enlace" placeholder="Se genera automáticamente al seleccionar abajo">
                         </div>
 
-                        <fieldset class="form-fieldset" style="margin-top: 1rem; padding: 1rem; border: 1px dashed #ccc;">
-                            <legend style="font-size: 0.9rem; font-weight: 600; padding: 0 5px;">Generador de URL de Destino</legend>
-                            <div class="form-group">
-                                <label for="link-type-selector">Tipo de Enlace</label>
-                                <select id="link-type-selector" class="form-control">
-                                    <option value="manual">Manual</option>
-                                    <option value="departamento">Departamento</option>
-                                    <option value="producto">Producto</option>
-                                    <option value="ofertas">Todas las Ofertas</option> 
-                                    <option value="todos">Todos los productos</option> </select>
+<fieldset class="form-fieldset" style="margin-top: 1rem; padding: 1rem; border: 1px dashed #ccc;">
+    <legend style="font-size: 0.9rem; font-weight: 600; padding: 0 5px;">Generador de URL de Destino</legend>
+    <div class="form-group">
+        <label for="link-type-selector">Tipo de Enlace</label>
+        <select id="link-type-selector" class="form-control">
+            <option value="manual">Manual</option>
+            <option value="departamento">Departamento</option>
+            <option value="producto">Producto</option>
+            <option value="ofertas">Todas las Ofertas</option>
+            <option value="todos">Todos los productos</option>
+            <option value="marca">Solo Marca</option>
+            <option value="marca_tipo">Marca y Tipo</option>
+        </select>
+    </div>
+    <div id="department-link-generator" class="form-group hidden">
+        <label for="department-selector">Seleccionar Depto.</label>
+        <select id="department-selector" class="form-control" style="width: 100%;">
+            <option value="">Cargando...</option>
+        </select>
+    </div>
+    <div id="product-link-generator" class="form-group hidden" style="position: relative;">
+        <label for="product-search-input-ads">Buscar Producto</label>
+        <input type="text" id="product-search-input-ads" class="form-control" placeholder="Escribe para buscar...">
+        <div id="product-search-results-ads" class="search-results-popover"></div>
+    </div>
+    <div id="brand-link-generator" class="form-group hidden">
+        <label for="brand-selector">Seleccionar Marca</label>
+        <select id="brand-selector" class="form-control" style="width: 100%;">
+            <option value="">Cargando...</option>
+        </select>
+    </div>
+    <div id="type-link-generator" class="form-group hidden">
+        <label for="type-input">Nombre del Tipo de Producto</label>
+        <input type="text" id="type-input" class="form-control" placeholder="Ej: temperas, boligrafos">
+    </div>
+    <div class="form-group">
+        <label for="link-decorator">Decorador/Campaña</label>
+        <input type="text" id="link-decorator" class="form-control" placeholder="Se autocompleta al seleccionar">
+    </div>
+</fieldset>
 
 
-                                </select>
-                            </div>
-                            <div id="department-link-generator" class="form-group hidden">
-                                <label for="department-selector">Seleccionar Depto.</label>
-                                <select id="department-selector" class="form-control" style="width: 100%;">
-                                    <option value="">Cargando...</option>
-                                </select>
-                            </div>
-                            <div id="product-link-generator" class="form-group hidden" style="position: relative;">
-                                <label for="product-search-input-ads">Buscar Producto</label>
-                                <input type="text" id="product-search-input-ads" class="form-control" placeholder="Escribe para buscar...">
-                                <div id="product-search-results-ads" class="search-results-popover"></div>
-                            </div>
-                            <div class="form-group">
-                                <label for="link-decorator">Decorador/Campaña</label>
-                                <input type="text" id="link-decorator" class="form-control" placeholder="Se autocompleta al seleccionar">
-                            </div>
-                        </fieldset>
                         <div class="form-group">
                             <label for="ads-tipo">Ubicación</label>
                             <select id="ads-tipo" name="tipo" required>

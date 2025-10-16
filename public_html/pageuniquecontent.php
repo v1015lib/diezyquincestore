@@ -6,25 +6,55 @@ $settings_json = @file_get_contents('http://' . $_SERVER['HTTP_HOST'] . dirname(
 $layout_settings = json_decode($settings_json, true)['settings'] ?? [];
 
 $filter_params = [];
-$page_title = "Nuestras Promociones";
+$page_title = "Nuestras Promociones"; // Título por defecto
 
 function getIdBySlug($pdo, $table, $slug) {
-    $id_column = ($table === 'productos') ? 'id_producto' : 'id_departamento';
+    // Se ha modificado para ser más genérico
+    $id_column_map = [
+        'productos' => 'id_producto',
+        'departamentos' => 'id_departamento',
+        'marcas' => 'id_marca' 
+    ];
+    // --- FIN DE LA MODIFICACIÓN ---
+    $id_column = $id_column_map[$table] ?? null;
+    if (!$id_column) return null;
+
     $stmt = $pdo->prepare("SELECT $id_column FROM $table WHERE slug = :slug LIMIT 1");
     $stmt->execute([':slug' => $slug]);
     return $stmt->fetchColumn();
 }
 
+
 if (isset($_GET['department_slug'])) {
     $department_id = getIdBySlug($pdo, 'departamentos', $_GET['department_slug']);
     if ($department_id) $filter_params['department_id'] = $department_id;
+
 } else if (isset($_GET['product_slug'])) {
     $product_id = getIdBySlug($pdo, 'productos', $_GET['product_slug']);
     if ($product_id) $filter_params['product_id'] = $product_id;
+
 } else if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
     $filter_params['ofertas'] = 'true';
     $page_title = "Productos en Oferta";
+
+// --- INICIO DE LA CORRECCIÓN ---
+} else if (isset($_GET['marca_slug'])) {
+    // Pasamos el slug de la marca a los parámetros de filtro
+    $filter_params['marca_slug'] = $_GET['marca_slug'];
+    
+    // Ahora, intentamos obtener el nombre de la marca para usarlo en el título
+    $stmt_title = $pdo->prepare("SELECT nombre_marca FROM marcas WHERE slug = :slug");
+    $stmt_title->execute([':slug' => $_GET['marca_slug']]);
+    
+    if ($marca_name = $stmt_title->fetchColumn()) {
+        $page_title = "Productos de " . $marca_name;
+    } else {
+        // Si no se encuentra la marca, usamos el slug como título provisional
+        $page_title = "Productos de " . ucfirst(str_replace('-', ' ', $_GET['marca_slug']));
+    }
 }
+// --- FIN DE LA CORRECCIÓN ---
+
 
 if (!empty($filter_params['department_id'])) {
     $stmt_title = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");

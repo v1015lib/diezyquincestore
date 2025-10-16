@@ -3121,19 +3121,25 @@ async function initializeAdsManagement() {
     const cancelEditBtn = document.getElementById('cancel-edit');
     let editingAdId = null;
 
-    // --- INICIO: Lógica del Generador de URL ---
-    const baseURL = 'https://diezyquince.store/'; // Variable para la URL base
+    // --- INICIO: Lógica del Generador de URL (ACTUALIZADA) ---
     const linkTypeSelector = document.getElementById('link-type-selector');
     const departmentGenerator = document.getElementById('department-link-generator');
     const productGenerator = document.getElementById('product-link-generator');
+    const brandGenerator = document.getElementById('brand-link-generator'); // Nuevo
+    const typeGenerator = document.getElementById('type-link-generator');   // Nuevo
+
     const departmentSelector = document.getElementById('department-selector');
     const productSearchInput = document.getElementById('product-search-input-ads');
     const productSearchResults = document.getElementById('product-search-results-ads');
+    const brandSelector = document.getElementById('brand-selector');       // Nuevo
+    const typeInput = document.getElementById('type-input');               // Nuevo
+    
     const linkDecoratorInput = document.getElementById('link-decorator');
     const urlEnlaceInput = document.getElementById('ads-url-enlace');
     
     let selectedProductId = null;
     let searchDebounce;
+    let areBrandsLoaded = false; // Control para cargar marcas solo una vez
 
     function slugify(text) {
         if (!text) return '';
@@ -3145,6 +3151,10 @@ async function initializeAdsManagement() {
             .replace(/-+$/, '');
     }
 
+    // --- FUNCIÓN DE GENERACIÓN DE URL MODIFICADA --
+
+
+
 function generateUrl() {
     const path = window.location.pathname;
     const subdirectory = path.substring(0, path.indexOf('/admin'));
@@ -3152,54 +3162,107 @@ function generateUrl() {
 
     const type = linkTypeSelector.value;
     const mainSlug = slugify(linkDecoratorInput.value.trim());
+
+    // --- LÍNEAS NUEVAS A AÑADIR ---
+    const brandSlug = brandSelector.value ? slugify(brandSelector.options[brandSelector.selectedIndex].text) : '';
+    const typeSlug = slugify(typeInput.value.trim());
+    // --- FIN DE LÍNEAS NUEVAS ---
+
     let generatedUrl = '';
-
-    if (!mainSlug) {
-        urlEnlaceInput.value = '';
-        return;
-    }
-
+    
+    // Se ha quitado el "if (!mainSlug)" de aquí para que los nuevos tipos funcionen
+    
     if (type === 'departamento') {
-        generatedUrl = `${baseURL}departamento/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}departamento/${mainSlug}`;
     } else if (type === 'producto') {
-        generatedUrl = `${baseURL}producto/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}producto/${mainSlug}`;
     } else if (type === 'ofertas') {
-        generatedUrl = `${baseURL}ofertas/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}ofertas/${mainSlug}`;
     } else if (type === 'todos') {
-        generatedUrl = `${baseURL}productos/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}productos/${mainSlug}`;
+    } 
+    // --- BLOQUES NUEVOS A AÑADIR ---
+    else if (type === 'marca') {
+        if (brandSlug) {
+            generatedUrl = `${baseURL}${brandSlug}`;
+        }
+    } else if (type === 'marca_tipo') {
+        if (brandSlug && typeSlug) {
+            generatedUrl = `${baseURL}${brandSlug}/${typeSlug}`;
+        } else if (brandSlug) {
+            generatedUrl = `${baseURL}${brandSlug}`;
+        }
     }
+    // --- FIN DE BLOQUES NUEVOS ---
 
     urlEnlaceInput.value = generatedUrl;
 }
 
- //DESCOMENTAR EN PRDDUCCION
-/*
-function generateUrl() {
+
+//DESCOMENTAR EN PRDDUCCION
+/*function generateUrl() {
     // En producción, la URL base es simplemente tu dominio.
     const baseURL = 'https://diezyquince.store/'; 
 
     const type = linkTypeSelector.value;
     const mainSlug = slugify(linkDecoratorInput.value.trim());
+    
+    // --- LÍNEAS NUEVAS A AÑADIR ---
+    const brandSlug = brandSelector.value ? slugify(brandSelector.options[brandSelector.selectedIndex].text) : '';
+    const typeSlug = slugify(typeInput.value.trim());
+    // --- FIN DE LÍNEAS NUEVAS ---
+
     let generatedUrl = '';
 
-    if (!mainSlug) {
-        urlEnlaceInput.value = '';
-        return;
-    }
+    // Se ha quitado el "if (!mainSlug)" de aquí para que los nuevos tipos funcionen
 
     if (type === 'departamento') {
-        generatedUrl = `${baseURL}departamento/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}departamento/${mainSlug}`;
     } else if (type === 'producto') {
-        generatedUrl = `${baseURL}producto/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}producto/${mainSlug}`;
     } else if (type === 'ofertas') {
-        generatedUrl = `${baseURL}ofertas/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}ofertas/${mainSlug}`;
     } else if (type === 'todos') {
-        generatedUrl = `${baseURL}productos/${mainSlug}`;
+        if (mainSlug) generatedUrl = `${baseURL}productos/${mainSlug}`;
+    } 
+    // --- BLOQUES NUEVOS A AÑADIR ---
+    else if (type === 'marca') {
+        if (brandSlug) {
+            generatedUrl = `${baseURL}${brandSlug}`;
+        }
+    } else if (type === 'marca_tipo') {
+        if (brandSlug && typeSlug) {
+            generatedUrl = `${baseURL}${brandSlug}/${typeSlug}`;
+        } else if (brandSlug) {
+            generatedUrl = `${baseURL}${brandSlug}`;
+        }
     }
+    // --- FIN DE BLOQUES NUEVOS ---
 
     urlEnlaceInput.value = generatedUrl;
+}*/
+    
+    // --- NUEVA FUNCIÓN PARA CARGAR MARCAS ---
+async function loadBrands() {
+    if (areBrandsLoaded) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=get_marcas_para_anuncios`);
+        const result = await response.json();
+        if (result.success && result.marcas) {
+            brandSelector.innerHTML = '<option value="">-- Selecciona una marca --</option>';
+            result.marcas.forEach(marca => {
+                // ✅ CORRECCIÓN AQUÍ: Cambiamos 'marca.marca' por 'marca.nombre_marca'
+                const option = new Option(marca.nombre_marca, marca.id_marca);
+                brandSelector.add(option);
+            });
+            areBrandsLoaded = true;
+        } else {
+            brandSelector.innerHTML = '<option value="">Error al cargar</option>';
+        }
+    } catch (error) {
+        brandSelector.innerHTML = '<option value="">Error de conexión</option>';
+    }
 }
-*/
 
     async function populateDepartmentSelect() {
         try {
@@ -3217,30 +3280,54 @@ function generateUrl() {
         }
     }
 
+    // --- EVENT LISTENER DEL SELECTOR PRINCIPAL (MODIFICADO) ---
     if(linkTypeSelector) {
         linkTypeSelector.addEventListener('change', () => {
             const selectedType = linkTypeSelector.value;
-            departmentGenerator.classList.toggle('hidden', selectedType !== 'departamento');
-            productGenerator.classList.toggle('hidden', selectedType !== 'producto');
+
+            // Ocultar todos los generadores
+            departmentGenerator.classList.add('hidden');
+            productGenerator.classList.add('hidden');
+            brandGenerator.classList.add('hidden');
+            typeGenerator.classList.add('hidden');
+            
+            // Limpiar campos
             linkDecoratorInput.value = '';
             urlEnlaceInput.value = '';
             productSearchInput.value = '';
+            typeInput.value = '';
             selectedProductId = null;
 
-
-
-            // Si se seleccionan "Todas las Ofertas", autocompletamos y generamos la URL
-            if (selectedType === 'ofertas') {
-                linkDecoratorInput.value = 'ofertas-especiales';
-                generateUrl();
-            }else if (selectedType === 'todos') {
-                linkDecoratorInput.value = 'catalogo-completo';
-                generateUrl();
+            // Mostrar el generador correspondiente
+            switch (selectedType) {
+                case 'departamento':
+                    departmentGenerator.classList.remove('hidden');
+                    break;
+                case 'producto':
+                    productGenerator.classList.remove('hidden');
+                    break;
+                case 'marca':
+                    brandGenerator.classList.remove('hidden');
+                    loadBrands(); // Carga las marcas si es necesario
+                    break;
+                case 'marca_tipo':
+                    brandGenerator.classList.remove('hidden');
+                    typeGenerator.classList.remove('hidden');
+                    loadBrands(); // Carga las marcas si es necesario
+                    break;
+                case 'ofertas':
+                    linkDecoratorInput.value = 'ofertas-especiales';
+                    generateUrl();
+                    break;
+                case 'todos':
+                    linkDecoratorInput.value = 'catalogo-completo';
+                    generateUrl();
+                    break;
             }
         });
-
     }
 
+    // --- EVENT LISTENERS (EXISTENTES Y NUEVOS) ---
     if (departmentSelector) {
         departmentSelector.addEventListener('change', (e) => {
             const selectedText = e.target.options[e.target.selectedIndex].text;
@@ -3289,6 +3376,22 @@ function generateUrl() {
             }
         });
     }
+    
+    // Nuevos listeners para marca y tipo
+    if (brandSelector) {
+brandSelector.addEventListener('change', (e) => {
+        // Obtenemos el texto de la marca seleccionada
+        const selectedText = e.target.options[e.target.selectedIndex].text;
+
+        // Rellenamos el decorador con el nombre de la marca
+        linkDecoratorInput.value = slugify(selectedText);
+
+        // Ahora generamos la URL con el decorador ya establecido
+        generateUrl();
+    });    }
+    if (typeInput) {
+        typeInput.addEventListener('input', generateUrl);
+    }
 
     if (linkDecoratorInput) {
         linkDecoratorInput.addEventListener('input', generateUrl);
@@ -3304,21 +3407,21 @@ function generateUrl() {
     // --- FIN: Lógica del Generador de URL ---
 
 
-    // Cargar anuncios al inicializar
+    // Cargar anuncios al inicializar (sin cambios)
     await loadAds();
 
-    // Event listener para el formulario
+    // Event listener para el formulario (sin cambios)
     adsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveAd();
     });
 
-    // Event listener para cancelar edición
+    // Event listener para cancelar edición (sin cambios)
     cancelEditBtn.addEventListener('click', () => {
         resetForm();
     });
 
-    // Función para cargar anuncios
+    // Función para cargar anuncios (sin cambios)
     async function loadAds() {
         try {
             const response = await fetch('api/anuncios_web.php');
@@ -3334,7 +3437,7 @@ function generateUrl() {
         }
     }
 
-    // Función para mostrar anuncios en la lista
+    // Función para mostrar anuncios en la lista (sin cambios)
     function displayAds(ads) {
         adsList.innerHTML = '';
         if (ads.length === 0) {
@@ -3347,7 +3450,7 @@ function generateUrl() {
         });
     }
 
-    // Función para crear elemento de anuncio
+    // Función para crear elemento de anuncio (sin cambios)
     function createAdElement(ad) {
         const div = document.createElement('div');
         div.className = 'ad-item';
@@ -3374,7 +3477,7 @@ function generateUrl() {
         return div;
     }
 
-    // Función para guardar anuncio
+    // Función para guardar anuncio (sin cambios)
     async function saveAd() {
         const formData = new FormData(adsForm);
         const data = {
@@ -3410,7 +3513,7 @@ function generateUrl() {
         }
     }
 
-    // Función para editar anuncio
+    // Función para editar anuncio (sin cambios)
     window.editAd = async function(id) {
         try {
             const response = await fetch('api/anuncios_web.php');
@@ -3436,7 +3539,7 @@ function generateUrl() {
         }
     };
 
-    // Función para eliminar anuncio
+    // Función para eliminar anuncio (sin cambios)
     window.deleteAd = async function(id) {
         if (!confirm('¿Estás seguro de que quieres eliminar este anuncio?')) return;
         try {
@@ -3458,7 +3561,7 @@ function generateUrl() {
         }
     };
 
-    // Función para resetear formulario
+    // --- FUNCIÓN PARA RESETEAR FORMULARIO (MODIFICADA) ---
     function resetForm() {
         adsForm.reset();
         editingAdId = null;
@@ -3468,9 +3571,12 @@ function generateUrl() {
         // Resetear el generador de URL
         departmentGenerator.classList.add('hidden');
         productGenerator.classList.add('hidden');
+        brandGenerator.classList.add('hidden'); // Ocultar nuevo campo
+        typeGenerator.classList.add('hidden');  // Ocultar nuevo campo
         linkTypeSelector.value = 'manual';
         linkDecoratorInput.value = '';
         productSearchInput.value = '';
+        typeInput.value = '';
         selectedProductId = null;
     }
 }

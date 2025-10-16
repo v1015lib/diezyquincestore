@@ -1,42 +1,32 @@
-# Redirige todos los errores 404 a nuestra página personalizada
-ErrorDocument 404 /404.php
-
-# Desarrollo colocar diezyquincestore/public_html/ despues de RewriteBase / y en produccion quitarlo
+# --- CONFIGURACIÓN GENERAL ---
+Options -Indexes
+ErrorDocument 404 /diezyquincestore/public_html/404.php
 RewriteEngine On
 RewriteBase /diezyquincestore/public_html/
 
-# --- INICIO: Bloquear y redirigir acceso a directorios ---
-# Deshabilita la generación de listados de archivos
-Options -Indexes
+# --- REGLAS PARA PÁGINAS ESTÁTICAS Y ESPECÍFICAS ---
+RewriteRule ^ingresar/?$ login.php [L,QSA]
+RewriteRule ^registro/?$ registro.php [L,QSA]
+RewriteRule ^ofertas/?$ pageuniquecontent.php?ofertas=true [L,QSA]
 
-# Si la petición es para un directorio existente, trátala como "no encontrada"
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^(.+)/$ 404.php [L]
-# --- FIN: Bloquear acceso a directorios ---
+# --- REGLAS PARA CONTENIDO DINÁMICO (PRODUCTOS, DEPARTAMENTOS, ETC.) ---
+RewriteRule ^producto/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?product_slug=$1 [L,QSA]
+RewriteRule ^departamento/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?department_slug=$1 [L,QSA]
+RewriteRule ^ofertas/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?ofertas=true&campaign=$1 [L,QSA]
+RewriteRule ^productos/([a-zA-Z0-9_-]+)/?$ index.php?campaign=$1 [L,QSA]
 
-# --- INICIO: Reescribe las URLs amigables al archivo PHP correspondiente ---
-# La condición evita que las reglas se apliquen a archivos o directorios que ya existen
+# --- REGLAS GENÉRICAS PARA MARCAS (Se procesan al final) ---
+
+# Evitar que las reglas de abajo se apliquen a archivos o directorios existentes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Reglas para login y registro (SIN redirección)
-RewriteRule ^ingresar/?$ login.php [L,QSA]
-RewriteRule ^registro/?$ registro.php [L,QSA]
+# Regla para MARCA / TIPO (ej: /starmate/audifonos)
+RewriteRule ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?marca_slug=$1&tipo_slug=$2 [L,QSA]
 
-# Regla para Productos
-RewriteRule ^producto/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?product_slug=$1 [L,QSA]
+# Evitar que las reglas de abajo se apliquen a archivos o directorios existentes (de nuevo por seguridad)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 
-# Regla para Departamentos
-RewriteRule ^departamento/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?department_slug=$1 [L,QSA]
-
-# --- REGLAS DE OFERTAS MODIFICADAS ---
-
-# Regla #1: Captura SOLAMENTE "ofertas" o "ofertas/"
-RewriteRule ^ofertas/?$ pageuniquecontent.php?ofertas=true [L,QSA]
-
-# Regla #2: Captura "ofertas/" seguido por un nombre de campaña
-RewriteRule ^ofertas/([a-zA-Z0-9-]+)/?$ pageuniquecontent.php?ofertas=true&campaign=$1 [L,QSA]
-
-# Regla para Todos los Productos
-RewriteRule ^productos/([a-zA-Z0-9-]+)/?$ index.php?campaign=$1 [L,QSA]
-# --- FIN: Reescribe las URLs amigables ---
+# Regla para MARCA (ej: /starmate) - ¡Esta es la que resuelve tu pregunta!
+RewriteRule ^([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?marca_slug=$1 [L,QSA]
