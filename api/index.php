@@ -5323,8 +5323,61 @@ case 'admin/updateProduct':
 
 
 
+// PEGA ESTE BLOQUE DENTRO DEL switch($resource) EN api/index.php
 
+case 'admin/batchUpdateNames':
+    // require_admin(); // Seguridad
+    $data = json_decode(file_get_contents('php://input'), true);
+    $productIds = $data['productIds'] ?? [];
+    $findText = $data['findText'] ?? '';
+    $replaceText = $data['replaceText'] ?? '';
+    $userId = $_SESSION['id_usuario'] ?? null;
 
+    if (empty($productIds) || !isset($findText) || !$userId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Datos incompletos para la operación.']);
+        break;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+        
+        $stmt_get = $pdo->prepare("SELECT id_producto, nombre_producto FROM productos WHERE id_producto IN ($placeholders)");
+        $stmt_get->execute($productIds);
+        $productsToUpdate = $stmt_get->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmt_update = $pdo->prepare("UPDATE productos SET nombre_producto = :name, slug = :slug, modificado_por_usuario_id = :user_id WHERE id_producto = :id");
+
+        $updatedCount = 0;
+        foreach ($productsToUpdate as $product) {
+            $oldName = $product['nombre_producto'];
+            // str_ireplace hace el reemplazo sin distinguir mayúsculas/minúsculas
+            $newName = str_ireplace($findText, $replaceText, $oldName);
+
+            if ($newName !== $oldName) {
+                $newSlug = createSlug($newName, $pdo, 'productos', 'id_producto', $product['id_producto']);
+                $stmt_update->execute([
+                    ':name' => $newName,
+                    ':slug' => $newSlug,
+                    ':user_id' => $userId,
+                    ':id' => $product['id_producto']
+                ]);
+                $updatedCount++;
+            }
+        }
+
+        logActivity($pdo, $userId, 'Edición Masiva de Nombres', "Se reemplazó '{$findText}' por '{$replaceText}' en {$updatedCount} de " . count($productIds) . " productos seleccionados.");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => "Operación completada. Se actualizaron {$updatedCount} nombres de productos."]);
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al actualizar nombres: ' . $e->getMessage()]);
+    }
+    break;
 
 
 

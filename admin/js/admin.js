@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelector = document.getElementById('selector-imagen');
     const btnProcesar = document.getElementById('btn-procesar-imagen');
     const vistaPreviaContainer = document.getElementById('vista-previa-container');
-    
+
     let imageTargetInputId = null;
     const galleryCache = {
         images: [], // Almacenará todas las imágenes cargadas
@@ -2220,7 +2220,50 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
 
+if (event.target.closest('#find-replace-modal')) {
+        const modal = event.target.closest('#find-replace-modal');
+        
+        if (event.target.matches('.modal-close-btn, #modal-find-replace-cancel-btn')) {
+            closeFindReplaceModal();
+        }
 
+        if (event.target.id === 'modal-find-replace-confirm-btn') {
+            const findText = modal.querySelector('#find-text').value;
+            const replaceText = modal.querySelector('#replace-text').value;
+            const errorDiv = modal.querySelector('#modal-find-replace-error');
+
+            if (findText === '') {
+                errorDiv.textContent = 'El campo "Buscar Texto" no puede estar vacío.';
+                return;
+            }
+
+            const productIds = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr').dataset.productId);
+            
+            event.target.textContent = 'Procesando...';
+            event.target.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}?resource=admin/batchUpdateNames`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productIds, findText, replaceText })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                alert(result.message);
+                closeFindReplaceModal();
+                currentFilters.page = 1;
+                await fetchAndRenderProducts();
+
+            } catch (error) {
+                errorDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                event.target.textContent = 'Ejecutar Reemplazo';
+                event.target.disabled = false;
+            }
+        }
+    }
 
     // --- ✅ INICIO DE LA CORRECCIÓN ---
     if (target.id === 'open-gallery-btn') {
@@ -2392,7 +2435,10 @@ if (target.id === 'batch-action-execute') {
             openPriceModal();
             return;
         }
-
+        if (action === 'find-replace-name') {
+            openFindReplaceModal();
+            return;
+        }
         let confirmationMessage = '';
         switch (action) {
             case 'delete':
@@ -6671,7 +6717,34 @@ async function deleteEtiqueta(etiquetaId) {
         alert(`Error al eliminar: ${error.message}`);
     }
 }
-// --- FIN: LÓGICA COMPLETA PARA GESTOR DE ETIQUETAS ---
+
+
+
+
+
+
+function openFindReplaceModal() {
+    const modal = document.getElementById('find-replace-modal');
+    if (!modal) {
+        console.error("Error: El modal de 'Buscar y Reemplazar' no se encontró en la página.");
+        return;
+    }
+    // Esta línea es clave: busca los checkboxes DENTRO del contenedor principal
+    const selectedCount = mainContent.querySelectorAll('.product-checkbox:checked').length;
+    modal.querySelector('#find-replace-count').textContent = selectedCount;
+    modal.style.display = 'flex';
+}
+
+function closeFindReplaceModal() {
+    const modal = document.getElementById('find-replace-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    modal.querySelector('#modal-find-replace-error').textContent = '';
+    modal.querySelector('#find-text').value = '';
+    modal.querySelector('#replace-text').value = '';
+}
+
+
 
 });
 

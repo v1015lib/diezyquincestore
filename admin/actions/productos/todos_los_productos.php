@@ -28,9 +28,8 @@
         <option value="activate" style="display:none;">Activar seleccionados</option>
         <option value="deactivate" style="display:none;">Desactivar seleccionados</option>
         <option value="change-department">Cambiar departamento</option>
-        
         <option value="change-price-massive">Cambiar Precio</option>
-
+        <option value="find-replace-name">Buscar y Reemplazar Nombre</option>
     </select>
     <button id="batch-action-execute" class="action-btn" disabled>Ejecutar</button>
 </div>
@@ -61,4 +60,29 @@
         </tbody>
 </table>
     <div id="loading-indicator" style="display: none; text-align: center; padding: 1rem;">Cargando más productos...</div>
+</div>
+
+<div id="find-replace-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Buscar y Reemplazar en Nombres</h3>
+            <button class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Se aplicará la acción a los <strong id="find-replace-count">0</strong> productos seleccionados.</p>
+            <div class="form-group">
+                <label for="find-text">Buscar Texto:</label>
+                <input type="text" id="find-text" class="modal-input" placeholder="Palabra o frase a buscar">
+            </div>
+            <div class="form-group">
+                <label for="replace-text">Reemplazar con:</label>
+                <input type="text" id="replace-text" class="modal-input" placeholder="Dejar en blanco para eliminar">
+            </div>
+            <div id="modal-find-replace-error" class="modal-error"></div>
+        </div>
+        <div class="modal-footer">
+            <button id="modal-find-replace-cancel-btn" class="modal-btn modal-btn-secondary">Cancelar</button>
+            <button id="modal-find-replace-confirm-btn" class="modal-btn modal-btn-primary">Ejecutar Reemplazo</button>
+        </div>
+    </div>
 </div>
