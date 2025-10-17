@@ -627,7 +627,7 @@ async function fetchAndRenderProducts() {
     }
 
     const skeletonRowCount = 10;
-    const skeletonColCount = showImages ? 14 : 13; // Ajustado a 14 y 13 columnas
+    const skeletonColCount = showImages ? 14 : 13;
     const skeletonRowHtml = `
         <tr class="skeleton-loader">
             <td colspan="${skeletonColCount}" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
@@ -675,8 +675,8 @@ async function fetchAndRenderProducts() {
                     <td data-field="codigo_producto">${product.codigo_producto}</td>
                     <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
                     <td data-field="nombre_departamento">${product.nombre_departamento}</td>
-                    <td data-field="nombre_marca">${product.nombre_marca || 'N/A'}</td>
-                    <td data-field="nombre_etiqueta">${product.nombre_etiqueta || 'N/A'}</td>
+                    <td class="editable" data-field="id_marca" data-id="${product.id_marca || ''}">${product.nombre_marca || 'N/A'}</td>
+                    <td class="editable" data-field="id_etiqueta" data-id="${product.id_etiqueta || ''}">${product.nombre_etiqueta || 'N/A'}</td>
                     <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
                     <td class="${stockClass}" data-field="stock_actual">${product.stock_actual ?? 'N/A'}</td>
                     <td data-field="stock_minimo">${product.stock_minimo ?? 'N/A'}</td>
@@ -688,14 +688,14 @@ async function fetchAndRenderProducts() {
                 tableBody.appendChild(row);
             });
 
-            if (data.products.length < 50) { // Asumiendo un límite de 50
+            if (data.products.length < 50) { 
                 currentFilters.page = -1;
             } else {
                 currentFilters.page++;
             }
         } else {
             if (page === 1) {
-                const colspan = showImages ? 14 : 13; // Ajustado
+                const colspan = showImages ? 14 : 13;
                 tableBody.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
             }
             currentFilters.page = -1;
@@ -705,7 +705,7 @@ async function fetchAndRenderProducts() {
     } catch (error) {
         tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
         if (page === 1) {
-            const colspan = showImages ? 14 : 13; // Ajustado
+            const colspan = showImages ? 14 : 13;
             tableBody.innerHTML = `<tr><td colspan="${colspan}" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
         }
     } finally {
@@ -713,8 +713,27 @@ async function fetchAndRenderProducts() {
         loadingIndicator.style.display = 'none';
     }
 }
-
-
+async function populateSelectWithOptions(select, resource, dataKey, keyField, valueField, defaultOptionText) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=${resource}`);
+        const result = await response.json();
+        if (result.success && result[dataKey]) {
+            select.innerHTML = `<option value="">${defaultOptionText}</option>`;
+            const data = result[dataKey];
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[keyField];
+                option.textContent = item[valueField];
+                select.appendChild(option);
+            });
+        } else {
+            select.innerHTML = '<option value="">No hay opciones</option>';
+        }
+    } catch (error) {
+        console.error(`Error loading options for ${resource}:`, error);
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
 
 
 
@@ -1469,24 +1488,36 @@ function updateSortIndicators() {
         });
     }
 
-async function saveFieldUpdate(productId, field, value, cell) {
-        const originalText = cell.innerHTML;
-        cell.textContent = 'Guardando...';
-        try {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/updateProductField`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: productId, field: field, value: value })
-            });
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || "Error del servidor.");
+async function saveFieldUpdate(productId, field, value, cell, newDisplayText = null) {
+    const originalText = cell.dataset.originalText || cell.innerHTML; // Usamos el texto guardado
+    cell.textContent = 'Guardando...';
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/updateProductField`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: productId, field: field, value: value })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || "Error del servidor.");
+
+        // Usamos el newDisplayText si se proporciona (para los selects)
+        if (newDisplayText !== null) {
+            cell.textContent = newDisplayText || 'N/A';
+        } else { // Lógica para los inputs
             cell.textContent = field === 'precio_venta' ? `$${parseFloat(value).toFixed(2)}` : value;
-        } catch (error) {
-            console.error('Error al guardar:', error);
-            cell.innerHTML = originalText;
-            alert("Error al guardar el cambio.");
         }
+
+        // Actualizamos el data-id para futuras ediciones del select
+        if (field === 'id_marca' || field === 'id_etiqueta') {
+            cell.dataset.id = value;
+        }
+
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        cell.innerHTML = originalText;
+        alert("Error al guardar el cambio.");
     }
+}
     
 
 
@@ -3006,29 +3037,62 @@ if (target.matches('.modal-close-btn') || target.id === 'gallery-cancel-btn') {
         });
     }
 
-    mainContent.addEventListener('dblclick', (event) => {
-        const cell = event.target.closest('.editable');
-        if (cell && !cell.querySelector('input')) {
-            const originalValue = cell.textContent.replace('$', '').trim();
-            cell.innerHTML = `<input type="text" value="${originalValue}" data-original-value="${originalValue}">`;
-            const input = cell.querySelector('input');
-            input.focus();
-            input.select();
-        }
-    });
-    
-mainContent.addEventListener('dblclick', (event) => {
-    const cell = event.target.closest('td.editable');
-    // Se asegura de que la celda sea editable y no tenga ya un input dentro
-    if (cell && !cell.querySelector('input')) {
-        const originalValue = cell.textContent.trim();
-        // Reemplaza el texto por un campo de input
+mainContent.addEventListener('dblclick', async (event) => {
+    const cell = event.target.closest('.editable');
+    if (!cell || cell.querySelector('input, select')) return;
+
+    const field = cell.dataset.field;
+    const originalText = cell.textContent.trim();
+    cell.dataset.originalText = originalText;
+
+    // --- Lógica para menús desplegables (en la tabla de Productos) ---
+    if (field === 'id_marca' || field === 'id_etiqueta') {
+        const select = document.createElement('select');
+        cell.innerHTML = '';
+        cell.appendChild(select);
+
+        const resource = (field === 'id_marca') ? 'admin/getMarcas' : 'admin/getEtiquetas';
+        const dataKey = (field === 'id_marca') ? 'marcas' : 'etiquetas';
+        const keyField = (field === 'id_marca') ? 'id_marca' : 'id_etiqueta';
+        const valueField = (field === 'id_marca') ? 'nombre_marca' : 'nombre_etiqueta';
+
+        await populateSelectWithOptions(select, resource, dataKey, keyField, valueField, `(Sin ${field === 'id_marca' ? 'marca' : 'etiqueta'})`);
+
+        select.value = cell.dataset.id || '';
+        select.focus();
+
+        const saveAndClose = async () => {
+            const newValue = select.value;
+            const originalValue = cell.dataset.id || '';
+
+            if (newValue === originalValue) {
+                cell.textContent = originalText;
+            } else {
+                const row = cell.closest('tr');
+                const productId = row.dataset.productId;
+                const newText = select.options[select.selectedIndex].text;
+                await saveFieldUpdate(productId, field, newValue, cell, newText);
+            }
+        };
+
+        select.addEventListener('change', saveAndClose);
+        select.addEventListener('focusout', () => {
+            if (cell.contains(select)) {
+                saveAndClose();
+            }
+        });
+    }
+    // --- Lógica genérica para campos de texto (para todas las demás celdas editables) ---
+    else {
+        const originalValue = cell.textContent.replace('$', '').trim();
         cell.innerHTML = `<input type="text" value="${originalValue}" data-original-value="${originalValue}">`;
         const input = cell.querySelector('input');
-        input.focus(); // Pone el cursor dentro del input
-        input.select(); // Selecciona todo el texto
+        input.focus();
+        input.select();
     }
 });
+    
+
 
 
 

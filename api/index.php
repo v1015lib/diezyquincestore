@@ -5329,53 +5329,43 @@ case 'admin/updateProduct':
 
 
 case 'admin/updateProductField':
-    // require_admin(); 
     $data = json_decode(file_get_contents('php://input'), true);
     $productId = $data['id'] ?? null;
     $field = $data['field'] ?? null;
     $value = $data['value'] ?? null;
     $userId = $_SESSION['id_usuario'] ?? null;
 
-    $allowed_fields = ['nombre_producto', 'precio_venta']; 
+    $allowed_fields = ['nombre_producto', 'precio_venta', 'id_marca', 'id_etiqueta']; 
     
     if ($productId && in_array($field, $allowed_fields) && $value !== null && $userId) {
         $pdo->beginTransaction();
         try {
-            // Obtenemos el nombre del producto para el log
             $stmt_info = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
             $stmt_info->execute([':id' => $productId]);
             $productName = $stmt_info->fetchColumn();
 
-            // ================== INICIO DE LA MODIFICACIÓN ==================
+            $params = [':value' => ($value === '') ? null : $value, ':user_id' => $userId, ':id' => $productId];
 
-            $sql_update = "UPDATE productos SET {$field} = :value, modificado_por_usuario_id = :user_id";
-            $params = [':value' => $value, ':user_id' => $userId, ':id' => $productId];
-
-            // Si el campo que se está cambiando es el nombre, también actualizamos el slug.
-            if ($field === 'nombre_producto') {
-                $slug = createSlug($value, $pdo, 'productos', 'id_producto', $productId);
-                $sql_update .= ", slug = :slug"; // Añadimos la actualización del slug a la consulta
-                $params[':slug'] = $slug; // Añadimos el slug a los parámetros
+            if ($field === 'id_etiqueta') {
+                $stmt_delete = $pdo->prepare("DELETE FROM producto_etiquetas WHERE id_producto = :id_producto");
+                $stmt_delete->execute([':id_producto' => $productId]);
+                if ($value) {
+                    $stmt_insert = $pdo->prepare("INSERT INTO producto_etiquetas (id_producto, id_etiqueta) VALUES (:id_producto, :id_etiqueta)");
+                    $stmt_insert->execute([':id_producto' => $productId, ':id_etiqueta' => $value]);
+                }
+            } else {
+                $sql_update = "UPDATE productos SET {$field} = :value, modificado_por_usuario_id = :user_id";
+                if ($field === 'nombre_producto') {
+                    $slug = createSlug($value, $pdo, 'productos', 'id_producto', $productId);
+                    $sql_update .= ", slug = :slug";
+                    $params[':slug'] = $slug;
+                }
+                $sql_update .= " WHERE id_producto = :id";
+                $stmt = $pdo->prepare($sql_update);
+                $stmt->execute($params);
             }
-
-            $sql_update .= " WHERE id_producto = :id";
             
-            $stmt = $pdo->prepare($sql_update);
-            $stmt->execute($params);
-
-            // =================== FIN DE LA MODIFICACIÓN ====================
-            
-            // Insertamos el registro del evento (sin cambios)
-            $stmt_log = $pdo->prepare(
-                "INSERT INTO registros_actividad (id_usuario, tipo_accion, descripcion) 
-                 VALUES (:id_usuario, :tipo_accion, :descripcion)"
-            );
-            $description = "Actualización rápida en '$productName': campo '$field' cambió a '$value'.";
-            $stmt_log->execute([
-                ':id_usuario' => $userId,
-                ':tipo_accion' => 'Producto Modificado',
-                ':descripcion' => $description
-            ]);
+            logActivity($pdo, $userId, 'Producto Modificado', "Actualización rápida en '$productName': campo '$field' cambió a '$value'.");
             
             $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Producto actualizado.']);
