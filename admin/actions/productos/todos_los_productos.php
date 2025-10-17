@@ -7,7 +7,7 @@
         <input type="text" id="product-search-input" class="form-control" placeholder="Buscar por nombre o código...">
         
         <div class="form-group">
-            <input type="checkbox" id="toggle-product-images">
+            <input type="checkbox" id="toggle-product-images" checked>
             <label for="toggle-product-images">Mostrar Imágenes</label>
         </div>
 
@@ -41,11 +41,13 @@
         <tr>
             <th data-col="select"><input type="checkbox" id="select-all-products"></th>
             
-            <th class="product-image-col sortable" style="display: none;" data-sort="p.url_imagen">Imagen</th> 
+            <th class="product-image-col sortable"  data-sort="p.url_imagen">Imagen</th> 
             
             <th class="sortable" data-sort="p.codigo_producto">Código</th>
             <th class="sortable" data-sort="p.nombre_producto">Nombre</th>
             <th class="sortable" data-sort="d.departamento">Dept.</th>
+            <th class="sortable" data-sort="m.nombre_marca">Marca</th>
+            <th class="sortable" data-sort="et.nombre_etiqueta">Etiqueta</th>
             <th class="sortable" data-sort="p.precio_venta">P. Venta</th>
             <th class="sortable" data-sort="stock_actual">Stock </th>
             <th data-col="stock-min">S. Mín.</th>

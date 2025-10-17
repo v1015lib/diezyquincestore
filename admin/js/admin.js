@@ -627,7 +627,7 @@ async function fetchAndRenderProducts() {
     }
 
     const skeletonRowCount = 10;
-    const skeletonColCount = showImages ? 12 : 11;
+    const skeletonColCount = showImages ? 14 : 13; // Ajustado a 14 y 13 columnas
     const skeletonRowHtml = `
         <tr class="skeleton-loader">
             <td colspan="${skeletonColCount}" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
@@ -675,6 +675,8 @@ async function fetchAndRenderProducts() {
                     <td data-field="codigo_producto">${product.codigo_producto}</td>
                     <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
                     <td data-field="nombre_departamento">${product.nombre_departamento}</td>
+                    <td data-field="nombre_marca">${product.nombre_marca || 'N/A'}</td>
+                    <td data-field="nombre_etiqueta">${product.nombre_etiqueta || 'N/A'}</td>
                     <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
                     <td class="${stockClass}" data-field="stock_actual">${product.stock_actual ?? 'N/A'}</td>
                     <td data-field="stock_minimo">${product.stock_minimo ?? 'N/A'}</td>
@@ -686,14 +688,14 @@ async function fetchAndRenderProducts() {
                 tableBody.appendChild(row);
             });
 
-            if (data.products.length < data.limit) {
+            if (data.products.length < 50) { // Asumiendo un límite de 50
                 currentFilters.page = -1;
             } else {
                 currentFilters.page++;
             }
         } else {
             if (page === 1) {
-                const colspan = showImages ? 12 : 11;
+                const colspan = showImages ? 14 : 13; // Ajustado
                 tableBody.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
             }
             currentFilters.page = -1;
@@ -703,7 +705,7 @@ async function fetchAndRenderProducts() {
     } catch (error) {
         tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
         if (page === 1) {
-            const colspan = showImages ? 12 : 11;
+            const colspan = showImages ? 14 : 13; // Ajustado
             tableBody.innerHTML = `<tr><td colspan="${colspan}" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
         }
     } finally {

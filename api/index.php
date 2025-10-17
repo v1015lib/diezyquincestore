@@ -5508,8 +5508,6 @@ case 'toggle-inventory':
 
 
 
-
-
 case 'admin/getProducts':
     if ($method == 'GET') {
         try {
@@ -5527,6 +5525,8 @@ case 'admin/getProducts':
                 'p.codigo_producto', 
                 'p.nombre_producto', 
                 'd.departamento',
+                'm.nombre_marca',
+                'et.nombre_etiqueta',
                 'p.precio_venta', 
                 'stock_actual', 
                 'e.nombre_estado',
@@ -5537,19 +5537,13 @@ case 'admin/getProducts':
                 $sortBy = 'p.nombre_producto';
             }
             
-            // --- INICIO DE LA CORRECCIÓN CLAVE ---
-            // Se añade la lógica especial para ordenar por la columna de imagen
             $orderByClause = "ORDER BY ";
             if ($sortBy === 'p.url_imagen') {
-                // Esto crea una columna virtual: 0 si hay imagen, 1 si no la hay.
-                // Al ordenar, los productos con imagen (valor 0) aparecerán primero.
                 $orderByClause .= "CASE WHEN p.url_imagen IS NOT NULL AND p.url_imagen != '0' AND p.url_imagen != '' THEN 0 ELSE 1 END";
             } else {
-                // Para todas las demás columnas, la ordenación es normal.
                 $orderByClause .= $sortBy;
             }
             $orderByClause .= " " . ($order === 'DESC' ? 'DESC' : 'ASC');
-            // --- FIN DE LA CORRECCIÓN CLAVE ---
 
             $rol = $_SESSION['rol'] ?? 'empleado';
             $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
@@ -5584,13 +5578,16 @@ case 'admin/getProducts':
 
             $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
             
-            // Se usa la nueva variable $orderByClause en la consulta final
-            $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, $stock_subquery AS stock_actual
+            $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, m.nombre_marca, et.nombre_etiqueta, $stock_subquery AS stock_actual
                     FROM productos p
                     LEFT JOIN departamentos d ON p.departamento = d.id_departamento
-                    LEFT JOIN estados e ON p.estado = e.id_estado"
+                    LEFT JOIN estados e ON p.estado = e.id_estado
+                    LEFT JOIN marcas m ON p.id_marca = m.id_marca
+                    LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
+                    LEFT JOIN etiquetas et ON pe.id_etiqueta = et.id_etiqueta"
                     . $where_sql
-                    . " " . $orderByClause . " LIMIT :limit OFFSET :offset"; // <-- CAMBIO AQUÍ
+                    . " GROUP BY p.id_producto " // Agrupamos para evitar duplicados si un producto tiene varias etiquetas
+                    . " " . $orderByClause . " LIMIT :limit OFFSET :offset";
             
             $stmt = $pdo->prepare($sql);
             
@@ -5611,7 +5608,6 @@ case 'admin/getProducts':
         }
     }
     break;
-
 
 
 
