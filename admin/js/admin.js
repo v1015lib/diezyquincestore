@@ -3227,22 +3227,20 @@ function generateUrl() {
 }
 
 
-//DESCOMENTAR EN PRDDUCCION
-/*function generateUrl() {
+/*
+function generateUrl() {
     // En producción, la URL base es simplemente tu dominio.
     const baseURL = 'https://diezyquince.store/'; 
 
     const type = linkTypeSelector.value;
     const mainSlug = slugify(linkDecoratorInput.value.trim());
-    
-    // --- LÍNEAS NUEVAS A AÑADIR ---
     const brandSlug = brandSelector.value ? slugify(brandSelector.options[brandSelector.selectedIndex].text) : '';
-    const typeSlug = slugify(typeInput.value.trim());
-    // --- FIN DE LÍNEAS NUEVAS ---
+    
+    // --- CORRECCIÓN ---
+    // Se utiliza typeSelector para obtener el texto de la etiqueta seleccionada.
+    const typeSlug = typeSelector.value ? slugify(typeSelector.options[typeSelector.selectedIndex].text) : '';
 
     let generatedUrl = '';
-
-    // Se ha quitado el "if (!mainSlug)" de aquí para que los nuevos tipos funcionen
 
     if (type === 'departamento') {
         if (mainSlug) generatedUrl = `${baseURL}departamento/${mainSlug}`;
@@ -3253,7 +3251,6 @@ function generateUrl() {
     } else if (type === 'todos') {
         if (mainSlug) generatedUrl = `${baseURL}productos/${mainSlug}`;
     } 
-    // --- BLOQUES NUEVOS A AÑADIR ---
     else if (type === 'marca') {
         if (brandSlug) {
             generatedUrl = `${baseURL}${brandSlug}`;
@@ -3265,10 +3262,10 @@ function generateUrl() {
             generatedUrl = `${baseURL}${brandSlug}`;
         }
     }
-    // --- FIN DE BLOQUES NUEVOS ---
 
     urlEnlaceInput.value = generatedUrl;
-}*/
+}
+*/
     
     // --- NUEVA FUNCIÓN PARA CARGAR MARCAS ---
 async function loadBrands() {
