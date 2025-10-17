@@ -9,13 +9,11 @@ $filter_params = [];
 $page_title = "Nuestras Promociones"; // Título por defecto
 
 function getIdBySlug($pdo, $table, $slug) {
-    // Se ha modificado para ser más genérico
     $id_column_map = [
         'productos' => 'id_producto',
         'departamentos' => 'id_departamento',
         'marcas' => 'id_marca' 
     ];
-    // --- FIN DE LA MODIFICACIÓN ---
     $id_column = $id_column_map[$table] ?? null;
     if (!$id_column) return null;
 
@@ -24,54 +22,64 @@ function getIdBySlug($pdo, $table, $slug) {
     return $stmt->fetchColumn();
 }
 
-
+// Manejo de páginas que son exclusivas (un solo producto o un solo departamento)
 if (isset($_GET['department_slug'])) {
     $department_id = getIdBySlug($pdo, 'departamentos', $_GET['department_slug']);
-    if ($department_id) $filter_params['department_id'] = $department_id;
-
+    if ($department_id) {
+        $filter_params['department_id'] = $department_id;
+        $stmt_title = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
+        $stmt_title->execute([':id' => $department_id]);
+        if($dept_name = $stmt_title->fetchColumn()){ $page_title = $dept_name; }
+    }
 } else if (isset($_GET['product_slug'])) {
     $product_id = getIdBySlug($pdo, 'productos', $_GET['product_slug']);
-    if ($product_id) $filter_params['product_id'] = $product_id;
-
-} else if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
-    $filter_params['ofertas'] = 'true';
-    $page_title = "Productos en Oferta";
-
-// --- INICIO DE LA CORRECCIÓN ---
-} else if (isset($_GET['marca_slug'])) {
-    // Pasamos el slug de la marca a los parámetros de filtro
-    $filter_params['marca_slug'] = $_GET['marca_slug'];
-    
-    // Ahora, intentamos obtener el nombre de la marca para usarlo en el título
-    $stmt_title = $pdo->prepare("SELECT nombre_marca FROM marcas WHERE slug = :slug");
-    $stmt_title->execute([':slug' => $_GET['marca_slug']]);
-    
-    if ($marca_name = $stmt_title->fetchColumn()) {
-        $page_title = "Productos de " . $marca_name;
-    } else {
-        // Si no se encuentra la marca, usamos el slug como título provisional
-        $page_title = "Productos de " . ucfirst(str_replace('-', ' ', $_GET['marca_slug']));
+    if ($product_id) {
+        $filter_params['product_id'] = $product_id;
+        $stmt_title = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
+        $stmt_title->execute([':id' => $product_id]);
+        if($product_name = $stmt_title->fetchColumn()){ $page_title = $product_name; }
     }
-}
-// --- FIN DE LA CORRECCIÓN ---
+} else {
+    // --- INICIO DE LA CORRECCIÓN LÓGICA ---
+    // Manejo de filtros que se pueden combinar (marca, etiqueta, ofertas)
+    $title_parts = [];
 
+    // 1. Revisa si hay una MARCA
+    if (isset($_GET['marca_slug'])) {
+        $filter_params['marca_slug'] = $_GET['marca_slug'];
+        $stmt_marca = $pdo->prepare("SELECT nombre_marca FROM marcas WHERE slug = :slug");
+        $stmt_marca->execute([':slug' => $_GET['marca_slug']]);
+        if ($marca_name = $stmt_marca->fetchColumn()) {
+            $title_parts[] = $marca_name;
+        }
+    }
 
-if (!empty($filter_params['department_id'])) {
-    $stmt_title = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
-    $stmt_title->execute([':id' => $filter_params['department_id']]);
-    if($dept_name = $stmt_title->fetchColumn()){ $page_title = $dept_name; }
-}
-if (!empty($filter_params['product_id'])) {
-    $stmt_title = $pdo->prepare("SELECT nombre_producto FROM productos WHERE id_producto = :id");
-    $stmt_title->execute([':id' => $filter_params['product_id']]);
-    if($product_name = $stmt_title->fetchColumn()){ $page_title = $product_name; }
+    // 2. Revisa si hay una ETIQUETA (independientemente de la marca)
+    if (isset($_GET['etiqueta_slug'])) {
+        $filter_params['etiqueta_slug'] = $_GET['etiqueta_slug'];
+        $stmt_etiqueta = $pdo->prepare("SELECT nombre_etiqueta FROM etiquetas WHERE nombre_etiqueta = :slug");
+        $stmt_etiqueta->execute([':slug' => $_GET['etiqueta_slug']]);
+        if ($etiqueta_name = $stmt_etiqueta->fetchColumn()) {
+            // Pone la etiqueta al principio del título para que suene mejor (ej. "Bolígrafos de BIC")
+            array_unshift($title_parts, ucfirst($etiqueta_name));
+        }
+    }
+    
+    // 3. Construye el título de la página si se encontró marca o etiqueta
+    if (!empty($title_parts)) {
+        $page_title = implode(' de ', $title_parts);
+    } 
+    // 4. Si no hay ni marca ni etiqueta, revisa si es la página de ofertas
+    else if (isset($_GET['ofertas']) && $_GET['ofertas'] === 'true') {
+        $filter_params['ofertas'] = 'true';
+        $page_title = "Productos en Oferta";
+    }
+    // --- FIN DE LA CORRECCIÓN LÓGICA ---
 }
 ?>
 <!DOCTYPE html>
 <html lang="es">
 
-<!DOCTYPE html>
-<html lang="es">
 <head>
 
 <?php
@@ -82,7 +90,6 @@ $path = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
 $base_url = "{$protocol}://{$host}{$path}/";
 ?>
 <base href="<?php echo $base_url; ?>">
-<base href="<?php echo $base_path; ?>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - Variedades 10 y 15</title>
@@ -159,11 +166,7 @@ $base_url = "{$protocol}://{$host}{$path}/";
         </div>
     </div>
     <script>
-        // --- INICIO: CÓDIGO AÑADIDO ---
-        // Ahora también se imprime la configuración global para que los scripts la usen
         const layoutSettings = <?php echo json_encode($layout_settings); ?>;
-        // --- FIN: CÓDIGO AÑADIDO ---
-
         const productFilterParams = <?php echo json_encode($filter_params); ?>;
     </script>
     <script type="module" src="js/pageuniquecontent.js"></script>

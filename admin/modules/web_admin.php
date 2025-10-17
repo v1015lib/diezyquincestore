@@ -151,9 +151,12 @@ $departamentos = $pdo->query("SELECT id_departamento, departamento FROM departam
             <option value="">Cargando...</option>
         </select>
     </div>
+    
     <div id="type-link-generator" class="form-group hidden">
-        <label for="type-input">Nombre del Tipo de Producto</label>
-        <input type="text" id="type-input" class="form-control" placeholder="Ej: temperas, boligrafos">
+        <label for="type-selector">Seleccionar Etiqueta</label>
+        <select id="type-selector" class="form-control">
+            <option value="">(Opcional) Selecciona una etiqueta</option>
+        </select>
     </div>
     <div class="form-group">
         <label for="link-decorator">Decorador/Campaña</label>

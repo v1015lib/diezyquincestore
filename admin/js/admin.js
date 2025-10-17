@@ -1659,6 +1659,8 @@ function initializeAddProductForm() {
 
 
 
+// EN: admin/js/admin.js
+
 async function renderEditForm(product) {
     const container = document.getElementById('edit-product-container');
     const searchContainer = document.getElementById('product-search-container');
@@ -1686,7 +1688,8 @@ async function renderEditForm(product) {
     const fields = [
         'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
-        'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen'
+        'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen',
+        'id_etiqueta' // <-- CAMPO AÑADIDO
     ];
     
     fields.forEach(field => {
@@ -3142,15 +3145,15 @@ async function initializeAdsManagement() {
     const productSearchInput = document.getElementById('product-search-input-ads');
     const productSearchResults = document.getElementById('product-search-results-ads');
     const brandSelector = document.getElementById('brand-selector');       // Nuevo
-    const typeInput = document.getElementById('type-input');               // Nuevo
-    
+
+    const typeSelector = document.getElementById('type-selector'); // <-- MODIFICADO (antes era typeInput)    
     const linkDecoratorInput = document.getElementById('link-decorator');
     const urlEnlaceInput = document.getElementById('ads-url-enlace');
     
     let selectedProductId = null;
     let searchDebounce;
     let areBrandsLoaded = false; // Control para cargar marcas solo una vez
-
+    let areEtiquetasLoaded = false;
     function slugify(text) {
         if (!text) return '';
         return text.toString().toLowerCase()
@@ -3163,7 +3166,25 @@ async function initializeAdsManagement() {
 
     // --- FUNCIÓN DE GENERACIÓN DE URL MODIFICADA --
 
-
+async function loadEtiquetas() {
+        if (areEtiquetasLoaded) return;
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getEtiquetas`);
+            const result = await response.json();
+            if (result.success && result.etiquetas) {
+                typeSelector.innerHTML = '<option value="">-- Selecciona una etiqueta --</option>';
+                result.etiquetas.forEach(etiqueta => {
+                    const option = new Option(etiqueta.nombre_etiqueta, etiqueta.id_etiqueta);
+                    typeSelector.add(option);
+                });
+                areEtiquetasLoaded = true;
+            } else {
+                typeSelector.innerHTML = '<option value="">Error al cargar</option>';
+            }
+        } catch (error) {
+            typeSelector.innerHTML = '<option value="">Error de conexión</option>';
+        }
+    }
 
 function generateUrl() {
     const path = window.location.pathname;
@@ -3172,15 +3193,14 @@ function generateUrl() {
 
     const type = linkTypeSelector.value;
     const mainSlug = slugify(linkDecoratorInput.value.trim());
-
-    // --- LÍNEAS NUEVAS A AÑADIR ---
     const brandSlug = brandSelector.value ? slugify(brandSelector.options[brandSelector.selectedIndex].text) : '';
-    const typeSlug = slugify(typeInput.value.trim());
-    // --- FIN DE LÍNEAS NUEVAS ---
+    
+    // --- MODIFICACIÓN CLAVE ---
+    // Se obtiene el texto de la etiqueta seleccionada en lugar de un input de texto.
+    const typeSlug = typeSelector.value ? slugify(typeSelector.options[typeSelector.selectedIndex].text) : '';
+    // --- FIN DE LA MODIFICACIÓN ---
 
     let generatedUrl = '';
-    
-    // Se ha quitado el "if (!mainSlug)" de aquí para que los nuevos tipos funcionen
     
     if (type === 'departamento') {
         if (mainSlug) generatedUrl = `${baseURL}departamento/${mainSlug}`;
@@ -3191,7 +3211,6 @@ function generateUrl() {
     } else if (type === 'todos') {
         if (mainSlug) generatedUrl = `${baseURL}productos/${mainSlug}`;
     } 
-    // --- BLOQUES NUEVOS A AÑADIR ---
     else if (type === 'marca') {
         if (brandSlug) {
             generatedUrl = `${baseURL}${brandSlug}`;
@@ -3203,7 +3222,6 @@ function generateUrl() {
             generatedUrl = `${baseURL}${brandSlug}`;
         }
     }
-    // --- FIN DE BLOQUES NUEVOS ---
 
     urlEnlaceInput.value = generatedUrl;
 }
@@ -3305,7 +3323,7 @@ async function loadBrands() {
             linkDecoratorInput.value = '';
             urlEnlaceInput.value = '';
             productSearchInput.value = '';
-            typeInput.value = '';
+            typeSelector.value = '';
             selectedProductId = null;
 
             // Mostrar el generador correspondiente
@@ -3324,6 +3342,7 @@ async function loadBrands() {
                     brandGenerator.classList.remove('hidden');
                     typeGenerator.classList.remove('hidden');
                     loadBrands(); // Carga las marcas si es necesario
+                    loadEtiquetas();
                     break;
                 case 'ofertas':
                     linkDecoratorInput.value = 'ofertas-especiales';
@@ -3399,8 +3418,8 @@ brandSelector.addEventListener('change', (e) => {
         // Ahora generamos la URL con el decorador ya establecido
         generateUrl();
     });    }
-    if (typeInput) {
-        typeInput.addEventListener('input', generateUrl);
+    if (typeSelector) {
+        typeSelector.addEventListener('input', generateUrl);
     }
 
     if (linkDecoratorInput) {
@@ -3586,7 +3605,8 @@ brandSelector.addEventListener('change', (e) => {
         linkTypeSelector.value = 'manual';
         linkDecoratorInput.value = '';
         productSearchInput.value = '';
-        typeInput.value = '';
+        typeSelector.value = '';
+
         selectedProductId = null;
     }
 }

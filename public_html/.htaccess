@@ -16,14 +16,13 @@ RewriteRule ^ofertas/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?ofertas=true&camp
 RewriteRule ^productos/([a-zA-Z0-9_-]+)/?$ index.php?campaign=$1 [L,QSA]
 
 # --- REGLAS GENÉRICAS PARA MARCAS (Se procesan al final) ---
-
+RewriteRule ^etiqueta/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?etiqueta_slug=$1 [L,QSA]
 # Evitar que las reglas de abajo se apliquen a archivos o directorios existentes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
 # Regla para MARCA / TIPO (ej: /starmate/audifonos)
-RewriteRule ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?marca_slug=$1&tipo_slug=$2 [L,QSA]
-
+RewriteRule ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?marca_slug=$1&etiqueta_slug=$2 [L,QSA]
 # Evitar que las reglas de abajo se apliquen a archivos o directorios existentes (de nuevo por seguridad)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

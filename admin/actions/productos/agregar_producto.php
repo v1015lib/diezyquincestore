@@ -7,6 +7,7 @@ $estados = $pdo->query("SELECT id_estado, nombre_estado FROM estados ORDER BY no
 $proveedores = $pdo->query("SELECT id_proveedor, nombre_proveedor FROM proveedor ORDER BY nombre_proveedor")->fetchAll(PDO::FETCH_ASSOC);
 $unidades_medida = $pdo->query("SELECT id_unidad_medida, nombre_unidad FROM unidad_medida ORDER BY nombre_unidad")->fetchAll(PDO::FETCH_ASSOC);
 $marcas = $pdo->query("SELECT id_marca, nombre_marca FROM marcas ORDER BY nombre_marca")->fetchAll(PDO::FETCH_ASSOC);
+$etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORDER BY nombre_etiqueta")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
@@ -90,7 +91,8 @@ $marcas = $pdo->query("SELECT id_marca, nombre_marca FROM marcas ORDER BY nombre
                 <?php endforeach; ?>
             </select>
         </div>
-                <?php // --- INICIO DEL BLOQUE A AÑADIR --- ?>
+        
+        <?php // --- BLOQUES MODIFICADOS Y AÑADIDOS --- ?>
         <div class="form-group">
             <label for="id_marca">Marca</label>
             <select id="id_marca" name="id_marca">
@@ -100,7 +102,18 @@ $marcas = $pdo->query("SELECT id_marca, nombre_marca FROM marcas ORDER BY nombre
                 <?php endforeach; ?>
             </select>
         </div>
+
+        <div class="form-group">
+            <label for="id_etiqueta">Etiqueta</label>
+            <select id="id_etiqueta" name="id_etiqueta">
+                <option value="">(Opcional) Selecciona una etiqueta</option>
+                <?php foreach ($etiquetas as $etiqueta): ?>
+                    <option value="<?php echo htmlspecialchars($etiqueta['id_etiqueta']); ?>"><?php echo htmlspecialchars($etiqueta['nombre_etiqueta']); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
         <?php // --- FIN DEL BLOQUE --- ?>
+
         <div class="form-group">
             <label for="stock_minimo">Stock Mínimo</label>
             <input type="number" id="stock_minimo" name="stock_minimo" min="0" value="0">
