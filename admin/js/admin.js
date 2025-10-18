@@ -1242,6 +1242,20 @@ function initializeListViewInteractions(listId) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*************************************************************************/
 async function addProductToList(listId, productId) {
     await fetch(`${API_BASE_URL}?resource=admin/addProductToList`, {
         method: 'POST',
@@ -5772,28 +5786,66 @@ function initializeListViewInteractions(listId) {
     });
     
     // Eventos de la tabla (editar, tachar, eliminar)
-    itemsTbody.addEventListener('change', async (e) => {
-        const target = e.target;
-        const row = target.closest('tr');
-        if (!row) return;
-        const itemId = row.dataset.itemId;
-        
-        if (target.classList.contains('editable-field')) {
-            await updateListItem(itemId, target.dataset.field, target.value);
-        } else if (target.classList.contains('mark-item-checkbox')) {
-            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, {
+itemsTbody.addEventListener('change', async (e) => {
+    const target = e.target;
+    const row = target.closest('tr');
+    if (!row) return;
+    const itemId = row.dataset.itemId;
+
+    if (target.classList.contains('editable-field')) {
+        // Lógica para actualizar campos editables (sin cambios aquí)
+        await updateListItem(itemId, target.dataset.field, target.value);
+
+    } else if (target.classList.contains('mark-item-checkbox')) {
+        // --- INICIO DE LA LÓGICA CORREGIDA PARA MARCAR/DESMARCAR ---
+        try {
+            // Llama a la API para cambiar el estado 'marcado' en la BD
+            const response = await fetch(`${API_BASE_URL}?resource=admin/toggleListItemMark`, { // Se usa API_BASE_URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id_item_lista: itemId })
             });
             const result = await response.json();
+
+            // Si la API confirma el cambio
             if (result.success) {
+                // 1. Aplica o quita la clase CSS para los estilos base de marcado/desmarcado
                 row.classList.toggle('item-marked', result.newState);
+
+                // 2. FORZAR ESTILOS VISUALES CON JAVASCRIPT:
+                if (result.newState) {
+                    // Si se MARCÓ: Opcionalmente, puedes forzar estilos aquí si la clase CSS falla
+                    // row.style.textDecoration = 'line-through';
+                    // row.style.backgroundColor = '#050421'; // Ajusta este color si es diferente
+                    // row.style.color = 'white';
+                    // row.style.opacity = '0.8';
+                    // row.querySelectorAll('td, input').forEach(el => el.style.color = 'inherit');
+                } else {
+                    // Si se DESMARCÓ: Resetea explícitamente los estilos inline
+                    row.style.textDecoration = '';
+                    row.style.backgroundColor = '';
+                    row.style.color = '';
+                    row.style.opacity = '';
+
+                    // Resetea estilos de celdas e inputs internos
+                    row.querySelectorAll('td, input').forEach(el => {
+                        el.style.color = '';
+                        el.style.backgroundColor = '';
+                    });
+                }
             } else {
+                // Si la API falla (devuelve success: false), revierte el checkbox
                 target.checked = !target.checked;
+                alert('Error al actualizar el estado del item: ' + (result.error || 'Error desconocido')); // Informa al usuario
             }
+        } catch (error) {
+            // Error de conexión o similar
+            console.error("Error al marcar/desmarcar item:", error);
+            target.checked = !target.checked; // Revierte el checkbox visualmente
+            alert('Error de conexión al intentar actualizar el estado del item.'); // Informa al usuario
         }
-    });
+    }
+});
     
     itemsTbody.addEventListener('click', async (e) => {
         if (e.target.classList.contains('remove-item-btn')) {
