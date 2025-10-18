@@ -912,24 +912,35 @@ function initializeShoppingListManagement() {
 }
 
 
+// EN: admin/js/admin.js (Reemplaza esta función)
 async function shareListViaWhatsApp(listId) {
     try {
+        // Llama a la API para obtener los detalles, incluyendo el nombre del proveedor
         const response = await fetch(`${API_BASE_URL}?resource=admin/getShoppingListDetails&id_lista=${listId}`);
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
 
-        let message = `*Lista de Compras: ${result.listName}*\n\n`;
-        message += `*Proveedor:* ${result.providerName || 'N/A'}\n\n`;
-        message += '--- Productos ---\n';
-        
+        // --- Inicio de la Modificación ---
+        // Se construye el mensaje más compacto
+        let message = `*Lista: ${result.listName}*`; // Título
+
+        // Añadir proveedor solo si existe
+        if (result.providerName) {
+            message += `\n*Proveedor:* ${result.providerName}`; // Proveedor en la siguiente línea
+        }
+
+        message += '\n\n--- Productos ---'; // Separador antes de los productos
+
         let total = 0;
         result.items.forEach(item => {
             const subtotal = item.cantidad * item.precio_compra;
-            message += `- ${item.cantidad} x ${item.nombre_producto} @ $${parseFloat(item.precio_compra).toFixed(2)} = $${subtotal.toFixed(2)}\n`;
+            // Se usa \n para cada item, sin líneas extra
+            message += `\n- ${item.cantidad} x ${item.nombre_producto} @ $${parseFloat(item.precio_compra).toFixed(2)} = $${subtotal.toFixed(2)}`;
             total += subtotal;
         });
 
-        message += `\n*Total Estimado: $${total.toFixed(2)}*`;
+        message += `\n\n*Total Estimado: $${total.toFixed(2)}*`; // Total al final
+        // --- Fin de la Modificación ---
 
         const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
@@ -1268,6 +1279,7 @@ async function removeProductFromList(itemId, rowElement) {
         alert("Error al eliminar el producto: " + error.message);
     }
 }
+// EN: admin/js/admin.js (Reemplaza esta función completa)
 async function copyShoppingList(listId) {
     if (!confirm('¿Seguro que quieres copiar esta lista? Se creará una nueva lista para hoy con los mismos productos.')) return;
     try {
@@ -1279,11 +1291,30 @@ async function copyShoppingList(listId) {
         const result = await response.json();
         if (result.success) {
             alert(result.message);
-            document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
+
+            // --- INICIO DE LA CORRECCIÓN ---
+            // 1. Obtener los elementos correctos de fecha
+            const startDateInput = document.getElementById('list-start-date-filter');
+            const endDateInput = document.getElementById('list-end-date-filter');
+
+            // 2. Verificar que existan antes de leer sus valores
+            const startDate = startDateInput ? startDateInput.value : null;
+            const endDate = endDateInput ? endDateInput.value : null;
+
+            // 3. Llamar a fetchAndRenderShoppingLists con ambas fechas (si existen)
+            if (startDate && endDate) {
+                fetchAndRenderShoppingLists(startDate, endDate);
+            } else {
+                // Si los filtros no están presentes, recarga la vista general de listas
+                document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
+            }
+            // --- FIN DE LA CORRECCIÓN ---
+
         } else {
             throw new Error(result.error);
         }
     } catch (error) {
+        // Muestra el error específico que vino de la API o del catch
         alert(`Error al copiar: ${error.message}`);
     }
 }
@@ -3298,6 +3329,7 @@ async function loadEtiquetas() {
         }
     }
 
+
 function generateUrl() {
     const path = window.location.pathname;
     const subdirectory = path.substring(0, path.indexOf('/admin'));
@@ -3339,8 +3371,7 @@ function generateUrl() {
 }
 
 
-/*
-function generateUrl() {
+/*function generateUrl() {
     // En producción, la URL base es simplemente tu dominio.
     const baseURL = 'https://diezyquince.store/'; 
 
@@ -3377,8 +3408,7 @@ function generateUrl() {
 
     urlEnlaceInput.value = generatedUrl;
 }
-*/
-    
+   */ 
     // --- NUEVA FUNCIÓN PARA CARGAR MARCAS ---
 async function loadBrands() {
     if (areBrandsLoaded) return;
@@ -5818,9 +5848,9 @@ async function removeProductFromList(itemId) {
     document.querySelector(`tr[data-item-id="${itemId}"]`).remove();
 }
 
+
 async function copyShoppingList(listId) {
     if (!confirm('¿Seguro que quieres copiar esta lista? Se creará una nueva lista para hoy con los mismos productos.')) return;
-    
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/copyShoppingList`, {
             method: 'POST',
@@ -5830,7 +5860,7 @@ async function copyShoppingList(listId) {
         const result = await response.json();
         if (result.success) {
             alert(result.message);
-            fetchAndRenderShoppingLists(document.getElementById('list-date-filter').value);
+            document.querySelector('.action-btn[data-action="listas_compras/gestion"]').click();
         } else {
             throw new Error(result.error);
         }

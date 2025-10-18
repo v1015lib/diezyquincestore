@@ -1432,8 +1432,6 @@ case 'admin/toggleListItemMark':
 
 
 
-
-
 case 'admin/getShoppingListDetails':
     try {
         if (!isset($_GET['id_lista'])) {
@@ -1441,15 +1439,29 @@ case 'admin/getShoppingListDetails':
         }
         $id_lista = intval($_GET['id_lista']);
 
-        $stmt_list = $pdo->prepare("SELECT nombre_lista FROM listas_compras WHERE id_lista = ?");
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Se añade p.nombre_proveedor a la consulta y el LEFT JOIN
+        $stmt_list = $pdo->prepare("
+            SELECT lc.nombre_lista, p.nombre_proveedor
+            FROM listas_compras lc
+            LEFT JOIN proveedor p ON lc.id_proveedor = p.id_proveedor
+            WHERE lc.id_lista = ?
+        ");
         $stmt_list->execute([$id_lista]);
-        $listName = $stmt_list->fetchColumn();
+        $listDetails = $stmt_list->fetch(PDO::FETCH_ASSOC); // Obtener como array
 
-        // Esta consulta usa COALESCE para mostrar el nombre correcto
+        if (!$listDetails) {
+             throw new Exception("Lista no encontrada.");
+        }
+        $listName = $listDetails['nombre_lista'];
+        $providerName = $listDetails['nombre_proveedor']; // Obtener el nombre del proveedor
+        // --- FIN DE LA CORRECCIÓN ---
+
+        // La consulta de items no necesita cambios
         $stmt_items = $pdo->prepare("
-            SELECT 
+            SELECT
                 li.id_item_lista,
-                COALESCE(p.nombre_producto, li.nombre_manual) AS nombre_producto, 
+                COALESCE(p.nombre_producto, li.nombre_manual) AS nombre_producto,
                 li.cantidad,
                 li.precio_compra,
                 li.marcado
@@ -1464,6 +1476,7 @@ case 'admin/getShoppingListDetails':
         echo json_encode([
             'success' => true,
             'listName' => $listName,
+            'providerName' => $providerName, // <-- Se añade el nombre del proveedor a la respuesta JSON
             'items' => $items
         ]);
         exit;
@@ -1563,6 +1576,9 @@ case 'admin/removeProductFromList':
     }
     break;
 
+
+
+
 case 'admin/copyShoppingList':
     $pdo->beginTransaction();
     try {
@@ -1602,6 +1618,9 @@ case 'admin/copyShoppingList':
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     break;
+
+
+
 
 // --- FIN: MÓDULO DE LISTAS DE COMPRAS ---
 
@@ -3280,8 +3299,8 @@ case 'admin/getSalesStats':
 case 'admin/createBackup':
     // Aumentamos el tiempo de ejecución a 2 minutos para evitar timeouts
     set_time_limit(120);
-    error_reporting(0);
-    ini_set('display_errors', 0);
+    //error_reporting(0);
+    //ini_set('display_errors', 0);
 
     $mysqldump_command = ''; // Inicializamos la variable
 
