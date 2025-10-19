@@ -6693,60 +6693,64 @@ function handleCheckUsernameRequest(PDO $pdo) {
 
 
 function handleProductsRequest(PDO $pdo) {
+    // --- Obtener datos del cliente (si está logueado) ---
     $is_user_logged_in = isset($_SESSION['id_cliente']);
     $client_type_id = null;
-
     if ($is_user_logged_in) {
         $stmt_client_type = $pdo->prepare("SELECT id_tipo_cliente FROM clientes WHERE id_cliente = :id");
         $stmt_client_type->execute([':id' => (int)$_SESSION['id_cliente']]);
         $client_type_id = $stmt_client_type->fetchColumn();
     }
 
+    // --- Parámetros de Paginación y Filtrado ---
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 16;
     $offset = ($page - 1) * $limit;
-    
+
     $product_id = isset($_GET['product_id']) ? (int)$_GET['product_id'] : null;
     $department_id = isset($_GET['department_id']) ? (int)$_GET['department_id'] : null;
     $marca_slug = isset($_GET['marca_slug']) ? trim($_GET['marca_slug']) : '';
     $etiqueta_slug = isset($_GET['etiqueta_slug']) ? trim($_GET['etiqueta_slug']) : '';
-
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
     $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
     $filter_name = '';
-    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
+    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true'; // <--- Variable clave
     $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';
 
+    // --- Validación y Construcción de la Consulta ---
     $allowedSorts = ['nombre_producto', 'precio_venta', 'precio_compra', 'random'];
     if (!in_array($sort_by, $allowedSorts)) { $sort_by = 'random'; }
     if (!in_array($order, ['ASC', 'DESC'])) { $order = 'ASC'; }
 
+    // --- Campos a seleccionar (incluyendo cálculo de precio_oferta condicional) ---
     $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.departamento, p.precio_venta, p.url_imagen,
                       p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
                       CASE
-                          WHEN p.oferta_caducidad IS NOT NULL AND p.oferta_caducidad < NOW() THEN 0
-                          WHEN p.oferta_tipo_cliente_id IS NOT NULL THEN
+                          WHEN p.oferta_caducidad IS NOT NULL AND p.oferta_caducidad < NOW() THEN 0 -- Oferta caducada
+                          WHEN p.precio_oferta <= 0 OR p.precio_oferta IS NULL THEN 0 -- Precio de oferta inválido
+                          WHEN p.oferta_tipo_cliente_id IS NOT NULL THEN -- Oferta por tipo de cliente
                               IF(p.oferta_tipo_cliente_id = " . ($client_type_id ?: 'NULL') . ", p.precio_oferta, 0)
-                          WHEN p.oferta_exclusiva = 1 AND " . ($is_user_logged_in ? "1=1" : "1=0") . " THEN p.precio_oferta
-                          WHEN p.oferta_exclusiva = 0 THEN p.precio_oferta
-                          ELSE 0
+                          WHEN p.oferta_exclusiva = 1 AND " . ($is_user_logged_in ? "1=1" : "1=0") . " THEN p.precio_oferta -- Oferta solo para registrados
+                          WHEN p.oferta_exclusiva = 0 THEN p.precio_oferta -- Oferta pública
+                          ELSE 0 -- No aplica oferta
                       END AS precio_oferta, e.nombre_estado";
 
-    $base_sql = "FROM productos p 
-                 INNER JOIN departamentos d ON p.departamento = d.id_departamento 
+    $base_sql = "FROM productos p
+                 INNER JOIN departamentos d ON p.departamento = d.id_departamento
                  LEFT JOIN estados e ON p.estado = e.id_estado
                  LEFT JOIN marcas m ON p.id_marca = m.id_marca
                  LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
                  LEFT JOIN etiquetas et ON pe.id_etiqueta = et.id_etiqueta";
-    
-    $where_clauses = ["p.estado IN (1, 4)"]; 
+
+    $where_clauses = ["p.estado IN (1, 4)"]; // Productos Activos o Agotados
     $params = [];
 
+    // --- Lógica de Filtrado (igual que antes) ---
     if ($product_id !== null && $product_id > 0) {
-        $where_clauses = ["p.id_producto = :product_id"]; 
+        $where_clauses = ["p.id_producto = :product_id"];
         $params[':product_id'] = $product_id;
-        $limit = 1; 
+        $limit = 1;
     } else {
         if ($hide_no_image) {
             $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
@@ -6754,58 +6758,111 @@ function handleProductsRequest(PDO $pdo) {
         if ($department_id !== null && $department_id > 0) {
             $where_clauses[] = "p.departamento = :department_id";
             $params[':department_id'] = $department_id;
+            // Obtener nombre del departamento para el título
+             $stmt_dept_name = $pdo->prepare("SELECT departamento FROM departamentos WHERE id_departamento = :id");
+             $stmt_dept_name->execute([':id' => $department_id]);
+             if ($dept_name = $stmt_dept_name->fetchColumn()) { $filter_name = $dept_name; }
         }
         if (!empty($marca_slug)) {
             $where_clauses[] = "m.slug = :marca_slug";
             $params[':marca_slug'] = $marca_slug;
+             // Obtener nombre de la marca
+            $stmt_brand_name = $pdo->prepare("SELECT nombre_marca FROM marcas WHERE slug = :slug");
+            $stmt_brand_name->execute([':slug' => $marca_slug]);
+            if ($brand_name = $stmt_brand_name->fetchColumn()) { $filter_name = $brand_name; }
         }
-
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se eliminó el bloque if() para 'tipo_slug' que era redundante.
-        // Se corrigió 'et.slug' a 'et.nombre_etiqueta' para que coincida con la base de datos.
-        if (!empty($etiqueta_slug)) {
+         if (!empty($etiqueta_slug)) {
             $where_clauses[] = "et.nombre_etiqueta = :etiqueta_slug";
-            $params[':etiqueta_slug'] = $etiqueta_slug;
-        }
-        // --- FIN DE LA CORRECCIÓN ---
-
+             $params[':etiqueta_slug'] = $etiqueta_slug;
+             $filter_name = ucfirst($etiqueta_slug); // Usar el slug como nombre si no hay otro
+         }
         if (!empty($search_term)) {
             $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
             $params[':search_term'] = '%' . $search_term . '%';
             $params[':search_term_code'] = '%' . $search_term . '%';
+            $filter_name = $search_term;
         }
-        if ($ofertas_only) {
-            // ... (lógica de ofertas sin cambios)
-        }
-    } 
 
+        // --- INICIO DE LA CORRECCIÓN PARA OFERTAS ---
+        if ($ofertas_only) {
+            $filter_name = 'Ofertas';
+            // Añadir las condiciones específicas para filtrar solo ofertas válidas para el usuario
+            $where_clauses[] = "p.precio_oferta IS NOT NULL";
+            $where_clauses[] = "p.precio_oferta > 0";
+            $where_clauses[] = "p.precio_oferta < p.precio_venta"; // Asegura que sea menor al precio normal
+            $where_clauses[] = "(p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW())"; // No caducada
+
+            // Condiciones de exclusividad (igual que en el SELECT CASE)
+            $offer_conditions = [];
+            // Pública
+            $offer_conditions[] = "(p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)";
+            // Para registrados (si el usuario está logueado)
+            if ($is_user_logged_in) {
+                 $offer_conditions[] = "(p.oferta_exclusiva = 1 AND p.oferta_tipo_cliente_id IS NULL)";
+                 // Para su tipo de cliente específico (si tiene tipo)
+                 if ($client_type_id) {
+                     $offer_conditions[] = "(p.oferta_tipo_cliente_id = :client_type_id)";
+                     $params[':client_type_id'] = $client_type_id;
+                 }
+            }
+            // Solo si hay condiciones de oferta aplicables, se añaden a la consulta
+             if (!empty($offer_conditions)) {
+                 $where_clauses[] = "(" . implode(" OR ", $offer_conditions) . ")";
+             } else if (!$is_user_logged_in) {
+                 // Si no está logueado y solo hay ofertas exclusivas, no mostrar nada
+                 // (Podrías ajustar esto si quieres mostrar públicas siempre)
+                 //$where_clauses[] = "1 = 0"; // O solo la condición de pública: (p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)
+                 $where_clauses[] = "(p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)";
+
+             }
+
+        }
+         // --- FIN DE LA CORRECCIÓN PARA OFERTAS ---
+    }
+
+    // --- Construcción y Ejecución de Consultas (igual que antes) ---
     $where_sql = " WHERE " . implode(" AND ", $where_clauses);
-    
+
     $countSql = "SELECT COUNT(DISTINCT p.id_producto) " . $base_sql . $where_sql;
     $stmtCount = $pdo->prepare($countSql);
     $stmtCount->execute($params);
     $total_products = $stmtCount->fetchColumn();
     $total_pages = ceil($total_products / $limit);
-    
+
     $sql = "SELECT DISTINCT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
-    if ($sort_by === 'random') { $sql .= " ORDER BY RAND()"; } 
+    if ($sort_by === 'random') { $sql .= " ORDER BY RAND()"; }
     else { $sql .= " ORDER BY " . $sort_by . " " . $order; }
     $sql .= " LIMIT :limit OFFSET :offset";
-    
-    $params[':limit'] = $limit;
-    $params[':offset'] = $offset;
+
     $stmt = $pdo->prepare($sql);
-    
+
+    // Bindear parámetros comunes
     foreach ($params as $key => &$val) {
-        $type = (is_int($val)) ? PDO::PARAM_INT : PDO::PARAM_STR;
+        $type = PDO::PARAM_STR; // Default a string
+        if (str_ends_with($key, '_id') || $key === ':limit' || $key === ':offset' || $key === ':client_type_id') {
+             $type = PDO::PARAM_INT;
+        }
         $stmt->bindParam($key, $val, $type);
     }
-    
+    // Bindear límite y offset explícitamente como INT
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+
+
     $stmt->execute();
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    echo json_encode([ 'products' => $products, 'total_products' => (int)$total_products, 'total_pages' => $total_pages, 'current_page' => $page, 'limit' => $limit, 'filter_name' => $filter_name ]);
+
+    // --- Respuesta JSON (igual que antes) ---
+    echo json_encode([
+        'products' => $products,
+        'total_products' => (int)$total_products,
+        'total_pages' => $total_pages,
+        'current_page' => $page,
+        'limit' => $limit,
+        'filter_name' => $filter_name // Nombre del filtro para mostrar en UI
+    ]);
 }
+
 
 function handleDepartmentsRequest(PDO $pdo) {
     // 1. Lee la configuración actual desde el archivo.
