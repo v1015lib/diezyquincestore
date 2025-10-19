@@ -75,55 +75,70 @@ try {
         }
         break;
 
-        case 'admin/createEtiqueta':
-        $pdo->beginTransaction();
-        try {
-            $data = json_decode(file_get_contents('php://input'), true);
-            $nombre = trim($data['nombre_etiqueta'] ?? '');
-            $userId = $_SESSION['id_usuario'] ?? null;
+case 'admin/createEtiqueta':
+    $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $nombre = trim($data['nombre_etiqueta'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
 
-            if (empty($nombre)) throw new Exception('El nombre de la etiqueta es obligatorio.');
-            if (!$userId) throw new Exception('Sesión de usuario no válida.');
+        if (empty($nombre)) throw new Exception('El nombre de la etiqueta es obligatorio.');
+        if (!$userId) throw new Exception('Sesión de usuario no válida.');
 
-            $stmt = $pdo->prepare("INSERT INTO etiquetas (nombre_etiqueta) VALUES (:nombre)");
-            $stmt->execute([':nombre' => $nombre]);
+        // *** NUEVO: Generar el slug automáticamente ***
+        $slug = createSlug($nombre, $pdo, 'etiquetas', 'id_etiqueta'); // Usa la función createSlug
 
-            logActivity($pdo, $userId, 'Etiqueta Creada', "Se creó la nueva etiqueta: '{$nombre}'.");
+        // *** MODIFICADO: Añadir el slug a la inserción ***
+        $stmt = $pdo->prepare("INSERT INTO etiquetas (nombre_etiqueta, slug) VALUES (:nombre, :slug)");
+        $stmt->execute([':nombre' => $nombre, ':slug' => $slug]); // Se pasa el slug
 
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Etiqueta creada con éxito.']);
-        } catch (Exception $e) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
-            $errorCode = ($e instanceof PDOException && $e->getCode() == '23000') ? 409 : 400;
-            http_response_code($errorCode);
-            $errorMsg = ($errorCode === 409) ? 'Ya existe una etiqueta con ese nombre.' : $e->getMessage();
-            echo json_encode(['success' => false, 'error' => $errorMsg]);
-        }
-        break;
+        logActivity($pdo, $userId, 'Etiqueta Creada', "Se creó la nueva etiqueta: '{$nombre}'.");
 
-        case 'admin/updateEtiqueta':
-        $pdo->beginTransaction();
-        try {
-            $data = json_decode(file_get_contents('php://input'), true);
-            $id = filter_var($data['id_etiqueta'] ?? 0, FILTER_VALIDATE_INT);
-            $nombre = trim($data['nombre_etiqueta'] ?? '');
-            $userId = $_SESSION['id_usuario'] ?? null;
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Etiqueta creada con éxito.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $errorCode = ($e instanceof PDOException && $e->getCode() == '23000') ? 409 : 400;
+        http_response_code($errorCode);
+        // Mensaje de error mejorado para slugs duplicados
+        $errorMsg = ($errorCode === 409) ? 'Ya existe una etiqueta con ese nombre o slug.' : $e->getMessage();
+        echo json_encode(['success' => false, 'error' => $errorMsg]);
+    }
+    break;
 
-            if (!$id || empty($nombre) || !$userId) throw new Exception('Datos inválidos o sesión no válida.');
+case 'admin/updateEtiqueta':
+     $pdo->beginTransaction();
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = filter_var($data['id_etiqueta'] ?? 0, FILTER_VALIDATE_INT);
+        $nombre = trim($data['nombre_etiqueta'] ?? '');
+        $userId = $_SESSION['id_usuario'] ?? null;
 
-            $stmt = $pdo->prepare("UPDATE etiquetas SET nombre_etiqueta = :nombre WHERE id_etiqueta = :id");
-            $stmt->execute([':nombre' => $nombre, ':id' => $id]);
+        if (!$id || empty($nombre) || !$userId) throw new Exception('Datos inválidos o sesión no válida.');
 
-            logActivity($pdo, $userId, 'Etiqueta Modificada', "Se actualizó la etiqueta ID #{$id} a '{$nombre}'.");
+        // *** NUEVO: Generar el slug al actualizar ***
+        // El último parámetro '$id' es importante para que la función createSlug
+        // ignore el slug actual de esta misma etiqueta al verificar duplicados.
+        $slug = createSlug($nombre, $pdo, 'etiquetas', 'id_etiqueta', $id);
 
-            $pdo->commit();
-            echo json_encode(['success' => true, 'message' => 'Etiqueta actualizada.']);
-        } catch (Exception $e) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Error al actualizar la etiqueta.']);
-        }
-        break;
+        // *** MODIFICADO: Añadir el slug a la actualización ***
+        $stmt = $pdo->prepare("UPDATE etiquetas SET nombre_etiqueta = :nombre, slug = :slug WHERE id_etiqueta = :id");
+        $stmt->execute([':nombre' => $nombre, ':slug' => $slug, ':id' => $id]); // Se actualiza el slug
+
+        logActivity($pdo, $userId, 'Etiqueta Modificada', "Se actualizó la etiqueta ID #{$id} a '{$nombre}'.");
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Etiqueta actualizada.']);
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+         // --- INICIO CORRECCIÓN ERROR DUPLICADO ---
+         $errorCode = ($e instanceof PDOException && $e->getCode() == '23000') ? 409 : 500;
+         http_response_code($errorCode);
+         $errorMsg = ($errorCode === 409) ? 'Ya existe otra etiqueta con ese nombre o slug.' : 'Error al actualizar la etiqueta.';
+         echo json_encode(['success' => false, 'error' => $errorMsg]);
+         // --- FIN CORRECCIÓN ---
+    }
+    break;
 
         case 'admin/deleteEtiqueta':
         $pdo->beginTransaction();
@@ -6771,21 +6786,28 @@ function handleProductsRequest(PDO $pdo) {
             $stmt_brand_name->execute([':slug' => $marca_slug]);
             if ($brand_name = $stmt_brand_name->fetchColumn()) { $filter_name = $brand_name; }
         }
-    if (!empty($etiqueta_slug)) {
-            // Reemplaza el slug de la URL ('fig-foamy') a espacios ('fig foamy')
-            // para intentar coincidir con el nombre en la base de datos.
-            // Asume que los nombres en la BD usan espacios, no guiones.
-            // Si tus nombres en la BD SÍ usan guiones, quita str_replace.
-            $etiqueta_nombre_a_buscar = str_replace('-', ' ', $etiqueta_slug);
 
-            // Compara AHORA SÍ con la columna 'nombre_etiqueta'
-            $where_clauses[] = "et.nombre_etiqueta = :etiqueta_nombre"; // <--- CORRECCIÓN CLAVE AQUÍ
-            $params[':etiqueta_nombre'] = $etiqueta_nombre_a_buscar; // Usa el nombre transformado
+        if (!empty($etiqueta_slug)) {
+            $where_clauses[] = "et.slug = :etiqueta_slug"; // Usa la columna slug
+            $params[':etiqueta_slug'] = $etiqueta_slug;
 
-             // Lógica opcional para el título
-             $etiqueta_name_display = ucfirst($etiqueta_nombre_a_buscar);
-             $filter_name = !empty($filter_name) ? $filter_name . ' - ' . $etiqueta_name_display : $etiqueta_name_display;
-         }         if (!empty($search_term)) {
+             // --- ⭐ CORRECCIÓN PARA EL NOMBRE DEL FILTRO ⭐ ---
+             // Intenta obtener el nombre real de la etiqueta desde la BD
+             $stmt_etiqueta_name = $pdo->prepare("SELECT nombre_etiqueta FROM etiquetas WHERE slug = :slug");
+             $stmt_etiqueta_name->execute([':slug' => $etiqueta_slug]);
+             if ($etiqueta_name = $stmt_etiqueta_name->fetchColumn()) {
+                 // Si se encuentra la etiqueta, USA SOLO SU NOMBRE como filter_name
+                 $filter_name = $etiqueta_name; // <--- ESTA LÍNEA SOBREESCRIBE CUALQUIER NOMBRE DE MARCA
+             } else {
+                 // Fallback si no se encuentra (poco probable): usa el slug transformado
+                 $filter_name_fallback = ucfirst(str_replace('-', ' ', $etiqueta_slug));
+                 // Si ya había nombre de marca, lo sobreescribe; si no, lo establece
+                 $filter_name = $filter_name_fallback;
+             }
+             // --- FIN DE LA CORRECCIÓN ---
+         }
+       
+         if (!empty($search_term)) {
             $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
             $params[':search_term'] = '%' . $search_term . '%';
             $params[':search_term_code'] = '%' . $search_term . '%';
@@ -7025,5 +7047,39 @@ function logActivity(PDO $pdo, int $userId, string $actionType, string $descript
         error_log("Error en la función logActivity: " . $e->getMessage());
     }
 }
+function generateUniqueSlug($text, $pdo, $table, $id_column, $id = null) {
+    $slug = preg_replace('~[^\pL\d]+~u', '-', $text);
+    $slug = iconv('utf-8', 'us-ascii//TRANSLIT', $slug);
+    $slug = preg_replace('~[^-\w]+~', '', $slug);
+    $slug = strtolower(trim($slug, '-'));
+    $slug = preg_replace('~-+~', '-', $slug);
 
+    if (empty($slug)) {
+        // Genera un slug basado en timestamp si el nombre está vacío o inválido
+        return 'etiqueta-' . time() . uniqid();
+    }
+
+    $originalSlug = $slug;
+    $counter = 1;
+    while (true) {
+        $sql = "SELECT COUNT(*) FROM $table WHERE slug = :slug";
+        $params = [':slug' => $slug];
+        if ($id !== null) {
+            $sql .= " AND $id_column != :id";
+            $params[':id'] = $id;
+        }
+        $checkStmt = $pdo->prepare($sql);
+        $checkStmt->execute($params);
+        if ($checkStmt->fetchColumn() == 0) {
+            break; // El slug es único
+        }
+        // Si ya existe, añade un número al final (ej. mi-etiqueta-2)
+        $slug = $originalSlug . '-' . $counter++;
+        // Medida de seguridad adicional para evitar bucles infinitos muy largos
+        if ($counter > 100) {
+            return $originalSlug . '-' . time() . uniqid(); // Fallback con timestamp
+        }
+    }
+    return $slug;
+}
 ?>
