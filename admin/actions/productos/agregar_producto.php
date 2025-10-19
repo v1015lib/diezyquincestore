@@ -103,16 +103,25 @@ $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORD
             </select>
         </div>
 
+<?php // --- INICIO DE LA MODIFICACIÓN PARA MULTI-ETIQUETA (VANILLA JS TAG INPUT) --- ?>
         <div class="form-group">
-            <label for="id_etiqueta">Etiqueta</label>
-            <select id="id_etiqueta" name="id_etiqueta">
-                <option value="">(Opcional) Selecciona una etiqueta</option>
-                <?php foreach ($etiquetas as $etiqueta): ?>
-                    <option value="<?php echo htmlspecialchars($etiqueta['id_etiqueta']); ?>"><?php echo htmlspecialchars($etiqueta['nombre_etiqueta']); ?></option>
-                <?php endforeach; ?>
-            </select>
+            <label for="id_etiqueta">Etiquetas</label>
+            <div class="tag-input-container">
+                <div class="selected-tags" id="selected-tags-area">
+                    </div>
+                <input type="text" id="tag-search-input" placeholder="Buscar o añadir etiquetas...">
+                <div class="tag-suggestions" id="tag-suggestions-list">
+                    </div>
+                
+                <?php // El select original ahora está oculto y servirá para enviar los datos ?>
+                <select id="id_etiqueta" name="id_etiqueta[]" multiple class="original-tag-select">
+                    <?php foreach ($etiquetas as $etiqueta): ?>
+                        <option value="<?php echo htmlspecialchars($etiqueta['id_etiqueta']); ?>"><?php echo htmlspecialchars($etiqueta['nombre_etiqueta']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
-        <?php // --- FIN DEL BLOQUE --- ?>
+        <?php // --- FIN DE LA MODIFICACIÓN --- ?>
 
         <div class="form-group">
             <label for="stock_minimo">Stock Mínimo</label>

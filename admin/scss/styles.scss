@@ -470,3 +470,100 @@
     margin: 0.5rem 0;
     flex-grow: 1; /* Permite que el nombre ocupe el espacio sobrante */
 }
+/* Estilos para el Tag Input de Etiquetas (Vanilla JS) */
+.tag-input-container {
+  flex-grow: 1; // Ocupa el espacio disponible en el form-group
+  position: relative;
+  display: flex;
+  flex-wrap: wrap; // Permite que las píldoras pasen a la siguiente línea
+  align-items: center;
+  border: 1px solid $border-color; // Borde similar a otros inputs
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem; // Espacio interno
+  min-height: calc(1.5em + 1rem + 2px); // Altura similar a otros inputs
+  cursor: text; // Cursor de texto al pasar por encima
+}
+
+.selected-tags {
+  display: inline-flex; // Muestra las píldoras en línea
+  flex-wrap: wrap;
+  gap: 0.3rem; // Espacio entre píldoras
+  margin-right: 0.5rem; // Espacio antes del input de búsqueda
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  background-color: $primary-color; // Color primario
+  color: $tcolor2; // Color de acento
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.tag-remove-btn {
+  background: none;
+  border: none;
+  color: lighten($tcolor2, 20%); // Color más claro para la 'x'
+  margin-left: 0.4rem;
+  padding: 0;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+
+  &:hover {
+    color: white;
+  }
+}
+
+#tag-search-input {
+  flex-grow: 1; // Ocupa el espacio restante
+  border: none;
+  outline: none;
+  padding: 0.4rem 0; // Ajusta padding vertical
+  min-width: 150px; // Ancho mínimo para escribir cómodamente
+  background: transparent; // Sin fondo
+}
+
+.tag-suggestions {
+  display: none; // Oculto por defecto
+  position: absolute;
+  top: 100%; // Justo debajo del contenedor
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid $border-color;
+  border-top: none; // Evita doble borde
+  border-radius: 0 0 6px 6px;
+  max-height: 150px; // Altura máxima con scroll
+  overflow-y: auto;
+  z-index: 10; // Encima de otros elementos
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+
+  &:hover,
+  &.highlighted { // Estilo para el item resaltado (con teclado)
+    background-color: #f0f0f0;
+  }
+}
+
+/* Oculta el select original */
+.original-tag-select {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+}

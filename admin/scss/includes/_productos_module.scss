@@ -426,3 +426,383 @@
         background-color: rgba(212, 160, 23, 0.4); /* Un color ámbar semitransparente */
     }
 }
+
+
+
+// Estilos para el módulo de gestión de productos
+
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: .5rem;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+
+
+.batch-actions-container {
+  display: flex;
+  gap: 0.5rem;
+  select {
+    all: unset;
+    padding: 0.75rem;
+    border: 1px solid $border-color;
+    border-radius: 6px;
+    background-color: $primary-color;
+    color: $tcolor2;
+    cursor: pointer;
+
+    outline: none;
+    margin: 0;
+    border: none;
+    font-weight: 900;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.product-list-container {
+
+  overflow-x: auto; // Permite scroll horizontal en tablas grandes
+
+  &::-webkit-scrollbar {
+    width: 3px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar {
+    width: 3px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: darken($primary-color, 5%);
+  }
+}
+
+// Tabla de productos
+.product-table {
+  width: 100vw;
+  border-collapse: collapse;
+
+
+  // Estilo base para celdas
+  th,
+  td {
+
+    text-align: left;
+    border-bottom: .1rem solid $border-color;
+    font-size: clamp(.5rem, 4vw, .75rem);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  thead {
+    tr {
+      th {
+        font-weight: 400;
+        color: $secondary-color;
+        background-color: #f8f9fa;
+
+        &.sortable {
+          cursor: default;
+        }
+
+        #select-all-products {
+          cursor: default;
+        }
+      }
+    }
+  }
+
+  tbody {
+    #product-table-body {
+      tr {
+        td {
+          // Reset para inputs, selects y botones dentro de celdas
+          input,
+          select,
+          button {
+            margin: 0;
+            padding: 0;
+            border: none;
+            outline: none;
+            background: none;
+            font: inherit;
+            color: inherit;
+          }
+        }
+
+        &:hover {
+          background-color: lighten($primary-color, 18%);
+          color: white;
+
+          & > * {
+            color: white;
+          }
+        }
+      }
+    }
+  }
+
+  // Celda específica para nombre de producto
+
+
+  // Inputs en edición
+  input[type="text"],
+  input[type="number"] {
+    width: fit-content;
+
+    border: 1px solid $primary-color;
+    border-radius: 4px;
+
+  }
+
+  // Icono en editables
+  .editable {
+    cursor: pointer;
+    position: relative;
+
+    &:hover::after {
+      content: '✏️';
+      position: absolute;
+      right: 10px;
+      opacity: 0.5;
+    }
+  }
+}
+
+// Badge de estado
+.status-badge {
+  padding: .2rem;
+
+  font-size: inherit;
+  font-weight: 400;
+  white-space: nowrap;
+
+  &.status-active {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  &.status-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+}
+
+// ---- INICIO DE LA CORRECCIÓN ----
+// Se ha eliminado el bloque conflictivo que contenía "max-width: none;"
+
+.product-list-header{        
+
+    font-size: .75rem;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    input, select, button{
+        all: unset;
+
+        margin: .5rem;
+        background: $primary-color;
+        color: $tcolor2;
+        font-weight: 600;
+
+        & > *{
+            color: inherit;
+        }
+        &:disabled{
+            background: grey;
+            color: white;
+        }
+        &::placeholder{
+            color: white;
+        }
+
+        #batch-action-execute{
+            &:disabled{
+                background: grey;
+                color: white;
+            }
+        }
+    }
+    .filters-container{
+        padding: 0;
+    }
+}
+ .file-name {
+        font-size: 11px; // Tamaño de fuente pequeño
+
+        background-color: rgba(0, 0, 0, 0.6); // Fondo semitransparente
+        color: white; // Texto blanco
+        text-align: center;
+        position: absolute; // Posición sobre la imagen
+        bottom: 0; // Alineado abajo
+        left: 0;
+        right: 0;
+        white-space: nowrap; // Evita que el texto se parta en dos líneas
+        overflow: hidden; // Oculta el texto que no cabe
+        text-overflow: ellipsis; // Añade "..." si el texto es muy largo
+    }
+
+
+    .product-table th.product-image-col,
+.product-table td.product-image-col {
+    hei: 60px; // Ancho fijo para la columna de la imagen
+    text-align: center;
+}
+
+.product-table-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover; // Asegura que la imagen no se deforme
+    border-radius: 4px;
+    vertical-align: middle; // Centra la imagen verticalmente
+}
+
+/* --- ESTILOS PARA IMAGEN EN TABLA DE PRODUCTOS --- */
+.product-table {
+  th.product-image-col,
+  td.product-image-col {
+    width: 60px;
+
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .product-table-img-container {
+    width: 45px;
+    height: 45px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+  }
+
+  .product-table-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.product-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: .75rem;
+    margin-bottom: 1rem;
+
+    .filters-container {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    // Resetea estilos heredados que causan problemas
+    .filters-container .form-group {
+        margin: 0;
+        padding: 0;
+
+        label {
+            flex-basis: auto;
+            text-align: left;
+
+            font-weight: 600;
+            color: $text-color;
+        }
+        input[type="checkbox"]{
+            background: none; // Quita el fondo azul del checkbox
+        }
+    }
+    
+    // Estilos unificados para todos los controles del header
+    input, select, button {
+        all: unset;
+        box-sizing: border-box;
+        margin: 0;
+        background: $primary-color;
+        color: $tcolor2;
+        font-weight: 600;
+        padding: 0.5rem;
+        border-radius: 4px;
+
+        &::placeholder {
+            color: lighten($tcolor2, 20%);
+        }
+    }
+
+    .batch-actions-container button, .filters-container button {
+        cursor: pointer;
+    }
+    
+    button:disabled {
+        background: grey;
+        color: white;
+        cursor: not-allowed;
+    }
+
+    .batch-actions-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+}
+
+/* --- AJUSTES DE ANCHO PARA CELDAS DE LA TABLA --- */
+.product-table {
+    td {
+        // Estilo general para todas las celdas
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // Anchos específicos para cada columna
+    td[data-field="codigo_producto"] { max-width: 130px; }
+    td[data-field="nombre_producto"] { max-width: 150px; } // <- Aumentado un poco
+    td[data-field="id_etiqueta"] { max-width: 90px; } // <-- NUEVA REGLA AÑADIDA
+
+    td[data-field="stock_actual"],
+    td[data-field="stock_minimo"],
+    td[data-field="stock_maximo"] {
+
+        text-align: center;
+    }
+    td[data-field="nombre_estado"] {
+        max-width: 100px;
+        text-align: center;
+    }
+}
+// --- FIN DE LA CORRECCIÓN ---
+
+
+/* --- Estilos para Redimensionar Columnas --- */
+.product-table th {
+    position: relative; /* Necesario para posicionar el manejador */
+}
+
+.resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px; /* Ligeramente fuera para mejor agarre */
+    bottom: 0;
+    width: 5px; /* Área de clic */
+    cursor: col-resize; /* Cursor que indica que se puede redimensionar */
+    z-index: 10;
+    
+    /* Efecto visual al pasar el mouse o al arrastrar */
+    &:hover, &.resizing {
+        background-color: rgba(212, 160, 23, 0.4); /* Un color ámbar semitransparente */
+    }
+}

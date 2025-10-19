@@ -676,8 +676,7 @@ async function fetchAndRenderProducts() {
                     <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
                     <td data-field="nombre_departamento">${product.nombre_departamento}</td>
                     <td class="editable" data-field="id_marca" data-id="${product.id_marca || ''}">${product.nombre_marca || 'N/A'}</td>
-                    <td class="editable" data-field="id_etiqueta" data-id="${product.id_etiqueta || ''}">${product.nombre_etiqueta || 'N/A'}</td>
-                    <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
+                    <td data-field="id_etiqueta">${product.todas_las_etiquetas || 'N/A'}</td>                    <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
                     <td class="${stockClass}" data-field="stock_actual">${product.stock_actual ?? 'N/A'}</td>
                     <td data-field="stock_minimo">${product.stock_minimo ?? 'N/A'}</td>
                     <td data-field="stock_maximo">${product.stock_maximo ?? 'N/A'}</td>
@@ -1666,7 +1665,7 @@ function initializeAddProductForm() {
             }
         }, 500);
     });
-
+    initializeTagInput();
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const messagesDiv = form.querySelector('#form-messages');
@@ -1766,8 +1765,8 @@ async function renderEditForm(product) {
     const fields = [
         'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
-        'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen',
-        'id_etiqueta' // <-- CAMPO AÑADIDO
+        'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen'
+        // Se quita 'id_etiqueta' de aquí porque se manejará diferente
     ];
     
     fields.forEach(field => {
@@ -1805,7 +1804,30 @@ async function renderEditForm(product) {
             <p>N/A (El código actual no es un EAN-13 válido de 13 dígitos)</p>
         `;
     }
+    try {
+        // Llama a la API para obtener las etiquetas actuales del producto
+        const tagsResponse = await fetch(`${API_BASE_URL}?resource=admin/getProductTags&productId=${product.id_producto}`); // <-- Aquí está tagsResponse
+        const tagsResult = await tagsResponse.json();
 
+        if (tagsResult.success && tagsResult.tags) {
+            const tagSelect = form.querySelector('#id_etiqueta'); // Apunta al select multiple
+            if (tagSelect) {
+                // Deselecciona todas primero
+                Array.from(tagSelect.options).forEach(option => option.selected = false);
+                // Selecciona las que vienen de la API
+                tagsResult.tags.forEach(tagId => {
+                    const option = tagSelect.querySelector(`option[value="${tagId}"]`);
+                    if (option) {
+                        option.selected = true;
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error al cargar etiquetas del producto:", error);
+        // Opcional: Mostrar un mensaje al usuario
+    }
+    initializeTagInput();
     initializeEditProductFormSubmit(form);
 }
 
@@ -3129,6 +3151,18 @@ if (target.matches('.modal-close-btn') || target.id === 'gallery-cancel-btn') {
     }
 
 mainContent.addEventListener('dblclick', async (event) => {
+
+
+    const etiquetaCell = event.target.closest('td[data-field="id_etiqueta"]');
+    if (etiquetaCell && !etiquetaCell.querySelector('input, select')) {
+        
+        // Busca el botón "Editar" en la misma fila y simula un clic
+        const editButton = etiquetaCell.closest('tr').querySelector('.edit-product-btn');
+        if (editButton) {
+            editButton.click();
+        }
+        return; // Detiene la ejecución para no activar otros editores
+    }
     const cell = event.target.closest('.editable');
     if (!cell || cell.querySelector('input, select')) return;
 
@@ -3137,7 +3171,7 @@ mainContent.addEventListener('dblclick', async (event) => {
     cell.dataset.originalText = originalText;
 
     // --- Lógica para menús desplegables (en la tabla de Productos) ---
-    if (field === 'id_marca' || field === 'id_etiqueta') {
+    if (field === 'id_marca') { // <--- ¡CORREGIDO! Solo se activa para 'id_marca'
         const select = document.createElement('select');
         cell.innerHTML = '';
         cell.appendChild(select);
@@ -6826,6 +6860,163 @@ function closeFindReplaceModal() {
     modal.querySelector('#replace-text').value = '';
 }
 
+
+
+
+function initializeTagInput(containerSelector = '.tag-input-container') {
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+
+    const originalSelect = container.querySelector('.original-tag-select');
+    const selectedTagsArea = container.querySelector('.selected-tags');
+    const searchInput = container.querySelector('#tag-search-input');
+    const suggestionsList = container.querySelector('.tag-suggestions');
+
+    if (!originalSelect || !selectedTagsArea || !searchInput || !suggestionsList) {
+        console.error("Faltan elementos para inicializar el Tag Input.");
+        return;
+    }
+
+    let suggestions = Array.from(originalSelect.options).map(opt => ({
+        id: opt.value,
+        text: opt.textContent
+    }));
+    let highlightedIndex = -1;
+
+    // Función para mostrar las píldoras de las etiquetas seleccionadas
+    function renderSelectedTags() {
+        selectedTagsArea.innerHTML = ''; // Limpia el área
+        Array.from(originalSelect.selectedOptions).forEach(option => {
+            const pill = document.createElement('span');
+            pill.className = 'tag-pill';
+            pill.dataset.value = option.value;
+            pill.textContent = option.textContent;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button'; // Evita que envíe el formulario
+            removeBtn.className = 'tag-remove-btn';
+            removeBtn.innerHTML = '&times;'; // Símbolo 'x'
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Evita que el contenedor reciba el clic
+                // Deselecciona en el select original y re-renderiza
+                option.selected = false;
+                renderSelectedTags();
+                updateSuggestions(); // Actualiza sugerencias por si vuelve a estar disponible
+            });
+
+            pill.appendChild(removeBtn);
+            selectedTagsArea.appendChild(pill);
+        });
+        // Ajustar el foco al input después de renderizar
+        searchInput.focus();
+    }
+
+    // Función para mostrar/actualizar la lista de sugerencias
+    function updateSuggestions() {
+        const searchTerm = searchInput.value.toLowerCase();
+        suggestionsList.innerHTML = ''; // Limpia sugerencias anteriores
+        highlightedIndex = -1; // Resetea el índice resaltado
+
+        const selectedValues = new Set(Array.from(originalSelect.selectedOptions).map(opt => opt.value));
+
+        const filteredSuggestions = suggestions.filter(suggestion =>
+            !selectedValues.has(suggestion.id) && // No mostrar si ya está seleccionada
+            suggestion.text.toLowerCase().includes(searchTerm)
+        );
+
+        if (filteredSuggestions.length > 0 && searchTerm) {
+            filteredSuggestions.forEach((suggestion, index) => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                item.textContent = suggestion.text;
+                item.dataset.value = suggestion.id;
+                item.addEventListener('click', () => {
+                    selectTag(suggestion.id);
+                });
+                suggestionsList.appendChild(item);
+            });
+            suggestionsList.style.display = 'block';
+        } else {
+            suggestionsList.style.display = 'none';
+        }
+    }
+
+    // Función para seleccionar una etiqueta
+    function selectTag(tagId) {
+        const optionToSelect = originalSelect.querySelector(`option[value="${tagId}"]`);
+        if (optionToSelect) {
+            optionToSelect.selected = true; // Marca como seleccionada en el select original
+            searchInput.value = ''; // Limpia el input de búsqueda
+            renderSelectedTags(); // Actualiza las píldoras visuales
+            updateSuggestions(); // Oculta/actualiza las sugerencias
+            suggestionsList.style.display = 'none'; // Asegura que se oculte
+        }
+    }
+
+    // --- Event Listeners ---
+
+    // Al escribir en el input
+    searchInput.addEventListener('input', updateSuggestions);
+
+    // Al usar teclas en el input (Enter, Backspace, Flechas)
+    searchInput.addEventListener('keydown', (e) => {
+        const items = suggestionsList.querySelectorAll('.suggestion-item');
+        if (suggestionsList.style.display === 'block' && items.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (highlightedIndex < items.length - 1) {
+                    highlightedIndex++;
+                    items.forEach(item => item.classList.remove('highlighted'));
+                    items[highlightedIndex].classList.add('highlighted');
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (highlightedIndex > 0) {
+                    highlightedIndex--;
+                    items.forEach(item => item.classList.remove('highlighted'));
+                    items[highlightedIndex].classList.add('highlighted');
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (highlightedIndex >= 0 && items[highlightedIndex]) {
+                    selectTag(items[highlightedIndex].dataset.value);
+                }
+            }
+        } else if (e.key === 'Backspace' && searchInput.value === '') {
+            // Si presiona Backspace y el input está vacío, elimina la última píldora
+            const lastPill = selectedTagsArea.querySelector('.tag-pill:last-child');
+            if (lastPill) {
+                const lastValue = lastPill.dataset.value;
+                const optionToDeselect = originalSelect.querySelector(`option[value="${lastValue}"]`);
+                if (optionToDeselect) {
+                    optionToDeselect.selected = false;
+                    renderSelectedTags();
+                    updateSuggestions();
+                }
+            }
+        } else if (e.key === 'Escape') {
+             suggestionsList.style.display = 'none'; // Oculta con Escape
+             highlightedIndex = -1;
+        }
+    });
+
+    // Poner foco en el input al hacer clic en el contenedor
+    container.addEventListener('click', () => {
+        searchInput.focus();
+    });
+
+    // Ocultar sugerencias si se hace clic fuera
+    document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+            suggestionsList.style.display = 'none';
+            highlightedIndex = -1;
+        }
+    });
+
+    // Renderizar las etiquetas iniciales (importante para editar)
+    renderSelectedTags();
+    console.log("Tag Input Vanilla JS inicializado.");
+}
 
 
 });
