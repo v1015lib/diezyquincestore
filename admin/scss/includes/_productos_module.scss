@@ -1,7 +1,141 @@
 
 // Estilos para el módulo de gestión de productos
+/* Estilos para el Tag Input de Etiquetas (Vanilla JS) */
+.tag-input-container {
+  flex-grow: 1;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  min-height: calc(1.5em + 1rem + 2px);
+  cursor: text;
+  background-color: white;
+  gap: 0.3rem;
 
+  &:focus-within {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(12, 10, 78, 0.1);
+  }
+}
 
+.selected-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-right: 0.5rem;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  background-color: $primary-color;
+  color: $tcolor2;
+  padding: 0.35rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tag-remove-btn {
+  background: none;
+  border: none;
+  color: lighten($tcolor2, 20%);
+  margin-left: 0.4rem;
+  padding: 0;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: white;
+  }
+}
+
+#tag-search-input {
+  flex-grow: 1;
+  border: none;
+  outline: none;
+  padding: 0.4rem 0;
+  min-width: 150px;
+  background: transparent;
+  font-size: 0.9rem;
+
+  &::placeholder {
+    color: #999;
+  }
+}
+
+.tag-suggestions {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #dee2e6;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: -1px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: darken($primary-color, 10%);
+    border-radius: 3px;
+
+    &:hover {
+      background: darken($primary-color, 20%);
+    }
+  }
+}
+
+.suggestion-item {
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover,
+  &.highlighted {
+    background-color: lighten($primary-color, 35%);
+    color: $primary-color;
+  }
+}
+
+/* Oculta el select original */
+.original-tag-select {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+}
 .list-header {
   display: flex;
   justify-content: space-between;
@@ -805,4 +939,222 @@
     &:hover, &.resizing {
         background-color: rgba(212, 160, 23, 0.4); /* Un color ámbar semitransparente */
     }
+}
+
+/*****************************************/
+
+
+
+
+// REEMPLAZA esta sección en tu archivo _productos_module.scss
+
+.product-list-container {
+  max-height: calc(100vh - 350px); // Altura máxima dejando espacio para header, filtros y footer
+  overflow-y: auto; // Scroll vertical
+  overflow-x: auto; // Scroll horizontal para tablas anchas
+  border: 1px solid $border-color;
+  border-radius: 4px;
+
+  // Personaliza la barra de scroll
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: darken($primary-color, 10%);
+    border-radius: 4px;
+    
+    &:hover {
+      background: darken($primary-color, 20%);
+    }
+  }
+}
+
+// Tabla de productos
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+
+  // Estilo base para celdas
+  th,
+  td {
+    text-align: left;
+    border-bottom: 0.1rem solid $border-color;
+    font-size: clamp(0.5rem, 4vw, .7rem);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.5rem;
+  }
+
+  thead {
+    tr {
+      th {
+        font-weight: 600;
+        color: $secondary-color;
+        background-color: #f8f9fa;
+        position: sticky; // Fija el header mientras scrolleas
+        top: 0;
+        z-index: 5;
+
+        &.sortable {
+          cursor: pointer;
+        }
+
+        #select-all-products {
+          cursor: pointer;
+        }
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      td {
+        // Reset para inputs, selects y botones dentro de celdas
+        input,
+        select,
+        button {
+          margin: 0;
+          padding: 0;
+          border: none;
+          outline: none;
+          background: none;
+          font: inherit;
+          color: inherit;
+        }
+      }
+
+      &:hover {
+        background-color: lighten($primary-color, 18%);
+        color: white;
+
+        & > * {
+          color: white;
+        }
+      }
+    }
+  }
+
+  // Inputs en edición
+  input[type="text"],
+  input[type="number"] {
+    width: fit-content;
+    border: 1px solid $primary-color;
+    border-radius: 4px;
+  }
+
+  // Icono en editables
+  .editable {
+    cursor: pointer;
+    position: relative;
+
+    &:hover::after {
+      content: '✏️';
+      position: absolute;
+      right: 10px;
+      opacity: 0.5;
+    }
+  }
+}
+
+// Badge de estado
+.status-badge {
+  padding: 0.2rem ;
+  border-radius: 3px;
+  font-size: inherit;
+  font-weight: 400;
+  white-space: nowrap;
+
+  &.status-active {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  
+  &.status-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+}
+
+/* --- AJUSTES DE ANCHO PARA CELDAS DE LA TABLA --- */
+.product-table {
+  td[data-field="codigo_producto"] { 
+    min-width: 130px; 
+  }
+  
+  td[data-field="nombre_producto"] { 
+    min-width: 150px; 
+  }
+  
+  td[data-field="id_etiqueta"] { 
+    min-width: 90px; 
+  }
+
+  td[data-field="stock_actual"],
+  td[data-field="stock_minimo"],
+  td[data-field="stock_maximo"] {
+    text-align: center;
+    min-width: 60px;
+  }
+  
+  td[data-field="nombre_estado"] {
+    min-width: 80px;
+    text-align: center;
+  }
+}
+
+/* --- Estilos para Redimensionar Columnas --- */
+.product-table th {
+  position: relative;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 10;
+  
+  &:hover,
+  &.resizing {
+    background-color: rgba(212, 160, 23, 0.6);
+  }
+}
+
+/* --- ESTILOS PARA IMAGEN EN TABLA DE PRODUCTOS --- */
+.product-table {
+  th.product-image-col,
+  td.product-image-col {
+    width: 60px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .product-table-img-container {
+    width: 45px;
+    height: 45px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+  }
+
+  .product-table-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }

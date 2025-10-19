@@ -789,28 +789,47 @@ async function populateStoreFilter() {
 
 // admin/js/admin.js
 
+// EN: admin/js/admin.js - REEMPLAZA ESTA SECCIÓN COMPLETA
+
 function initializeSidemenu() {
-    // Lógica para el botón de hamburguesa (abrir/cerrar)
-    if (menuToggle && sidemenu) {
+    const sidemenu = document.getElementById('admin-sidemenu');
+    const collapseBtn = document.getElementById('sidemenu-collapse-btn');
+    const menuToggle = document.getElementById('admin-menu-toggle');
+
+    // Validar que los elementos existen
+    if (!sidemenu) {
+        console.error('Error: No se encontró el elemento #admin-sidemenu');
+        return;
+    }
+    if (!collapseBtn) {
+        console.error('Error: No se encontró el botón #sidemenu-collapse-btn');
+        return;
+    }
+
+    // Lógica para el botón de hamburguesa (móvil)
+    if (menuToggle) {
         menuToggle.addEventListener('click', (event) => {
-            // Detenemos la propagación para que el clic no llegue al 'document'
-            event.stopPropagation(); 
+            event.stopPropagation();
             sidemenu.classList.toggle('active');
         });
     }
 
-    // Lógica para el botón de colapsar en escritorio (sin cambios)
-    if (collapseBtn && sidemenu) {
-        collapseBtn.addEventListener('click', () => {
-            sidemenu.classList.toggle('sidemenu-collapsed');
-            localStorage.setItem('sidemenuCollapsed', sidemenu.classList.contains('sidemenu-collapsed'));
-        });
-    }
+    // ✅ LÓGICA PARA COLAPSAR EL MENÚ (Escritorio)
+    collapseBtn.addEventListener('click', () => {
+        sidemenu.classList.toggle('collapsed');
+        
+        // Aplicar estilos directamente
+        if (sidemenu.classList.contains('collapsed')) {
+            sidemenu.style.width = '80px';
+        } else {
+            sidemenu.style.width = 'fit-content';
+        }
+        
+        localStorage.setItem('sidemenuCollapsed', sidemenu.classList.contains('collapsed'));
+    });
 
-    // --- NUEVA LÓGICA ---
-    // Añadimos un listener a todo el documento para detectar clics
+    // Cerrar menú en móvil al hacer clic fuera
     document.addEventListener('click', (event) => {
-        // Verificamos si el menú está activo Y si el clic fue FUERA del menú
         const isClickInsideMenu = sidemenu.contains(event.target);
 
         if (sidemenu.classList.contains('active') && !isClickInsideMenu) {
@@ -818,6 +837,22 @@ function initializeSidemenu() {
         }
     });
 }
+
+function checkSidemenuState() {
+    const sidemenu = document.getElementById('admin-sidemenu');
+    if (!sidemenu) return;
+
+    // Si es escritorio y estaba colapsado, lo vuelve a colapsar
+    if (window.innerWidth > 991 && localStorage.getItem('sidemenuCollapsed') === 'true') {
+        sidemenu.classList.add('collapsed');
+    }
+}
+
+// Llamar estas funciones al cargar
+document.addEventListener('DOMContentLoaded', () => {
+    initializeSidemenu();
+    checkSidemenuState();
+});
 
     function checkSidemenuState() {
         if (window.innerWidth > 991 && localStorage.getItem('sidemenuCollapsed') === 'true') {
