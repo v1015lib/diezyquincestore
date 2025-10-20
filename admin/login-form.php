@@ -1,5 +1,10 @@
 <?php
 session_start();
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['rol'])) {
+   // Si ya está logueado, redirige al panel principal (index.php)
+   header("Location: index.php");
+   exit(); // Detiene la ejecución del script para asegurar la redirección
+}
 // Mantenemos esta lógica por si hay un error de sesión antes de que JS actúe
 $error_message = $_SESSION['login_error'] ?? '';
 unset($_SESSION['login_error']);
@@ -8,6 +13,7 @@ unset($_SESSION['login_error']);
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <link rel="shortcut icon" href="img/favicon.png">    
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración</title>
     <style>
