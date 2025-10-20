@@ -47,65 +47,6 @@
 
 // --- ESTILOS PARA EL MENÚ LATERAL COLAPSABLE (SOLO EN DESKTOP) ---
 
-@media (min-width: 992px) {
-    .dashboard-sidemenu {
-        transition: width 0.3s ease-in-out; // Transición suave para el ancho
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-
-
-        }
-
-        .menu-icon {
-            font-size: 1.2rem;
-            width: 24px; // Ancho fijo para el icono
-            text-align: center;
-        }
-    }
-
-    // Estilos del pie de página del menú (donde va el botón)
-    .sidemenu-footer {
-        margin-top: auto; // Empuja el footer hacia abajo
-        padding: 1rem;
-        filter: invert(1);
-    }
-
-    #sidemenu-collapse-btn {
-        background: none;
-        border: none;
-        width: 100%;
-        color: $tcolor2;
-        cursor: pointer;
-        font-size: 1.5rem;
-        transition: transform 0.3s ease-in-out;
-    }
-
-    // --- ESTADO COLAPSADO ---
-    .sidemenu-collapsed {
-        width: 80px; // Ancho del menú cuando está colapsado
-
-        .menu-text, .dashboard-sidemenu-header h3 {
-            // Ocultamos el texto
-            opacity: 0;
-            visibility: hidden;
-            width: 0;
-            white-space: nowrap;
-        }
-        
-        .nav-link {
-            color: white;
-            justify-content: center;
-        }
-
-        #sidemenu-collapse-btn {
-            transform: rotate(180deg); // Gira la flecha
-        }
-    }
-}
-
 
 
 

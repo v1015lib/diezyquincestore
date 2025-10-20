@@ -793,16 +793,11 @@ async function populateStoreFilter() {
 
 function initializeSidemenu() {
     const sidemenu = document.getElementById('admin-sidemenu');
-    const collapseBtn = document.getElementById('sidemenu-collapse-btn');
+    const sideMenuFooter = document.querySelector('.sidemenu-footer');
     const menuToggle = document.getElementById('admin-menu-toggle');
 
-    // Validar que los elementos existen
     if (!sidemenu) {
         console.error('Error: No se encontró el elemento #admin-sidemenu');
-        return;
-    }
-    if (!collapseBtn) {
-        console.error('Error: No se encontró el botón #sidemenu-collapse-btn');
         return;
     }
 
@@ -814,24 +809,17 @@ function initializeSidemenu() {
         });
     }
 
-    // ✅ LÓGICA PARA COLAPSAR EL MENÚ (Escritorio)
-    collapseBtn.addEventListener('click', () => {
-        sidemenu.classList.toggle('collapsed');
-        
-        // Aplicar estilos directamente
-        if (sidemenu.classList.contains('collapsed')) {
-            sidemenu.style.width = '80px';
-        } else {
-            sidemenu.style.width = 'fit-content';
-        }
-        
-        localStorage.setItem('sidemenuCollapsed', sidemenu.classList.contains('collapsed'));
-    });
+    // ✅ COLAPSAR MENÚ - Contenedor padre es clickeable
+    if (sideMenuFooter) {
+        sideMenuFooter.addEventListener('click', () => {
+            sidemenu.classList.toggle('collapsed');
+            localStorage.setItem('sidemenuCollapsed', sidemenu.classList.contains('collapsed'));
+        });
+    }
 
     // Cerrar menú en móvil al hacer clic fuera
     document.addEventListener('click', (event) => {
         const isClickInsideMenu = sidemenu.contains(event.target);
-
         if (sidemenu.classList.contains('active') && !isClickInsideMenu) {
             sidemenu.classList.remove('active');
         }

@@ -1,55 +1,168 @@
+@mixin icons {
+    font-size: .85rem; // Tamaño base del icono
+
+    text-align: center; // Centra el icono dentro de su espacio
+}
+
 .dashboard-sidemenu {
-    width: 300px;
-    background-color: $primary-color ;
+    // --- Ancho inicial (expandido) ---
+    width: fit-content;
+    // --- Resto de los estilos base ---
+    background-color: $primary-color;
     flex-shrink: 0;
     z-index: 1001;
     display: flex;
     flex-direction: column;
+    height: 100vh;
+    // --- Transición PRINCIPAL para el ancho del menú ---
+    transition: width 0.3s ease;
 
     .dashboard-sidemenu-header {
-        padding: .5rem;
+        padding: 0.5rem;
         border-bottom: 1px solid lighten(black, 10%);
+        flex-shrink: 0;
+        text-align: center;
+        overflow: hidden;
+
         h3 {
             margin: 0;
-            font-size: clamp(.9rem, 4vw, 1rem);
+            font-size: .8rem;
             font-weight: 900;
             color: white;
+            white-space: nowrap;
+            // Transición para el texto del header
+            transition: opacity 0.2s ease-in-out, visibility 0s linear 0.2s,
+                        font-size 0.2s ease, margin 0.2s ease, padding 0.2s ease;
+            opacity: 1;
+            visibility: visible;
         }
     }
 
     nav {
         flex-grow: 1;
+        overflow-y: auto;
+        overflow-x: hidden; // Es importante ocultar el desbordamiento horizontal
+
+        &::-webkit-scrollbar { width: 6px; }
+        &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+        &::-webkit-scrollbar-thumb { background: lighten($primary-color, 20%); border-radius: 6px; }
     }
+
     nav ul {
-        padding: 0.5rem 0;
+        padding: 0.3rem 0; // Padding vertical, sin padding horizontal
+        margin: 0;
+        list-style: none;
     }
-  // --- ESTA ES LA SECCIÓN CORREGIDA ---
+
     nav ul li a {
-        display: block;
-        padding: .5rem;
-        color: $tcolor2; // Variable aplicada al contenedor del enlace
+        display: flex;
+        align-items: center;
+        color: $tcolor2;
         text-decoration: none;
         font-weight: 600;
         border-left: 4px solid transparent;
-        transition: all 0.2s ease;
-        font-size: .8rem;
-        // Aseguramos que los spans internos también hereden el color correcto
-        .menu-icon, .menu-text {
-            color: inherit; // 'inherit' toma el color del padre (el <a>)
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+        padding: 0.5rem; // Padding unificado
+        overflow: hidden; // Oculta el texto que se desborda
+        position: relative; // Para tooltips (si los usas)
+
+        .menu-icon {
+            @include icons; // Aplica tamaño y centrado
+            color: inherit;
+            flex-shrink: 0; // No encoger el icono
             transition: color 0.2s ease;
+        }
+
+        .menu-text {
+            font-size: .8rem; // Tamaño del texto
+            color: inherit;
+            white-space: nowrap; // No partir el texto
+            // Transición para el texto de los enlaces
+            transition: opacity 0.2s ease-in-out, visibility 0s linear 0.2s,
+                        width 0.2s ease, margin-left 0.2s ease;
+            opacity: 1;
+            visibility: visible;
+            width: auto;      // Ancho automático cuando expandido
         }
 
         &:hover {
             background-color: lighten($primary-color, 25%);
-            
-            // Al pasar el mouse, todo se vuelve blanco
-            .menu-icon, .menu-text {
+            .menu-icon, .menu-text { color: #fff; }
+        }
+
+        &.active {
+            border-left-color: #fff;
+            background-color: lighten($primary-color, 15%);
+        }
+    }
+
+    .sidemenu-footer {
+        flex-shrink: 0;
+        padding: 0.5rem;
+        border-top: 1px solid lighten(black, 10%);
+        display: flex;
+        justify-content: center;
+        color: white;
+
+        #sidemenu-collapse-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: .5rem 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+
+            .menu-icon { // El icono DENTRO del botón
+                @include icons;
+                color: $tcolor2;
+                transition: color 0.2s ease, transform 0.3s ease;
+                transform: rotate(180deg); // Estado inicial (expandido)
+            }
+
+            &:hover .menu-icon {
                 color: #fff;
             }
         }
     }
-    nav ul li.separator {
-        height: 1px;
-        margin: .5rem;
+
+    /* 👇 ESTADO COLAPSADO 👇 */
+    &.collapsed {
+        width: fit-content;
+
+        .dashboard-sidemenu-header h3 {
+            opacity: 0;
+            visibility: hidden;
+            font-size: 0;
+            margin: 0;
+            padding: 0;
+            // Transición más rápida al ocultar
+            transition: opacity 0.1s ease-in-out, visibility 0s linear 0.1s,
+                        font-size 0.2s ease, margin 0.2s ease, padding 0.2s ease;
+        }
+
+        nav ul li a {
+            @include icons;
+            justify-content: center; // Centra el icono horizontalmente
+            padding: 0.5rem; // Mantiene el padding
+
+            .menu-icon {
+
+            }
+
+            .menu-text {
+                display: none; // Oculta solo el texto
+            }
+        }
+
+        .sidemenu-footer #sidemenu-collapse-btn .menu-icon {
+            transform: rotate(360deg); // Gira la flecha
+        }
     }
+}
+
+// Estilos específicos para el icono del footer (si no hereda del mixin)
+.dashboard-sidemenu .sidemenu-footer .menu-icon {
+    width: auto; // Que tome su ancho natural
 }
