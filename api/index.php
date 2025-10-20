@@ -5642,53 +5642,71 @@ case 'admin/getProducts':
                 $searchTerm = $_GET['search'] ?? '';
                 $departmentId = $_GET['department'] ?? '';
                 $storeId_filter = $_GET['store'] ?? '';
-                $sortBy = $_GET['sort_by'] ?? 'p.nombre_producto';
+                $sortBy = $_GET['sort_by'] ?? 'p.nombre_producto'; // Mantenemos un default razonable
                 $order = $_GET['order'] ?? 'ASC';
 
-                // --- INICIO DE LA MODIFICACIÓN 1 ---
                 $allowedSortCols = [
-                    'p.codigo_producto', 
-                    'p.nombre_producto', 
+                    'p.codigo_producto',
+                    'p.nombre_producto',
                     'd.departamento',
                     'm.nombre_marca',
-                    // 'et.nombre_etiqueta', // <-- Columna de ordenar eliminada
-                    'p.precio_venta', 
-                    'stock_actual', 
+                    // 'et.nombre_etiqueta', // Comentado
+                    'p.precio_venta',
+                    'stock_actual',
                     'e.nombre_estado',
                     'p.url_imagen'
                 ];
-                // --- FIN DE LA MODIFICACIÓN 1 ---
 
                 if (!in_array($sortBy, $allowedSortCols)) {
-                    $sortBy = 'p.nombre_producto';
+                    $sortBy = 'p.nombre_producto'; // Fallback
                 }
-                
-                $orderByClause = "ORDER BY ";
-                if ($sortBy === 'p.url_imagen') {
-                    $orderByClause .= "CASE WHEN p.url_imagen IS NOT NULL AND p.url_imagen != '0' AND p.url_imagen != '' THEN 0 ELSE 1 END";
-                } else {
-                    $orderByClause .= $sortBy;
+                $order = ($order === 'DESC') ? 'DESC' : 'ASC'; // Validación simple
+
+                // --- INICIO DE LA CORRECCIÓN REVISADA PARA PAGINACIÓN ---
+                // Definimos la columna de prioridad de imagen
+                $imagePriorityColumn = "CASE WHEN p.url_imagen IS NOT NULL AND p.url_imagen != '0' AND p.url_imagen != '' THEN 0 ELSE 1 END";
+
+                // Construimos las partes del ORDER BY
+                $orderByParts = [];
+                $orderByParts[] = $imagePriorityColumn . " ASC"; // Siempre prioriza la imagen
+
+                // Añadimos el criterio del usuario SI ES DIFERENTE al de la imagen
+                if ($sortBy !== 'p.url_imagen' && $sortBy !== 'random') {
+                    $orderByParts[] = $sortBy . " " . $order;
+                } elseif ($sortBy === 'random') {
+                    $orderByParts[] = "RAND()"; // Añadir aleatorio si se solicitó explícitamente
                 }
-                $orderByClause .= " " . ($order === 'DESC' ? 'DESC' : 'ASC');
+
+                // Añadimos SIEMPRE el ID del producto como ÚLTIMO criterio para desempate y estabilidad
+                // Esto es crucial para que LIMIT/OFFSET funcione de forma predecible.
+                $orderByParts[] = "p.id_producto ASC";
+
+                // Unimos las partes del ORDER BY
+                $orderByClause = "ORDER BY " . implode(", ", $orderByParts);
+                // --- FIN DE LA CORRECCIÓN REVISADA ---
+
 
                 $rol = $_SESSION['rol'] ?? 'empleado';
                 $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
-                
+
                 $where_clauses = [];
                 $params = [];
 
                 // Lógica de Stock (Sin cambios)
                 $stock_subquery = "";
                 if ($rol === 'administrador_global') {
-                    if (!empty($storeId_filter)) {
+                    if (!empty($storeId_filter) && is_numeric($storeId_filter)) {
                         $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($storeId_filter) . "), 0)";
                     } else {
                         $stock_subquery = "COALESCE((SELECT SUM(stock) FROM inventario_tienda WHERE id_producto = p.id_producto), 0)";
                     }
                 } else if ($id_tienda_usuario) {
                     $stock_subquery = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = " . intval($id_tienda_usuario) . "), 0)";
+                } else {
+                    $stock_subquery = "0"; // Stock 0 si no hay tienda definida
                 }
-                
+
+
                 if (!empty($searchTerm)) {
                     $where_clauses[] = "(p.nombre_producto LIKE :searchTerm OR p.codigo_producto LIKE :searchTerm)";
                     $params[':searchTerm'] = '%' . $searchTerm . '%';
@@ -5697,16 +5715,23 @@ case 'admin/getProducts':
                     $where_clauses[] = "p.departamento = :departmentId";
                     $params[':departmentId'] = $departmentId;
                 }
-                if ($rol === 'administrador_global' && !empty($storeId_filter)) {
+                // Filtro de tienda para Admin Global (si seleccionó una tienda específica)
+                 if ($rol === 'administrador_global' && !empty($storeId_filter) && is_numeric($storeId_filter)) {
                     $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :storeId)";
                     $params[':storeId'] = $storeId_filter;
-                }
+                 }
+                // Filtro implícito de tienda para otros roles (si tienen tienda asignada)
+                 else if ($rol !== 'administrador_global' && $id_tienda_usuario) {
+                     $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :userStoreId)";
+                     $params[':userStoreId'] = $id_tienda_usuario;
+                 }
+
 
                 $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
-                
-                // --- INICIO DE LA MODIFICACIÓN 2 ---
-                $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, m.nombre_marca, 
-                        GROUP_CONCAT(DISTINCT et.nombre_etiqueta SEPARATOR ', ') AS todas_las_etiquetas, -- <-- Campo modificado
+
+                // Consulta SQL principal (sin cambios aquí)
+                $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, m.nombre_marca,
+                        GROUP_CONCAT(DISTINCT et.nombre_etiqueta SEPARATOR ', ') AS todas_las_etiquetas,
                         $stock_subquery AS stock_actual
                 FROM productos p
                 LEFT JOIN departamentos d ON p.departamento = d.id_departamento
@@ -5714,31 +5739,40 @@ case 'admin/getProducts':
                 LEFT JOIN marcas m ON p.id_marca = m.id_marca
                 LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
                 LEFT JOIN etiquetas et ON pe.id_etiqueta = et.id_etiqueta"
-                // --- FIN DE LA MODIFICACIÓN 2 ---
                 . $where_sql
-                        . " GROUP BY p.id_producto " // Agrupamos para evitar duplicados si un producto tiene varias etiquetas
-                        . " " . $orderByClause . " LIMIT :limit OFFSET :offset";
+                . " GROUP BY p.id_producto " // Agrupamos para las etiquetas
+                . " " . $orderByClause . " LIMIT :limit OFFSET :offset"; // Aplicamos el ORDER BY construido
 
-                        $stmt = $pdo->prepare($sql);
+                $stmt = $pdo->prepare($sql);
 
-                        foreach ($params as $key => &$val) {
-                            $stmt->bindParam($key, $val, PDO::PARAM_STR);
-                        }
-                        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-                        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+                // Bindear parámetros (sin cambios aquí)
+                 foreach ($params as $key => &$val) {
+                     $paramType = PDO::PARAM_STR;
+                     if (str_ends_with($key, 'Id') || $key === ':storeId' || $key === ':userStoreId') {
+                         $paramType = PDO::PARAM_INT;
+                     }
+                    $stmt->bindParam($key, $val, $paramType);
+                 }
+                $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
 
-                        $stmt->execute();
-                        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $stmt->execute();
+                $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                        echo json_encode(['success' => true, 'products' => $products]);
+                echo json_encode(['success' => true, 'products' => $products]);
 
-                    } catch (PDOException $e) {
-                        http_response_code(500);
-                        echo json_encode(['success' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()]);
-                    }
-                }
-                break;
-
+            } catch (PDOException $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Error en la base de datos al obtener productos: ' . $e->getMessage()]);
+            } catch (Exception $e) { // Captura otras excepciones generales
+                 http_response_code(500);
+                 echo json_encode(['success' => false, 'message' => 'Error general: ' . $e->getMessage()]);
+            }
+        } else {
+             http_response_code(405); // Method Not Allowed
+             echo json_encode(['success' => false, 'message' => 'Método no permitido. Se esperaba GET.']);
+        }
+        break;
 
 //Layout de los sliders de la web
             case 'admin/saveLayoutSettings':

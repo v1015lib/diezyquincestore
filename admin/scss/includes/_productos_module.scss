@@ -189,6 +189,7 @@
 
 // Tabla de productos
 .product-table {
+
   width: 100vw;
   border-collapse: collapse;
 
@@ -981,6 +982,7 @@
   width: 100%;
   border-collapse: collapse;
   background-color: white;
+  height: calc(100vh - 550px);
 
   // Estilo base para celdas
   th,
@@ -1157,4 +1159,278 @@
     height: 100%;
     object-fit: cover;
   }
+}
+/* ============================================
+   ESTILOS RESPONSIVOS PARA MÓVILES (NUEVO ENFOQUE CON DIVs)
+   ============================================ */
+
+@media (max-width: 768px) {
+
+
+
+  // Contenedor principal para las tarjetas
+  #action-content #product-list-container { // Añadida especificidad
+    max-height: none;
+    padding: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.75rem;
+    overflow-y: visible;
+    overflow-x: hidden;
+    border: none; // Quita el borde del contenedor grid
+    border-radius: 0;
+
+    // Asegura que la tabla (ahora oculta) no interfiera
+    .product-table {
+        display: none !important;
+    }
+  }
+
+   // --- Ajustes al header de filtros para móvil (ya estaban bien) ---
+  #action-content .product-list-header { // Añadida especificidad
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    margin-bottom: 0.5rem;
+
+    .filters-container {
+      width: 100%;
+      flex-direction: column;
+      gap: 0.5rem;
+
+      input, select {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 0.85rem;
+      }
+
+      .form-group {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        label {
+          font-size: 0.85rem;
+          flex-basis: auto;
+          padding-right: 0.5rem;
+        }
+      }
+    }
+
+    .batch-actions-container {
+      width: 100%;
+      flex-direction: column;
+      gap: 0.5rem;
+
+      select, button {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 0.85rem;
+      }
+    }
+  }
+
+  // --- Estilos para cada tarjeta de producto ---
+  #action-content .product-card { // Añadida especificidad
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border: 1px solid $border-color;
+    border-radius: 8px;
+    padding: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+  }
+
+  // Checkbox en la esquina
+  #action-content .product-card-checkbox { // Añadida especificidad
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2;
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+  }
+
+  // Imagen del producto
+  #action-content .product-card-image { // Añadida especificidad
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+    img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+  }
+
+  // Código del producto
+  #action-content .product-card-code { // Añadida especificidad
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-align: center;
+    margin-bottom: 0.15rem;
+    font-weight: 500;
+  }
+
+  // Nombre del producto
+  #action-content .product-card-name { // Añadida especificidad
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: $primary-color;
+    text-align: center;
+    margin-bottom: 0.4rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    min-height: 2.6em;
+    &.editable:hover::after { display: none; } // Oculta emoji en móvil
+  }
+
+   // Detalles (Depto y Marca)
+  #action-content .product-card-details { // Añadida especificidad
+    font-size: 0.7rem;
+    color: #555;
+    text-align: center;
+    margin-bottom: 0.3rem;
+    span { white-space: nowrap; }
+  }
+
+  // Etiquetas
+  #action-content .product-card-tags { // Añadida especificidad
+    font-size: 0.65rem;
+    color: #6c757d;
+    text-align: center;
+    margin: 0.2rem 0;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.4em;
+    &::before { content: "🏷️ "; opacity: 0.7; }
+    &:empty { display: none; }
+  }
+
+  // Precio
+  #action-content .product-card-price { // Añadida especificidad
+    font-size: 1rem;
+    font-weight: 700;
+    color: darken($primary-color, 5%);
+    text-align: center;
+    margin: 0.4rem 0;
+    padding: 0.2rem 0.4rem;
+    background: lighten($tcolor2, 45%);
+    border-radius: 4px;
+    cursor: pointer;
+    &.editable:hover::after { display: none; } // Oculta emoji en móvil
+  }
+
+  // Stock
+  #action-content .product-card-stock { // Añadida especificidad
+    font-size: 0.7rem;
+    text-align: center;
+    margin: 0.25rem 0;
+    color: #343a40;
+    &.stock-low {
+      color: #dc3545;
+      font-weight: 600;
+      &::before { content: "⚠️ "; }
+    }
+  }
+
+  // Estado
+  #action-content .product-card-status { // Añadida especificidad
+    text-align: center;
+    margin: 0.4rem 0;
+    .status-badge { // Hereda estilos generales, solo ajusta tamaño
+      padding: 0.3rem 0.6rem;
+      font-size: 0.65rem;
+    }
+  }
+
+  // Botón de editar
+  #action-content .product-card-actions { // Añadida especificidad
+    margin-top: auto;
+    padding-top: 0.5rem;
+    .edit-product-btn { // Reutiliza la clase base .action-btn si es posible
+      width: 100%;
+      padding: 0.5rem;
+      background: $primary-color;
+      color: $tcolor2;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.2s ease;
+      &:hover {
+        background: darken($primary-color, 10%);
+      }
+    }
+  }
+
+  // Mensaje 'No productos' y 'Error'
+  #action-content .no-products-message,
+  #action-content .error-message { // Añadida especificidad
+     grid-column: 1 / -1;
+     text-align: center;
+     padding: 2rem 1rem;
+     font-size: 0.85rem;
+     color: #6c757d;
+  }
+  #action-content .error-message { // Añadida especificidad
+      color: #dc3545;
+  }
+
+  // Skeleton loader para móvil
+  #action-content .product-card.skeleton-loader { // Añadida especificidad
+    padding: 0;
+    .skeleton-pulse {
+      height: 200px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 8px;
+    }
+  }
+
+  // Keyframes para la animación del skeleton
+  @keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+} // Fin de @media (max-width: 768px)
+
+// --- Ajustes adicionales para pantallas más pequeñas si es necesario ---
+@media (max-width: 400px) {
+  #action-content #product-list-container { // Añadida especificidad
+     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  #action-content .product-card-name { font-size: 0.75rem; } // Añadida especificidad
+  #action-content .product-card-price { font-size: 0.9rem; } // Añadida especificidad
+}
+
+.table-container{
+
+
+
+
+
+
 }

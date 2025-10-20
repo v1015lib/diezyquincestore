@@ -608,34 +608,94 @@ async function fetchAndRenderProducts() {
     if (isLoading || currentFilters.page === -1) return;
     isLoading = true;
 
+    // --- MODIFICACIÓN: Usa el DIV contenedor directamente ---
+    const productContainer = document.getElementById('product-list-container');
+    // Mantenemos la referencia al tbody por compatibilidad, pero en móvil usaremos el container
     const tableBody = document.getElementById('product-table-body');
-    const loadingIndicator = document.getElementById('loading-indicator');
+    let loadingIndicator = document.getElementById('loading-indicator'); // Usa let para poder reasignar
     const showImagesCheckbox = document.getElementById('toggle-product-images');
-    const showImages = showImagesCheckbox ? showImagesCheckbox.checked : false;
+    const showImages = showImagesCheckbox ? showImagesCheckbox.checked : true; // Default true para móvil
 
-    document.querySelectorAll('.product-image-col').forEach(col => {
-        col.style.display = showImages ? '' : 'none';
-    });
-    
-    if (!tableBody || !loadingIndicator) {
+    const isMobile = window.innerWidth <= 768;
+
+    // --- MODIFICACIÓN: Selecciona el contenedor correcto ---
+    // En móvil, añadimos directamente a productContainer, antes del loadingIndicator
+    // En escritorio, añadimos a tableBody
+    const targetContainer = isMobile ? productContainer : tableBody;
+
+    if (!productContainer || !tableBody || !loadingIndicator) { // Verifica los 3 elementos clave
         isLoading = false;
+        console.error("Error: Contenedor de productos, tbody o indicador de carga no encontrado.");
         return;
     }
 
+    // Ocultar/Mostrar la tabla real en desktop/mobile
+    const productTable = productContainer.querySelector('.product-table');
+    if (productTable) {
+        productTable.style.display = isMobile ? 'none' : ''; // Oculta tabla en móvil, muestra en desktop
+    }
+
+    // --- MODIFICACIÓN: Limpia el contenedor correcto ---
     if (currentFilters.page === 1) {
-        tableBody.innerHTML = ''; 
+        if (isMobile) {
+            // En móvil, vaciamos el contenedor principal EXCEPTO la tabla oculta y el loading
+             // Selecciona todos los hijos excepto la tabla y el indicador de carga
+            Array.from(productContainer.children).forEach(child => {
+                // Asegúrate de que la tabla y el loading no se eliminen
+                if (!child.classList.contains('product-table') && child.id !== 'loading-indicator') {
+                    productContainer.removeChild(child);
+                }
+            });
+             // Asegura que el loading indicator exista si fue borrado accidentalmente
+            if (!document.getElementById('loading-indicator')) {
+                const newLoadingIndicator = document.createElement('div');
+                newLoadingIndicator.id = 'loading-indicator';
+                newLoadingIndicator.style.cssText = 'display: none; text-align: center; padding: 1rem;';
+                newLoadingIndicator.textContent = 'Cargando más productos...';
+                productContainer.appendChild(newLoadingIndicator);
+                loadingIndicator = newLoadingIndicator; // Reasigna la referencia
+            }
+        } else {
+             tableBody.innerHTML = ''; // Limpia solo el tbody en desktop
+        }
+    }
+
+
+    // Mostrar/ocultar columnas de imagen solo en desktop
+    if (!isMobile) {
+        document.querySelectorAll('.product-image-col').forEach(col => {
+            col.style.display = showImages ? '' : 'none';
+        });
     }
 
     const skeletonRowCount = 10;
-    const skeletonColCount = showImages ? 14 : 13;
-    const skeletonRowHtml = `
-        <tr class="skeleton-loader">
-            <td colspan="${skeletonColCount}" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
-        </tr>
-    `;
-    for (let i = 0; i < skeletonRowCount; i++) {
-        tableBody.insertAdjacentHTML('beforeend', skeletonRowHtml);
+    // Skeleton loader adaptativo
+    if (currentFilters.page === 1) { // Mostrar skeleton solo en la primera carga
+        if (isMobile) {
+            // Para móvil: skeleton como cards
+            const skeletonCardHtml = `
+                <div class="product-card skeleton-loader">
+                    <div class="skeleton-pulse"></div>
+                </div>
+            `;
+            for (let i = 0; i < skeletonRowCount; i++) {
+                // Insertar antes del loading indicator
+                loadingIndicator.insertAdjacentHTML('beforebegin', skeletonCardHtml);
+            }
+        } else {
+             // Para desktop: skeleton como tabla (tu código original)
+            const skeletonColCount = showImages ? 14 : 13;
+            const skeletonRowHtml = `
+                <tr class="skeleton-loader">
+                    <td colspan="${skeletonColCount}" style="padding: 0; border: none;"><div class="skeleton-pulse"></div></td>
+                </tr>
+            `;
+            for (let i = 0; i < skeletonRowCount; i++) {
+                tableBody.insertAdjacentHTML('beforeend', skeletonRowHtml);
+            }
+        }
     }
+
     loadingIndicator.style.display = 'block';
 
     const { search, department, store, sort, page } = currentFilters;
@@ -646,70 +706,127 @@ async function fetchAndRenderProducts() {
         if (!response.ok) throw new Error(`Error en la API: ${response.statusText}`);
         const data = await response.json();
 
-        tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
+        // Eliminar Skeletons
+        productContainer.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
 
         if (data.success && data.products.length > 0) {
             data.products.forEach(product => {
-                const row = document.createElement('tr');
-                row.dataset.productId = product.id_producto;
-                row.dataset.status = (product.nombre_estado || '').toLowerCase();
                 const statusClass = (product.nombre_estado || '').toLowerCase() === 'activo' ? 'status-active' : 'status-inactive';
                 const usaInventarioText = product.usa_inventario == 1 ? 'Sí' : 'No';
                 const stockMinimo = parseInt(product.stock_minimo, 10);
                 const stockActual = parseInt(product.stock_actual, 10);
                 const stockClass = (product.usa_inventario == 1 && !isNaN(stockMinimo) && stockMinimo > 0 && stockActual < stockMinimo) ? 'stock-low' : '';
-
                 const imageUrl = (product.url_imagen && product.url_imagen !== '0') ? product.url_imagen : 'img/favicon.png';
-                
-                const imageCell = showImages ? 
-                    `<td class="product-image-col">
-                        <div class="product-table-img-container">
-                            <img src="${imageUrl}" class="product-table-img" alt="${product.nombre_producto}" loading="lazy">
-                        </div>
-                    </td>` : 
-                    '<td class="product-image-col" style="display: none;"></td>';
 
-                row.innerHTML = `
-                    <td><input type="checkbox" class="product-checkbox"></td>
-                    ${imageCell}
-                    <td data-field="codigo_producto">${product.codigo_producto}</td>
-                    <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
-                    <td data-field="nombre_departamento">${product.nombre_departamento}</td>
-                    <td class="editable" data-field="id_marca" data-id="${product.id_marca || ''}">${product.nombre_marca || 'N/A'}</td>
-                    <td data-field="id_etiqueta">${product.todas_las_etiquetas || 'N/A'}</td>                    <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
-                    <td class="${stockClass}" data-field="stock_actual">${product.stock_actual ?? 'N/A'}</td>
-                    <td data-field="stock_minimo">${product.stock_minimo ?? 'N/A'}</td>
-                    <td data-field="stock_maximo">${product.stock_maximo ?? 'N/A'}</td>
-                    <td>${usaInventarioText}</td>
-                    <td data-field="nombre_estado"><span class="status-badge ${statusClass}">${product.nombre_estado}</span></td>
-                    <td><button class="action-btn edit-product-btn">Editar</button></td>
-                `;
-                tableBody.appendChild(row);
+                if (isMobile) {
+                    // --- RENDERIZADO PARA MÓVIL (DIVs) ---
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    card.dataset.productId = product.id_producto;
+                    card.dataset.status = (product.nombre_estado || '').toLowerCase();
+
+                    // Construcción del HTML interno de la tarjeta
+                    card.innerHTML = `
+                        <div class="product-card-checkbox">
+                            <input type="checkbox" class="product-checkbox">
+                        </div>
+                        ${showImages ? `
+                        <div class="product-card-image">
+                            <img src="${imageUrl}" alt="${product.nombre_producto}" loading="lazy">
+                        </div>
+                        ` : ''}
+                        <div class="product-card-code">${product.codigo_producto}</div>
+                        <div class="product-card-name editable" data-field="nombre_producto">${product.nombre_producto}</div>
+                        <div class="product-card-details">
+                            <span data-field="nombre_departamento">D: ${product.nombre_departamento || 'N/A'}</span> |
+                            <span data-field="id_marca">M: ${product.nombre_marca || 'N/A'}</span>
+                        </div>
+                        <div class="product-card-tags" data-field="id_etiqueta">${product.todas_las_etiquetas || ''}</div>
+                        <div class="product-card-price editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</div>
+                        <div class="product-card-stock ${stockClass}" data-field="stock_actual">
+                            Stock: ${product.stock_actual ?? 'N/A'} ${usaInventarioText === 'Sí' ? `(Min: ${product.stock_minimo ?? 'N/A'})` : ''}
+                        </div>
+                        <div class="product-card-status" data-field="nombre_estado">
+                            <span class="status-badge ${statusClass}">${product.nombre_estado}</span>
+                        </div>
+                        <div class="product-card-actions">
+                            <button class="action-btn edit-product-btn">Editar</button>
+                        </div>
+                    `;
+                     // Insertar la tarjeta ANTES del loading indicator
+                    loadingIndicator.insertAdjacentElement('beforebegin', card);
+
+                } else {
+                    // --- RENDERIZADO PARA DESKTOP (TABLA - Tu código original) ---
+                    const row = document.createElement('tr');
+                    row.dataset.productId = product.id_producto;
+                    row.dataset.status = (product.nombre_estado || '').toLowerCase();
+
+                     const imageCell = showImages ?
+                        `<td class="product-image-col">
+                            <div class="product-table-img-container">
+                                <img src="${imageUrl}" class="product-table-img" alt="${product.nombre_producto}" loading="lazy">
+                            </div>
+                        </td>` :
+                        '<td class="product-image-col" style="display: none;"></td>';
+
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="product-checkbox"></td>
+                        ${imageCell}
+                        <td data-field="codigo_producto">${product.codigo_producto}</td>
+                        <td class="editable" data-field="nombre_producto">${product.nombre_producto}</td>
+                        <td data-field="nombre_departamento">${product.nombre_departamento}</td>
+                        <td class="editable" data-field="id_marca" data-id="${product.id_marca || ''}">${product.nombre_marca || 'N/A'}</td>
+                        <td data-field="id_etiqueta">${product.todas_las_etiquetas || 'N/A'}</td>
+                        <td class="editable" data-field="precio_venta">$${parseFloat(product.precio_venta).toFixed(2)}</td>
+                        <td class="${stockClass}" data-field="stock_actual">${product.stock_actual ?? 'N/A'}</td>
+                        <td data-field="stock_minimo">${product.stock_minimo ?? 'N/A'}</td>
+                        <td data-field="stock_maximo">${product.stock_maximo ?? 'N/A'}</td>
+                        <td>${usaInventarioText}</td>
+                        <td data-field="nombre_estado"><span class="status-badge ${statusClass}">${product.nombre_estado}</span></td>
+                        <td><button class="action-btn edit-product-btn">Editar</button></td>
+                    `;
+                    tableBody.appendChild(row); // Añade a tbody en desktop
+                }
             });
 
-            if (data.products.length < 50) { 
-                currentFilters.page = -1;
+            if (data.products.length < 50) {
+                currentFilters.page = -1; // No hay más páginas
             } else {
                 currentFilters.page++;
             }
         } else {
-            if (page === 1) {
-                const colspan = showImages ? 14 : 13;
-                tableBody.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
+            if (currentFilters.page === 1) { // Solo muestra "No encontrado" si es la primera página
+                 // --- MODIFICACIÓN: Mensaje adaptativo ---
+                const noResultsMessage = isMobile ? '<p class="no-products-message">No se encontraron productos.</p>' : `<tr><td colspan="${showImages ? 14 : 13}">No se encontraron productos.</td></tr>`;
+                // Inserta el mensaje antes del loading indicator en móvil, o en el tbody en desktop
+                if (isMobile && loadingIndicator) { // Asegura que loadingIndicator exista
+                    loadingIndicator.insertAdjacentHTML('beforebegin', noResultsMessage);
+                } else if (!isMobile){
+                    tableBody.innerHTML = noResultsMessage;
+                }
             }
-            currentFilters.page = -1;
+            currentFilters.page = -1; // Detiene la carga infinita
         }
-        updateSortIndicators();
-        updateBatchActionsState();
+        updateSortIndicators(); // Sigue siendo útil para desktop
+        updateBatchActionsState(); // Sigue funcionando con los checkboxes
+
     } catch (error) {
-        tableBody.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
-        if (page === 1) {
-            const colspan = showImages ? 14 : 13;
-            tableBody.innerHTML = `<tr><td colspan="${colspan}" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
+        productContainer.querySelectorAll('.skeleton-loader').forEach(s => s.remove());
+        if (currentFilters.page === 1) {
+             // --- MODIFICACIÓN: Mensaje de error adaptativo ---
+             const errorMessage = isMobile ? `<p class="error-message">Error al cargar: ${error.message}</p>` : `<tr><td colspan="${showImages ? 14 : 13}" style="color:red;">Error al cargar: ${error.message}</td></tr>`;
+             // Inserta el mensaje antes del loading indicator en móvil, o en el tbody en desktop
+             if (isMobile && loadingIndicator) { // Asegura que loadingIndicator exista
+                 loadingIndicator.insertAdjacentHTML('beforebegin', errorMessage);
+             } else if (!isMobile) {
+                 tableBody.innerHTML = errorMessage;
+             }
         }
+        console.error("Error en fetchAndRenderProducts:", error);
     } finally {
         isLoading = false;
-        loadingIndicator.style.display = 'none';
+        if(loadingIndicator) loadingIndicator.style.display = 'none'; // Oculta solo si existe
     }
 }
 async function populateSelectWithOptions(select, resource, dataKey, keyField, valueField, defaultOptionText) {
@@ -739,17 +856,15 @@ async function populateSelectWithOptions(select, resource, dataKey, keyField, va
 // EN: admin/js/admin.js
 
 function handleScroll() {
-    // Apuntamos al contenedor principal del contenido, que es el que ahora se desplaza
-    const container = document.getElementById('main-content'); 
+    const container = document.getElementById('main-content');
     if (!container) return;
 
     // --- MODIFICACIÓN CLAVE ---
-    // Esta condición ahora solo se cumple si el usuario está
-    // prácticamente al final del scroll (con un margen de 5px).
-    const atTheBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 5;
+    // Aumentamos el umbral para detectar el final (de 5 a 50 píxeles antes)
+    const atTheBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100; // <-- CAMBIO AQUÍ
 
     if (atTheBottom && !isLoading && currentFilters.page !== -1) {
-        fetchAndRenderProducts(); // Llama a cargar la siguiente página de productos
+        fetchAndRenderProducts();
     }
 }
 
@@ -2862,46 +2977,52 @@ if (target.id === 'download-zip-btn') {
         return;
     }
 
-    if (target.classList.contains('edit-product-btn')) {
-        const productCode = target.closest('tr').querySelector('td[data-field="codigo_producto"]').textContent;
+if (target.classList.contains('edit-product-btn')) {
+        let productCode = '';
+        const card = target.closest('.product-card'); // Intenta encontrar la tarjeta (móvil)
+        const row = target.closest('tr'); // Intenta encontrar la fila (escritorio)
+
+        if (card) {
+            // --- Lógica CORREGIDA para MÓVIL (Tarjeta) ---
+            // Buscamos el div que contiene el código usando su clase específica
+            const codeElement = card.querySelector('.product-card-code');
+            if (codeElement) {
+                productCode = codeElement.textContent.trim();
+            } else {
+                 console.error("Elemento .product-card-code no encontrado en la tarjeta.");
+                 alert("Error: No se pudo encontrar el código del producto en la tarjeta.");
+                 return; // Detiene si no encuentra el código
+            }
+        } else if (row) {
+            // --- Lógica para ESCRITORIO (Tabla - Sin cambios) ---
+            const codeCell = row.querySelector('td[data-field="codigo_producto"]');
+            if (codeCell) {
+                productCode = codeCell.textContent.trim();
+            } else {
+                console.error("Celda td[data-field='codigo_producto'] no encontrada en la fila.");
+                alert("Error: No se pudo encontrar el código del producto en la tabla.");
+                return; // Detiene si no encuentra el código
+            }
+        } else {
+             console.error("No se encontró ni tarjeta (.product-card) ni fila (tr) para el botón editar.");
+             alert("Error: No se pudo determinar la estructura del producto.");
+             return; // Detiene si no encuentra ni card ni row
+        }
+
+        // --- Código común (ahora se ejecuta solo si productCode tiene valor) ---
         mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
         mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
-        await loadActionContent('productos/modificar_producto');
+        await loadActionContent('productos/modificar_producto'); // Carga la vista de modificar
         const searchInput = document.getElementById('product-search-to-edit');
         const searchForm = document.getElementById('product-search-form');
         if (searchInput && searchForm) {
-            searchInput.value = productCode;
-            searchForm.dispatchEvent(new Event('submit'));
+            searchInput.value = productCode; // Pone el código en el buscador
+            searchForm.dispatchEvent(new Event('submit')); // Simula el envío para cargar el producto
+        } else {
+             console.error("No se encontró el input o formulario de búsqueda para editar.");
+             alert("Error al intentar cargar el formulario de edición.");
         }
-        return;
-    }
-
-    if (target.classList.contains('delete-proveedor-btn')) {
-        const row = target.closest('tr');
-        const proveedorId = row.dataset.proveedorId;
-        const proveedorName = row.querySelector('td:nth-child(2)').textContent;
-        if (confirm(`¿Estás seguro de que quieres eliminar al proveedor "${proveedorName}"?`)) {
-            deleteProveedor(proveedorId);
-        }
-        return;
-    }
-        if (target.classList.contains('delete-marca-btn')) {
-        const row = target.closest('tr');
-        const marcaId = row.dataset.marcaId;
-        const marcaName = row.querySelector('td:nth-child(2)').textContent;
-        if (confirm(`¿Estás seguro de que quieres eliminar la marca "${marcaName}"?`)) {
-            deleteMarca(marcaId);
-        }
-        return;
-    }
-    if (target.classList.contains('delete-etiqueta-btn')) {
-        const row = target.closest('tr');
-        const etiquetaId = row.dataset.etiquetaId;
-        const etiquetaName = row.querySelector('td:nth-child(2)').textContent;
-        if (confirm(`¿Estás seguro de que quieres eliminar la etiqueta "${etiquetaName}"?`)) {
-            deleteEtiqueta(etiquetaId);
-        }
-        return;
+        return; // Detiene la ejecución para este evento de clic
     }
 });
 

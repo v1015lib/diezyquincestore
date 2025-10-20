@@ -57,7 +57,7 @@
         </tr>
     </thead>
     <tbody id="product-table-body">
-        </tbody>
+    </tbody>
 </table>
     <div id="loading-indicator" style="display: none; text-align: center; padding: 1rem;">Cargando más productos...</div>
 </div>
