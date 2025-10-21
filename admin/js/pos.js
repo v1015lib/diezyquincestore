@@ -1,4 +1,5 @@
 function initializePOS() {
+    let audioCtx = null;
     let currentTicket = [];
     let currentSaleId = null;
     let currentClientId = 1;
@@ -51,7 +52,11 @@ function initializePOS() {
     const storeNameDisplay = document.getElementById('store-name-display');
     const changeStoreBtn = document.getElementById('change-store-btn');
 
-
+    const scanBarcodeBtn = document.getElementById('scan-barcode-btn');
+    const barcodeScannerContainer = document.getElementById('barcode-scanner-container');
+    const closeScannerBtn = document.getElementById('close-scanner-btn');
+    const qrReaderElement = document.getElementById('qr-reader');
+    let html5QrCode = null;
 
     let debounceTimer;
     const API_URL = '../api/index.php';
@@ -64,8 +69,152 @@ if (storeSelectionModal) {
         }
     });
 }
+function playBeepSound() {
+        try {
+            // Crea un contexto de audio (si no existe ya)
+            const audioCtx = window.AudioContext || window.webkitAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Crea un oscilador (genera el tono)
+            const oscillator = audioCtx.createOscillator();
+            // Crea un nodo de ganancia (controla el volumen)
+            const gainNode = audioCtx.createGain();
+
+            // Conecta el oscilador a la ganancia, y la ganancia a la salida (altavoces)
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            // Configura el sonido del beep
+            oscillator.type = 'sine'; // Tipo de onda (sine es suave)
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Frecuencia del tono (La A5)
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // Volumen (0 a 1)
+
+            // Inicia el sonido
+            oscillator.start();
+
+            // Detiene el sonido después de un corto tiempo (ej. 100ms)
+            oscillator.stop(audioCtx.currentTime + 0.1); // Duración del beep
+
+        } catch (e) {
+            console.error("Error al reproducir el sonido:", e);
+             // Puedes ignorar errores si el navegador no soporta AudioContext
+        }
+    }
+// --- Lógica del Escáner de Códigos de Barras ---
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // Poner el código escaneado en el input
+        productInput.value = decodedText;
+        
+        // Simular Enter para buscar el producto
+        const enterEvent = new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', charCode: 13, keyCode: 13, bubbles: true });
+        productInput.dispatchEvent(enterEvent);
+        
+        // Cerrar el escáner
+        stopScanner();
+    }
+
+    function onScanFailure(error) {
+        // Opcional: Manejar errores o simplemente ignorarlos si no se detecta código
+        // console.warn(`Error de escaneo = ${error}`);
+    }
 
 
+
+    function onScanSuccess(decodedText, decodedResult) {
+        
+        playBeepSound(); // <<<--- LLAMA A LA FUNCIÓN DEL SONIDO AQUÍ ---<<<
+        
+
+        // Poner el código escaneado en el input
+        productInput.value = decodedText;
+        
+        // Simular Enter para buscar el producto
+        const enterEvent = new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', charCode: 13, keyCode: 13, bubbles: true });
+        productInput.dispatchEvent(enterEvent);
+        
+        // Cerrar el escáner
+        stopScanner();
+    }
+function startScanner() {
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("qr-reader");
+        }
+
+        // --- Mostrar el contenedor ANTES de intentar iniciar la cámara ---
+        barcodeScannerContainer.style.display = 'flex';
+        qrReaderElement.innerHTML = '<p>Iniciando cámara...</p>'; // Mensaje mientras carga
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        const preferredCameraConfig = { facingMode: "environment" }; // Priorizar cámara trasera
+
+        html5QrCode.start(
+            preferredCameraConfig,
+            config,
+            onScanSuccess,
+            onScanFailure
+        ).catch((err) => {
+            console.warn("Fallo al iniciar cámara trasera, intentando con cámara por defecto:", err);
+            // Intento con cámara por defecto si falla la trasera
+            html5QrCode.start(
+                { }, // Sin especificar 'facingMode'
+                config,
+                onScanSuccess,
+                onScanFailure
+            ).catch(finalErr => {
+                 console.error("Error final al iniciar el escáner:", finalErr);
+                 // --- Mostrar notificación al usuario ---
+                 qrReaderElement.innerHTML = `<p style="color: red;">Error: No se pudo acceder a la cámara. Revisa los permisos.</p>`;
+                 // No ocultamos el contenedor aquí, para que el usuario vea el error y pueda cerrarlo manualmente.
+                 // barcodeScannerContainer.style.display = 'none';
+                 showPOSNotificationModal('Error de Cámara', `No se pudo acceder a la cámara. Asegúrate de haber concedido los permisos necesarios en tu navegador. Detalles: ${finalErr}`, 'error');
+            });
+        });
+    }
+
+    // Asegúrate de que el botón de cerrar siempre funcione
+function stopScanner() {
+        // Oculta el contenedor inmediatamente
+        barcodeScannerContainer.style.display = 'none';
+        qrReaderElement.innerHTML = ''; // Limpia el contenido del lector
+
+        // Intenta detener el escáner si está activo
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                console.log("Escáner detenido correctamente.");
+            }).catch((err) => {
+                // A menudo puede dar error si ya se estaba deteniendo, es seguro ignorarlo
+                console.warn("Error menor al intentar detener el escáner (puede ser normal):", err);
+            }).finally(() => {
+                 html5QrCode = null; // Resetea la instancia por si acaso
+                 // productInput.focus(); // <<--- ELIMINA O COMENTA ESTA LÍNEA ---<<<
+            });
+        } else {
+             // productInput.focus(); // <<--- TAMBIÉN ELIMINA O COMENTA ESTA LÍNEA ---<<<
+        }
+    }
+
+    // Añade el listener SOLO si el botón existe
+    if (scanBarcodeBtn) {
+        scanBarcodeBtn.addEventListener('click', startScanner);
+    } else {
+        console.warn("El botón para escanear ('scan-barcode-btn') no se encontró.");
+    }
+
+    if (closeScannerBtn) {
+        closeScannerBtn.addEventListener('click', stopScanner);
+    } else {
+         console.warn("El botón para cerrar el escáner ('close-scanner-btn') no se encontró.");
+    }
+
+    if (scanBarcodeBtn) {
+        scanBarcodeBtn.addEventListener('click', startScanner);
+    }
+    
+    if (closeScannerBtn) {
+        closeScannerBtn.addEventListener('click', stopScanner);
+    }
+
+    // --- Fin Lógica del Escáner ---
     async function setupPOSForRole() {
         if (USER_ROLE === 'administrador_global') {
             changeStoreBtn.style.display = 'inline-block'; // Muestra el botón de "Cambiar Tienda"
@@ -92,9 +241,10 @@ if (storeSelectionModal) {
 
 
 
-    function enablePOSControls() {
+function enablePOSControls() {
         productInput.disabled = false;
         openSearchModalBtn.disabled = false;
+        if(scanBarcodeBtn) scanBarcodeBtn.disabled = false; // Habilitar botón de escáner
         productInput.focus();
     }
 
@@ -129,7 +279,14 @@ if (storeSelectionModal) {
 
             storeNameDisplay.textContent = `Operando desde: ${storeName}`;
             storeSelectionModal.style.display = 'none';
-            
+            if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("AudioContext inicializado por interacción.");
+            } catch (e) {
+                console.error("No se pudo crear AudioContext:", e);
+            }
+        }
             enablePOSControls();
             // Inicia una nueva venta para la tienda seleccionada
             await startOrResumeSale(selectedStoreId); 

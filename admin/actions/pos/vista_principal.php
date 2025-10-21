@@ -9,6 +9,7 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
     <div class="pos-input-container">
         <i class="fas fa-barcode"></i>
         <input type="text" id="pos-product-input" placeholder="Ingresar código de producto o usar atajos de teclado..." disabled>
+        <button id="scan-barcode-btn" class="btn btn-primary" disabled title="Escanear código de barras">📷</button>
         <button id="open-search-modal-btn" class="btn btn-primary" disabled>Buscar Producto</button>
         <button id="open-history-modal-btn" class="btn btn-primary">Historial Venta</button>
     </div>
@@ -17,6 +18,10 @@ $tiendas = $pdo->query("SELECT id_tienda, nombre_tienda FROM tiendas ORDER BY no
         <button id="change-store-btn" class="btn btn-sm btn-primary" style="display: none;">Cambiar Tienda</button>
     </div>
 </div> 
+<div id="barcode-scanner-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; flex-direction: column; align-items: center; justify-content: center;">
+            <div id="qr-reader" style="width: 80%; max-width: 500px; background: white; padding: 20px; border-radius: 8px;"></div>
+            <button id="close-scanner-btn" class="btn btn-danger" style="margin-top: 15px;">Cerrar Escáner</button>
+        </div>
         <div class="pos-ticket">
             <h3>Ticket de Venta</h3>
             <div class="ticket-table-container">
