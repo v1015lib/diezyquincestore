@@ -527,3 +527,11 @@
         margin-top: 15px;
     }
 }
+// Al final de _pos_module.scss
+
+// Ocultar botón de escáner en pantallas pequeñas (móviles)
+@media (min-width: 768px) { // Puedes ajustar este valor si lo necesitas
+  #scan-barcode-btn {
+    display: none; // Oculta el botón
+  }
+}
