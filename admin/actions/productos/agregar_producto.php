@@ -15,10 +15,17 @@ $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORD
     <form id="add-product-form" method="POST" enctype="multipart/form-data">
         <div id="form-messages"></div>
 
-        <div class="form-group">
-            <label for="codigo_producto">Código de Producto</label>
-            <input type="text" id="codigo_producto" name="codigo_producto" required>
-        </div>
+<div class="form-group">
+    <label for="codigo_producto">Código de Producto</label>
+    <div style="display: flex; flex-grow: 0.2; gap: 0.5rem;">
+        <input type="text" id="codigo_producto" name="codigo_producto" required style="flex-grow: 1;">
+        
+        <button type="button" id="scan-barcode-add-product" class="btn btn-primary" title="Escanear código de barras" style="flex-shrink: 0; padding: 0.5rem;">📷
+        </button>
+        
+    </div>
+    <div class="validation-feedback"></div>
+</div>
 
         <div class="form-group">
             <label for="nombre_producto">Nombre de Producto</label>

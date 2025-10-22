@@ -8,6 +8,8 @@
                 <label for="product-search-for-adjust">Código de Producto</label>
                 <input type="text" id="product-search-for-adjust" placeholder="Ej: PROD-001" required>
                 <button type="submit" class="action-btn">Buscar</button>
+                <button type="button" id="scan-barcode-adjust-stock" class="btn btn-primary" title="Escanear código de barras" style="flex-shrink: 0; padding: 0.5rem;">📷
+                </button>
             </div>
             <div id="search-feedback-adjust" class="validation-feedback"></div>
         </form>

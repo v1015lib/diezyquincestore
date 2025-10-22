@@ -5,7 +5,8 @@
 <div class="product-list-header">
     <div class="filters-container">
         <input type="text" id="product-search-input" class="form-control" placeholder="Buscar por nombre o código...">
-        
+                        <button type="button" id="scan-barcode-allProducts" class="btn btn-primary" title="Escanear código de barras" style="flex-shrink: 0; padding: 0.5rem;">📷
+                </button>
         <div class="form-group">
             <input type="checkbox" id="toggle-product-images" checked>
             <label for="toggle-product-images">Mostrar Imágenes</label>

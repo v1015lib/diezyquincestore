@@ -1564,7 +1564,7 @@ async function loadActionContent(actionPath) {
     if(mainContentContainer) {
         mainContentContainer.removeEventListener('scroll', handleScroll);
     }
-    
+    if (typeof stopAdminScanner === 'function') stopAdminScanner(); // Detiene el escáner si está activo
     actionContent.innerHTML = '<p>Cargando...</p>';
     try {
 
@@ -2421,9 +2421,33 @@ async function fetchAndRenderSalesSummary(startDate, endDate, storeId = null) {
 }
 
 
-
+//mainContent Global
 mainContent.addEventListener('click', async (event) => {
     const target = event.target;
+
+/*************************************************************/
+//Abrir Lector de Barra para modulo Inventario
+    if (event.target.id === 'scan-barcode-add-stock') { 
+
+
+        startAdminScanner('product-search-for-stock', true); 
+    }
+    if (event.target.id === 'scan-barcode-adjust-stock') { 
+
+
+        startAdminScanner('product-search-for-adjust', true); 
+    }
+
+    if (event.target.id === 'scan-barcode-allProducts') { 
+
+
+        startAdminScanner('product-search-input', true); 
+    }
+
+
+//Abrir Lector de Barra para modulo Inventario
+
+/***********************************************************/
 
 if (event.target.closest('#find-replace-modal')) {
         const modal = event.target.closest('#find-replace-modal');
@@ -7162,6 +7186,174 @@ function initializeTagInput(containerSelector = '.tag-input-container') {
     console.log("Tag Input Vanilla JS inicializado.");
 }
 
+// --- LÓGICA DEL ESCÁNER DE CÓDIGOS DE BARRAS (PARA ADMIN) ---
+    let adminHtml5QrCode = null;
+    let adminAudioCtx = null; // Para el sonido del beep
+    let scanTargetInputId = null; // Para saber qué input rellenar
+    let triggerSearchOnScan = false; // Para saber si buscar después de escanear
 
+    const adminBarcodeScannerContainer = document.createElement('div');
+    adminBarcodeScannerContainer.id = 'admin-barcode-scanner-container';
+    adminBarcodeScannerContainer.style.cssText = `
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8); z-index: 3000; flex-direction: column;
+        align-items: center; justify-content: center;
+    `;
+    adminBarcodeScannerContainer.innerHTML = `
+        <div id="admin-qr-reader" style="width: 80%; max-width: 500px; background: white; padding: 20px; border-radius: 8px;"></div>
+        <button id="admin-close-scanner-btn" class="btn btn-danger" style="margin-top: 15px;">Cerrar Escáner</button>
+    `;
+    document.body.appendChild(adminBarcodeScannerContainer);
+
+    const adminQrReaderElement = document.getElementById('admin-qr-reader');
+    const adminCloseScannerBtn = document.getElementById('admin-close-scanner-btn');
+
+    // Inicializar AudioContext con interacción del usuario (si no existe ya)
+    function initAdminAudioContext() {
+        if (!adminAudioCtx && (window.AudioContext || window.webkitAudioContext)) {
+            try {
+                adminAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("Admin AudioContext inicializado.");
+            } catch (e) {
+                console.error("No se pudo crear AudioContext para admin:", e);
+            }
+        }
+    }
+
+    // Función para reproducir sonido (copiada y adaptada de pos.js)
+    function playAdminBeepSound() {
+        if (!adminAudioCtx) return; // Si no hay contexto, no hacer nada
+        try {
+            const oscillator = adminAudioCtx.createOscillator();
+            const gainNode = adminAudioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(adminAudioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, adminAudioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.5, adminAudioCtx.currentTime);
+            oscillator.start();
+            oscillator.stop(adminAudioCtx.currentTime + 0.1);
+        } catch (e) {
+            console.error("Error al reproducir beep en admin:", e);
+        }
+    }
+
+    // Funciones de éxito y fallo del escaneo
+    function onAdminScanSuccess(decodedText, decodedResult) {
+        playAdminBeepSound(); // Reproducir sonido
+
+        if (scanTargetInputId) {
+            const targetInput = document.getElementById(scanTargetInputId);
+            if (targetInput) {
+                targetInput.value = decodedText;
+                // Disparar evento 'input' para validaciones en vivo si existen
+                targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                targetInput.dispatchEvent(new Event('keyup', { bubbles: true })); // Para validaciones que usan keyup
+
+                // Si se debe buscar automáticamente (Modificar Producto)
+                if (triggerSearchOnScan) {
+                    const form = targetInput.closest('form');
+                    if (form) {
+                        // Espera un breve momento para que la validación (si existe) se complete
+                         setTimeout(() => form.dispatchEvent(new Event('submit')), 100);
+                    }
+                }
+            }
+        }
+        stopAdminScanner();
+    }
+
+    function onAdminScanFailure(error) {
+        // console.warn(`Admin Scan Error = ${error}`);
+    }
+
+    // Función para iniciar el escáner
+    function startAdminScanner(targetId, autoSearch = false) {
+        // Inicializar contexto de audio en el primer clic/interacción
+        initAdminAudioContext();
+
+        scanTargetInputId = targetId;
+        triggerSearchOnScan = autoSearch;
+
+        if (!adminHtml5QrCode) {
+            try {
+                adminHtml5QrCode = new Html5Qrcode("admin-qr-reader");
+            } catch (e) {
+                 showPOSNotificationModal('Error', 'No se pudo inicializar el lector de códigos. Asegúrate de que la página se cargó por HTTPS.', 'error');
+                 console.error("Error al crear Html5Qrcode:", e);
+                 return;
+            }
+        }
+
+        adminBarcodeScannerContainer.style.display = 'flex';
+        adminQrReaderElement.innerHTML = '<p>Iniciando cámara...</p>';
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        const preferredCameraConfig = { facingMode: "environment" };
+
+        adminHtml5QrCode.start(preferredCameraConfig, config, onAdminScanSuccess, onAdminScanFailure)
+            .catch(() => {
+                adminHtml5QrCode.start({ }, config, onAdminScanSuccess, onAdminScanFailure) // Intenta con cámara por defecto
+                    .catch(finalErr => {
+                        console.error("Error final al iniciar el escáner admin:", finalErr);
+                        adminQrReaderElement.innerHTML = `<p style="color: red;">Error: No se pudo acceder a la cámara. Revisa los permisos.</p>`;
+                         showPOSNotificationModal('Error de Cámara', `No se pudo acceder a la cámara. Asegúrate de haber concedido los permisos necesarios. Detalles: ${finalErr}`, 'error');
+                    });
+            });
+    }
+
+    // Función para detener el escáner
+function stopAdminScanner() {
+    adminBarcodeScannerContainer.style.display = 'none';
+    adminQrReaderElement.innerHTML = ''; // Limpia el contenido del lector
+
+    // Guarda la referencia al input que debería enfocarse después
+    const inputToFocus = scanTargetInputId ? document.getElementById(scanTargetInputId) : null;
+    // Limpia las variables de estado inmediatamente
+    scanTargetInputId = null;
+    triggerSearchOnScan = false;
+
+    if (adminHtml5QrCode) {
+        const scannerInstance = adminHtml5QrCode; // Guarda la referencia actual
+        adminHtml5QrCode = null; // Establece a null INMEDIATAMENTE para prevenir reintentos con la instancia vieja
+
+        // Intenta detener usando la referencia guardada
+        scannerInstance.stop()
+            .then(() => {
+                console.log("Admin Scanner detenido correctamente.");
+            })
+            .catch(err => {
+                // Es común obtener un error si ya se estaba deteniendo o ya estaba detenido, usualmente se puede ignorar.
+                console.warn("Advertencia al detener escáner admin (puede ser normal):", err);
+            })
+            .finally(() => {
+                // Intenta devolver el foco DESPUÉS de que stop() haya terminado (o fallado)
+                // Usamos un pequeño retraso por si acaso el navegador necesita tiempo para liberar la cámara.
+                setTimeout(() => {
+                    inputToFocus?.focus();
+                }, 50); // Un retraso muy corto
+            });
+    } else {
+         // Si ya era null, intenta enfocar igualmente si había un input objetivo
+         setTimeout(() => {
+            inputToFocus?.focus();
+         }, 50);
+    }
+}
+
+    // Listener para el botón de cerrar
+    adminCloseScannerBtn.addEventListener('click', stopAdminScanner);
+
+    // Event Delegation para los botones de escaneo en el mainContent
+    mainContent.addEventListener('click', (event) => {
+        if (event.target.id === 'scan-barcode-add-product') {
+            startAdminScanner('codigo_producto', false); // Llama al escáner, apunta al input 'codigo_producto'
+        }
+        if (event.target.id === 'scan-barcode-modify-product') {
+            startAdminScanner('product-search-to-edit', true); // Llama al escáner, apunta a 'product-search-to-edit' y activa autoSearch
+        }
+        // ...otros listeners de click en mainContent...
+    });
+    // --- FIN LÓGICA DEL ESCÁNER ---
 });
 
