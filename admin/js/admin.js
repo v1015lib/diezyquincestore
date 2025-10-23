@@ -871,22 +871,50 @@ function handleScroll() {
 
 
 // EN: admin/js/admin.js
-// AÑADE esta nueva función (puede ser después de populateDepartmentFilter)
+// REEMPLAZA esta función completa para que acepte el parámetro selectorId
 
-async function populateStoreFilter() {
-    const filterSelect = document.getElementById('store-filter');
-    if (!filterSelect) return;
+async function populateStoreFilter(selectorId = 'store-filter') {
+    // ¡CORRECCIÓN AQUÍ! Se usa el parámetro selectorId
+    const filterSelect = document.getElementById(selectorId); 
+    
+    if (!filterSelect) {
+        // Esto no es un error, el elemento puede no existir en la página actual
+        // console.warn(`Selector de tienda no encontrado: ${selectorId}`);
+        return;
+    }
+    
+    const currentValue = filterSelect.value;
+    
+    // Texto por defecto personalizado según el ID del selector
+    let defaultOptionText = 'Todas las tiendas';
+    if (selectorId === 'report-store-selector') {
+        defaultOptionText = 'Seleccione una tienda';
+    } else if (selectorId === 'stats-store-filter') {
+        defaultOptionText = 'Todas las tiendas (Global)';
+    }
+
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/getTiendas`);
         const result = await response.json();
+        
         if (result.success && result.tiendas.length > 0) {
-            filterSelect.innerHTML = `<option value="">Todas las tiendas</option>`;
+            // Limpia las opciones
+            filterSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+
             result.tiendas.forEach(tienda => {
                 const option = document.createElement('option');
                 option.value = tienda.id_tienda;
                 option.textContent = tienda.nombre_tienda;
                 filterSelect.appendChild(option);
             });
+            
+            // Restaurar el valor seleccionado si aún existe
+            if (currentValue) {
+                filterSelect.value = currentValue;
+            }
+
+        } else {
+             filterSelect.innerHTML = `<option value="">No hay tiendas</option>`;
         }
     } catch (error) {
         console.error('Error al cargar tiendas:', error);
@@ -1606,7 +1634,12 @@ async function loadActionContent(actionPath) {
             case 'inventario/ajuste_inventario': initializeInventoryForm('adjust'); break;
             case 'inventario/historial_movimientos':
                 await populateMovementTypeFilter();
-                fetchAndRenderInventoryHistory();
+                fetchAndRenderInventoryHistory();break;
+            case 'inventario/reportes_rapidos_gestion':
+                await initializeInventoryReportManagement();
+                break;
+            case 'inventario/reportes_rapidos_ver':
+                await initializeInventoryReportView(actionContent);
                 break;
             case 'estadisticas/resumen': loadStatisticsWidgets(); break;
             case 'dashboard/ventas_por_usuario': await fetchAndRenderUserSales(); break;
@@ -2442,6 +2475,11 @@ mainContent.addEventListener('click', async (event) => {
 
 
         startAdminScanner('product-search-input', true); 
+    }
+    if (event.target.id === 'scan-barcode-add-item-report') { 
+
+
+        startAdminScanner('report-product-code', false); 
     }
 
 
@@ -7355,5 +7393,398 @@ function stopAdminScanner() {
         // ...otros listeners de click en mainContent...
     });
     // --- FIN LÓGICA DEL ESCÁNER ---
+
+
+
+
+    // --- INICIO: MÓDULO REPORTES RÁPIDOS DE INVENTARIO ---
+
+/**
+ * Inicializa la vista de gestión de reportes (la lista principal).
+ */
+async function initializeInventoryReportManagement() {
+    const createForm = document.getElementById('create-report-form');
+    const reportsTbody = document.getElementById('inventory-reports-tbody');
+    
+    // Poblar selectores de tienda (si existen)
+    if (USER_ROLE === 'administrador_global') {
+        // Pobla el selector para crear reportes
+        await populateStoreFilter('report-store-selector');
+        // Pobla el selector para filtrar la vista
+        await populateStoreFilter('view-report-store-filter');
+        
+        // Listener para el filtro de visualización
+        const viewFilter = document.getElementById('view-report-store-filter');
+        if (viewFilter) {
+            viewFilter.addEventListener('change', () => {
+                fetchAndRenderInventoryReports(viewFilter.value);
+            });
+        }
+    }
+
+    // Listener para el formulario de creación
+    if (createForm) {
+        createForm.addEventListener('submit', handleCreateInventoryReport);
+    }
+
+    // Listeners para la tabla (Ver / Eliminar)
+    if (reportsTbody) {
+        reportsTbody.addEventListener('click', async (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            const row = target.closest('tr');
+            const reportId = row.dataset.reportId;
+
+            if (target.classList.contains('view-report-btn')) {
+                // Carga la vista de "ver" para este reporte
+                loadActionContent(`inventario/reportes_rapidos_ver&id=${reportId}`);
+            } 
+            else if (target.classList.contains('delete-report-btn')) {
+                // Elimina el reporte
+                if (confirm(`¿Estás seguro de que quieres eliminar este reporte? Esta acción es irreversible.`)) {
+                    await deleteInventoryReport(reportId, row);
+                }
+            }
+        });
+    }
+
+    // Carga inicial de reportes
+    fetchAndRenderInventoryReports();
+}
+
+/**
+ * Busca y renderiza la lista de reportes en la tabla de gestión.
+ * @param {string} storeId - (Opcional) ID de la tienda para filtrar (solo admin global).
+ */
+async function fetchAndRenderInventoryReports(storeId = '') {
+    const tableBody = document.getElementById('inventory-reports-tbody');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="5">Cargando reportes...</td></tr>';
+
+    try {
+        let apiUrl = `${API_BASE_URL}?resource=admin/getInventoryReports`;
+        if (storeId) {
+            apiUrl += `&storeId=${storeId}`;
+        }
+
+        const response = await fetch(apiUrl);
+        const result = await response.json();
+
+        if (!result.success) throw new Error(result.error);
+
+        tableBody.innerHTML = '';
+        if (result.reports.length > 0) {
+            result.reports.forEach(report => {
+                const row = document.createElement('tr');
+                row.dataset.reportId = report.id_reporte;
+                row.innerHTML = `
+                    <td>${report.nombre_reporte}</td>
+                    <td>${report.nombre_tienda}</td>
+                    <td>${report.nombre_usuario}</td>
+                    <td>${new Date(report.fecha_creacion).toLocaleString('es-SV')}</td>
+                    <td class="action-buttons-cell">
+                        <button class="action-btn btn-sm view-report-btn" title="Ver/Editar">📝 Ver</button>
+                        <button class="action-btn btn-sm delete-report-btn" title="Eliminar" style="background-color: #f8d7da;">❌</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="5">No se encontraron reportes.</td></tr>';
+        }
+
+    } catch (error) {
+        tableBody.innerHTML = `<tr"><td colspan="5" style="color:red;">Error al cargar reportes: ${error.message}</td></tr>`;
+    }
+}
+
+/**
+ * Maneja el envío del formulario de creación de reportes.
+ */
+async function handleCreateInventoryReport(event) {
+    event.preventDefault();
+    const form = event.target;
+    const feedbackDiv = document.getElementById('create-report-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    // Ya tienes estos valores correctamente capturados
+    const reportNameInput = form.querySelector('#report-name');
+    const storeIdInput = form.querySelector('#report-store-selector');
+
+    const reportName = reportNameInput ? reportNameInput.value : '';
+    const storeId = storeIdInput ? storeIdInput.value : '';
+
+    // CORRECCIÓN: Validar que reportName no esté vacío
+    if (!reportName.trim()) {
+        feedbackDiv.innerHTML = `<div class="message error">El nombre del reporte es obligatorio.</div>`;
+        return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creando...';
+    feedbackDiv.innerHTML = '';
+
+    try {
+        console.log("Datos a enviar:", { nombre_reporte: reportName, id_tienda: storeId });
+        
+        const response = await fetch(`${API_BASE_URL}?resource=admin/createInventoryReport`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nombre_reporte: reportName,  // ✅ Usar la variable capturada
+                id_tienda: storeId            // ✅ Usar la variable capturada
+            })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        // Si se crea con éxito, redirige a la vista de "ver"
+        loadActionContent(`inventario/reportes_rapidos_ver&id=${result.newReportId}`);
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+        submitButton.disabled = false;
+        submitButton.textContent = 'Crear e Iniciar Reporte';
+    }
+}
+
+/**
+ * Elimina un reporte de inventario.
+ * @param {string} reportId - ID del reporte a eliminar.
+ * @param {HTMLElement} rowElement - La fila de la tabla para eliminar de la vista.
+ */
+async function deleteInventoryReport(reportId, rowElement) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteInventoryReport`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_reporte: reportId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        rowElement.remove(); // Elimina la fila de la vista
+
+    } catch (error) {
+        alert(`Error al eliminar el reporte: ${error.message}`);
+    }
+}
+
+
+// --- Funciones para la Vista de "Ver Reporte" ---
+
+async function initializeInventoryReportView(container) {
+    const reportContainer = container.querySelector('.lista-compras-container');
+    const addProductForm = document.getElementById('add-product-to-report-form');
+    const reportItemsTbody = document.getElementById('report-items-tbody'); // Añade referencia al tbody
+
+    if (!reportContainer) {
+        console.error("No se encontró el contenedor del reporte.");
+        return;
+    }
+
+    const reportId = reportContainer.dataset.reportId;
+    if (!reportId) {
+        console.error("No se encontró el ID del reporte en el dataset.");
+        return;
+    }
+
+    // Listener para el botón de salir (sin cambios)
+    const exitBtn = document.getElementById('exit-report-btn');
+    if (exitBtn) {
+        exitBtn.addEventListener('click', (e) => {
+            const action = e.target.dataset.action;
+            if (action) {
+                loadActionContent(action);
+            }
+        });
+    }
+
+    // Listener para añadir producto (sin cambios)
+    if (addProductForm) {
+        // ... (tu lógica existente para añadir productos)
+         const codeInput = document.getElementById('report-product-code');
+        const qtyInput = document.getElementById('report-product-qty');
+        let lastScanTime = 0;
+        const SCAN_DELAY = 300; // Milisegundos de delay después del escaneo
+
+        // Detectar cuando el código se completa (por escaneo o escritura)
+        codeInput.addEventListener('input', () => {
+            lastScanTime = Date.now();
+        });
+
+        // Prevenir envío inmediato del formulario
+        addProductForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const timeSinceLastInput = Date.now() - lastScanTime;
+
+            // Si el envío es muy rápido después del input (escáner), esperamos un momento
+            if (timeSinceLastInput < SCAN_DELAY) {
+                // Enfocar el campo de cantidad para que el usuario pueda modificarlo
+                qtyInput.select();
+
+                // Mostrar mensaje temporal
+                const feedbackDiv = document.getElementById('add-product-feedback');
+                feedbackDiv.innerHTML = `<div class="message" style="background-color: #fff3cd; color: #856404;">Código escaneado. Verifica la cantidad y presiona "Añadir" o Enter nuevamente.</div>`;
+
+                setTimeout(() => {
+                    feedbackDiv.innerHTML = '';
+                }, 2000);
+
+                return; // No enviar aún
+            }
+
+            // Si ya pasó el delay o el usuario presionó Enter manualmente, procesar
+            await handleAddProductToReport(reportId, addProductForm);
+        });
+
+        // ✅ ALTERNATIVA: Permitir Enter desde el campo de cantidad
+        qtyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Forzar el envío ignorando el delay
+                handleAddProductToReport(reportId, addProductForm);
+            }
+        });
+    }
+
+    // *** NUEVO: Listener para eliminar items ***
+    if (reportItemsTbody) {
+        reportItemsTbody.addEventListener('click', (e) => {
+            const deleteButton = e.target.closest('.delete-report-item-btn');
+            if (deleteButton) {
+                const row = deleteButton.closest('tr');
+                const reportItemId = row.dataset.itemId;
+                if (reportItemId) {
+                    handleDeleteReportItem(reportItemId, row);
+                }
+            }
+        });
+    }
+    // *** FIN NUEVO ***
+
+    // Carga inicial de los detalles e items del reporte (sin cambios)
+    await fetchAndRenderReportDetails(reportId);
+}
+
+/**
+ * Busca los detalles y los items de un reporte específico y los renderiza.
+ * @param {string} reportId - ID del reporte a cargar.
+ */
+async function fetchAndRenderReportDetails(reportId) {
+    const header = document.getElementById('report-name-header');
+    const tableBody = document.getElementById('report-items-tbody');
+
+    if (!header || !tableBody) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getInventoryReportDetails&id_reporte=${reportId}`);
+        const result = await response.json();
+
+        if (!result.success) throw new Error(result.error);
+
+        header.textContent = `Reporte: ${result.reportName}`;
+        tableBody.innerHTML = ''; // Limpiar la tabla
+
+        if (result.items.length > 0) {
+            result.items.forEach(item => {
+                const row = document.createElement('tr');
+                const imageUrl = (item.url_imagen && item.url_imagen !== '0') ? item.url_imagen : 'img/favicon.png';
+                
+                row.innerHTML = `
+                    <td>
+                        <div class="product-table-img-container">
+                            <img src="${imageUrl}" class="product-table-img" alt="${item.nombre_producto}" loading="lazy">
+                        </div>
+                    </td>
+                    <td>${item.codigo_producto}</td>
+                    <td>${item.nombre_producto}</td>
+                    <td>$${parseFloat(item.precio_venta).toFixed(2)}</td>
+                    <td style="font-weight: bold; font-size: 1.1rem;">${item.cantidad_reportada}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="5">Aún no hay productos en este reporte.</td></tr>';
+        }
+
+    } catch (error) {
+        header.textContent = 'Error al Cargar Reporte';
+        tableBody.innerHTML = `<tr><td colspan="5" style="color:red;">${error.message}</td></tr>`;
+    }
+}
+/**
+ * Maneja el envío del formulario para añadir un producto al reporte actual.
+ * @param {string} reportId - ID del reporte al que se añadirá el producto.
+ */
+async function handleAddProductToReport(reportId, form) {
+    const codeInput = document.getElementById('report-product-code');
+    const qtyInput = document.getElementById('report-product-qty');
+    const feedbackDiv = document.getElementById('add-product-feedback');
+    const submitButton = form.querySelector('.form-submit-btn');
+
+    const productCode = codeInput.value.trim();
+    const quantity = qtyInput.value;
+
+    if (!productCode || !quantity) {
+        feedbackDiv.innerHTML = `<div class="message error">Debes ingresar un código y una cantidad.</div>`;
+        return;
+    }
+
+    submitButton.disabled = true;
+    feedbackDiv.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/addProductToInventoryReport`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_reporte: reportId,
+                codigo_producto: productCode,
+                cantidad: quantity
+            })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        // Éxito: limpiar campos y recargar la lista de items
+        codeInput.value = '';
+        qtyInput.value = '1';
+        codeInput.focus(); // Devolver el foco al input de código
+        await fetchAndRenderReportDetails(reportId); // Recargar la lista
+
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="message error">${error.message}</div>`;
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
+async function handleDeleteReportItem(reportItemId, rowElement) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este item del reporte?')) {
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/deleteInventoryReportItem`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_item_reporte: reportItemId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+
+        rowElement.remove(); // Elimina la fila de la tabla
+
+    } catch (error) {
+        alert(`Error al eliminar el item: ${error.message}`);
+    }
+}
+// --- FIN: MÓDULO REPORTES RÁPIDOS DE INVENTARIO ---
+
+
+
+
 });
 

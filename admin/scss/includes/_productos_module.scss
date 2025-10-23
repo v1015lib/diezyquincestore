@@ -950,7 +950,7 @@
 // REEMPLAZA esta sección en tu archivo _productos_module.scss
 
 .product-list-container {
-  max-height: calc(100vh - 350px); // Altura máxima dejando espacio para header, filtros y footer
+
   overflow-y: auto; // Scroll vertical
   overflow-x: auto; // Scroll horizontal para tablas anchas
   border: 1px solid $border-color;
@@ -979,10 +979,10 @@
 
 // Tabla de productos
 .product-table {
-  width: 100%;
+  width: 100% ;
   border-collapse: collapse;
   background-color: white;
-  height: calc(100vh - 550px);
+
 
   // Estilo base para celdas
   th,
@@ -993,7 +993,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding: 0.5rem;
+    padding: 0.3rem;
   }
 
   thead {

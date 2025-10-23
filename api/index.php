@@ -52,8 +52,369 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+// --- INICIO: REPORTES RÁPIDOS DE INVENTARIO ---
 
 
+case 'admin/createInventoryReport':
+    // Verifica permisos
+    if (!in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda', 'bodeguero'])) {
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+        exit;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    $nombre_reporte = $data['nombre_reporte'] ?? null;
+    $id_tienda_reporte = $data['id_tienda'] ?? null;
+    $id_usuario = $_SESSION['id_usuario'];
+    
+    if (empty($nombre_reporte)) {
+        echo json_encode(['success' => false, 'error' => 'El nombre del reporte es obligatorio.']);
+        exit;
+    }
+    
+    // Asignar tienda basada en rol
+    if ($_SESSION['rol'] !== 'administrador_global') {
+        $id_tienda = $_SESSION['id_tienda'];
+    } else {
+        $id_tienda = $id_tienda_reporte;
+    }
+    
+    if (empty($id_tienda)) {
+        echo json_encode(['success' => false, 'error' => 'La tienda es obligatoria para crear el reporte.']);
+        exit;
+    }
+    
+    try {
+        $sql = "INSERT INTO reportes_inventario (nombre_reporte, id_tienda, id_usuario_creador) 
+                VALUES (:nombre_reporte, :id_tienda, :id_usuario)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':nombre_reporte' => $nombre_reporte,
+            ':id_tienda' => $id_tienda,
+            ':id_usuario' => $id_usuario
+        ]);
+        
+        $newReportId = $pdo->lastInsertId();
+        
+        // ✅ CORRECCIÓN: $id_usuario va en SEGUNDO lugar
+        logActivity(
+            $pdo,                           // 1. PDO
+            $id_usuario,                    // 2. User ID (INT)
+            'Crear Reporte Inv.',          // 3. Tipo de acción
+            'Usuario creó el reporte de inventario ID: ' . $newReportId  // 4. Descripción
+        );
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Reporte creado con éxito.', 
+            'newReportId' => $newReportId
+        ]);
+        
+    } catch (PDOException $e) {
+        // ✅ CORRECCIÓN: $id_usuario va en SEGUNDO lugar
+        logActivity(
+            $pdo,                           // 1. PDO
+            $id_usuario,                    // 2. User ID (INT)
+            'Error API',                    // 3. Tipo de acción
+            'Error al crear reporte de inventario: ' . $e->getMessage()  // 4. Descripción
+        );
+        
+        echo json_encode([
+            'success' => false, 
+            'error' => 'Error de base de datos: ' . $e->getMessage()
+        ]);
+    }
+    break;
+
+case 'admin/getInventoryReports':
+    // Verifica permisos (al menos ser bodeguero o admin)
+    if (!in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda', 'bodeguero'])) {
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+        exit;
+    }
+
+    try {
+        $storeId = $_GET['storeId'] ?? null;
+        $params = [];
+        
+        // Consulta base
+        $sql = "SELECT r.id_reporte, r.nombre_reporte, r.fecha_creacion, 
+                       t.nombre_tienda, u.nombre_usuario
+                FROM reportes_inventario r
+                JOIN tiendas t ON r.id_tienda = t.id_tienda
+                JOIN usuarios u ON r.id_usuario_creador = u.id_usuario
+                WHERE 1=1";
+
+        // Filtro por rol
+        if ($_SESSION['rol'] !== 'administrador_global') {
+            // Si no es admin global, forzar a ver solo su tienda
+            $sql .= " AND r.id_tienda = :id_tienda";
+            $params[':id_tienda'] = $_SESSION['id_tienda'];
+        } elseif (!empty($storeId)) {
+            // Si es admin global y seleccionó un filtro
+            $sql .= " AND r.id_tienda = :id_tienda";
+            $params[':id_tienda'] = $storeId;
+        }
+
+        $sql .= " ORDER BY r.fecha_creacion DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'reports' => $reports]);
+
+    } catch (PDOException $e) {
+        // ✅ CORRECCIÓN
+        logActivity($pdo, $_SESSION['id_usuario'], 'Error API', 'Error al obtener reportes de inventario: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/getInventoryReportDetails':
+    // Verifica permisos
+    if (!in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda', 'bodeguero'])) {
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+        exit;
+    }
+
+    $id_reporte = $_GET['id_reporte'] ?? null;
+
+    if (empty($id_reporte)) {
+        echo json_encode(['success' => false, 'error' => 'ID de reporte no válido.']);
+        exit;
+    }
+
+    try {
+        // 1. Obtener detalles del reporte y verificar permiso de tienda
+        $sql_report = "SELECT nombre_reporte, id_tienda FROM reportes_inventario WHERE id_reporte = :id_reporte";
+        $stmt_report = $pdo->prepare($sql_report);
+        $stmt_report->execute([':id_reporte' => $id_reporte]);
+        $report = $stmt_report->fetch(PDO::FETCH_ASSOC);
+
+        if (!$report) {
+             echo json_encode(['success' => false, 'error' => 'Reporte no encontrado.']);
+             exit;
+        }
+
+        // 2. Verificar si el usuario puede ver este reporte
+        if ($_SESSION['rol'] !== 'administrador_global' && $report['id_tienda'] != $_SESSION['id_tienda']) {
+            echo json_encode(['success' => false, 'error' => 'No tienes permiso para ver este reporte.']);
+            exit;
+        }
+
+        // 3. Obtener los items del reporte
+        $sql_items = "SELECT * FROM reportes_inventario_items 
+                      WHERE id_reporte = :id_reporte 
+                      ORDER BY id_item_reporte DESC";
+        $stmt_items = $pdo->prepare($sql_items);
+        $stmt_items->execute([':id_reporte' => $id_reporte]);
+        $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'reportName' => $report['nombre_reporte'], 'items' => $items]);
+
+    } catch (PDOException $e) {
+        // ✅ CORRECCIÓN
+        logActivity($pdo, $_SESSION['id_usuario'], 'Error API', 'Error al obtener detalles de reporte inv.: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
+    }
+    break;
+
+case 'admin/addProductToInventoryReport':
+    // Verifica permisos
+    if (!in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda', 'bodeguero'])) {
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+        exit;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id_reporte = $data['id_reporte'] ?? null;
+    $codigo_producto = $data['codigo_producto'] ?? null;
+    $cantidad = $data['cantidad'] ?? null;
+    $id_usuario = $_SESSION['id_usuario'];
+
+    if (empty($id_reporte) || empty($codigo_producto) || empty($cantidad) || $cantidad <= 0) {
+        echo json_encode(['success' => false, 'error' => 'Datos incompletos. Se requiere ID de reporte, código y cantidad.']);
+        exit;
+    }
+
+    try {
+        // 1. Verificar que el usuario puede editar este reporte (basado en la tienda)
+        $sql_check = "SELECT id_tienda FROM reportes_inventario WHERE id_reporte = :id_reporte";
+        $stmt_check = $pdo->prepare($sql_check);
+        $stmt_check->execute([':id_reporte' => $id_reporte]);
+        $report_tienda = $stmt_check->fetchColumn();
+
+        if (!$report_tienda) {
+             echo json_encode(['success' => false, 'error' => 'El reporte no existe.']);
+             exit;
+        }
+        if ($_SESSION['rol'] !== 'administrador_global' && $report_tienda != $_SESSION['id_tienda']) {
+            echo json_encode(['success' => false, 'error' => 'No tienes permiso para modificar este reporte.']);
+            exit;
+        }
+
+        // 2. Buscar el producto en la base de datos
+        $sql_prod = "SELECT id_producto, nombre_producto, precio_venta, url_imagen 
+                     FROM productos 
+                     WHERE codigo_producto = :codigo_producto";
+        $stmt_prod = $pdo->prepare($sql_prod);
+        $stmt_prod->execute([':codigo_producto' => $codigo_producto]);
+        $producto = $stmt_prod->fetch(PDO::FETCH_ASSOC);
+
+        if (!$producto) {
+            echo json_encode(['success' => false, 'error' => 'Producto no encontrado con ese código.']);
+            exit;
+        }
+
+        // ✅ 3. NUEVO: Verificar si el producto ya está en el reporte
+        $sql_exists = "SELECT id_item_reporte FROM reportes_inventario_items 
+                       WHERE id_reporte = :id_reporte AND id_producto = :id_producto";
+        $stmt_exists = $pdo->prepare($sql_exists);
+        $stmt_exists->execute([
+            ':id_reporte' => $id_reporte,
+            ':id_producto' => $producto['id_producto']
+        ]);
+        
+        if ($stmt_exists->fetch()) {
+            echo json_encode([
+                'success' => false, 
+                'error' => 'Este producto ya está agregado en el reporte. No se pueden agregar duplicados.'
+            ]);
+            exit;
+        }
+
+        // 4. Insertar el "snapshot" del producto en la tabla de items
+        $sql_insert = "INSERT INTO reportes_inventario_items 
+                       (id_reporte, id_producto, cantidad_reportada, codigo_producto, nombre_producto, url_imagen, precio_venta)
+                       VALUES 
+                       (:id_reporte, :id_producto, :cantidad, :codigo_producto, :nombre_producto, :url_imagen, :precio_venta)";
+        
+        $stmt_insert = $pdo->prepare($sql_insert);
+        $stmt_insert->execute([
+            ':id_reporte' => $id_reporte,
+            ':id_producto' => $producto['id_producto'],
+            ':cantidad' => $cantidad,
+            ':codigo_producto' => $codigo_producto,
+            ':nombre_producto' => $producto['nombre_producto'],
+            ':url_imagen' => $producto['url_imagen'],
+            ':precio_venta' => $producto['precio_venta']
+        ]);
+
+        logActivity($pdo, $id_usuario, 'Agregar Item Reporte', "Añadió $cantidad x $codigo_producto al reporte $id_reporte");
+        echo json_encode(['success' => true, 'message' => 'Producto añadido.']);
+
+    } catch (PDOException $e) {
+        logActivity($pdo, $id_usuario, 'Error API', 'Error al añadir producto a reporte inv.: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
+    }
+    break;
+case 'admin/deleteInventoryReport':
+    // Verifica permisos
+    if (!in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda'])) {
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado. Solo administradores pueden eliminar.']);
+        exit;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id_reporte = $data['id_reporte'] ?? null;
+    $id_usuario = $_SESSION['id_usuario'];
+
+    if (empty($id_reporte)) {
+        echo json_encode(['success' => false, 'error' => 'ID de reporte no válido.']);
+        exit;
+    }
+
+    try {
+        // 1. Verificar permiso de tienda antes de borrar
+        $sql_check = "SELECT id_tienda FROM reportes_inventario WHERE id_reporte = :id_reporte";
+        $stmt_check = $pdo->prepare($sql_check);
+        $stmt_check->execute([':id_reporte' => $id_reporte]);
+        $report_tienda = $stmt_check->fetchColumn();
+
+        if ($report_tienda && $_SESSION['rol'] !== 'administrador_global' && $report_tienda != $_SESSION['id_tienda']) {
+            echo json_encode(['success' => false, 'error' => 'No tienes permiso para eliminar este reporte.']);
+            exit;
+        }
+
+        // 2. Eliminar el reporte (los items se borran por 'ON DELETE CASCADE')
+        $sql_delete = "DELETE FROM reportes_inventario WHERE id_reporte = :id_reporte";
+        $stmt_delete = $pdo->prepare($sql_delete);
+        $stmt_delete->execute([':id_reporte' => $id_reporte]);
+
+        if ($stmt_delete->rowCount() > 0) {
+            // ✅ CORRECCIÓN
+            logActivity($pdo, $id_usuario, 'Eliminar Reporte Inv.', "Eliminó el reporte de inventario ID: $id_reporte");
+            echo json_encode(['success' => true, 'message' => 'Reporte eliminado con éxito.']);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'No se encontró el reporte para eliminar.']);
+        }
+
+    } catch (PDOException $e) {
+        // ✅ CORRECCIÓN
+        logActivity($pdo, $id_usuario, 'Error API', 'Error al eliminar reporte inv.: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
+    }
+    break;
+
+    case 'admin/deleteInventoryReportItem':
+    // Verifica permisos (mismos que para añadir o ver)
+    if (!in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda', 'bodeguero'])) {
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+        exit;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id_item_reporte = filter_var($data['id_item_reporte'] ?? 0, FILTER_VALIDATE_INT);
+    $id_usuario = $_SESSION['id_usuario'];
+
+    if (empty($id_item_reporte)) {
+        echo json_encode(['success' => false, 'error' => 'ID de item no válido.']);
+        exit;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // 1. Obtener info del item ANTES de borrarlo (para el log y verificar permiso de tienda)
+        $sql_info = "SELECT ri.codigo_producto, ri.nombre_producto, r.id_tienda
+                     FROM reportes_inventario_items ri
+                     JOIN reportes_inventario r ON ri.id_reporte = r.id_reporte
+                     WHERE ri.id_item_reporte = :id_item";
+        $stmt_info = $pdo->prepare($sql_info);
+        $stmt_info->execute([':id_item' => $id_item_reporte]);
+        $itemInfo = $stmt_info->fetch(PDO::FETCH_ASSOC);
+
+        if (!$itemInfo) {
+            throw new Exception('El item no existe o ya fue eliminado.');
+        }
+
+        // 2. Verificar permiso de tienda si no es admin global
+        if ($_SESSION['rol'] !== 'administrador_global' && $itemInfo['id_tienda'] != $_SESSION['id_tienda']) {
+            throw new Exception('No tienes permiso para modificar este reporte.');
+        }
+
+        // 3. Eliminar el item
+        $sql_delete = "DELETE FROM reportes_inventario_items WHERE id_item_reporte = :id_item";
+        $stmt_delete = $pdo->prepare($sql_delete);
+        $stmt_delete->execute([':id_item' => $id_item_reporte]);
+
+        if ($stmt_delete->rowCount() > 0) {
+            // 4. Registrar en log de actividad
+            logActivity($pdo, $id_usuario, 'Eliminar Item Reporte', "Eliminó el producto '{$itemInfo['nombre_producto']}' (Código: {$itemInfo['codigo_producto']}) del reporte.");
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Item eliminado del reporte.']);
+        } else {
+            throw new Exception('No se pudo eliminar el item.'); // Podría pasar si se eliminó justo antes
+        }
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    break;
+
+/***********************************/
 case 'admin/getProductTags':
         try {
             $productId = filter_var($_GET['productId'] ?? 0, FILTER_VALIDATE_INT);

@@ -5,6 +5,7 @@
     <div class="action-ribbon">
         <button class="action-btn active" data-action="inventario/agregar_stock">Agregar Stock</button>
         <button class="action-btn" data-action="inventario/ajuste_inventario">Ajuste de Inventario</button>
+        <button class="action-btn" data-action="inventario/reportes_rapidos_gestion">Reportes Rápidos</button>
         <button class="action-btn" data-action="inventario/historial_movimientos">Historial de Movimientos</button>
     </div>
 </div>
