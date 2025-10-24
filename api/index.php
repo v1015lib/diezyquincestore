@@ -3220,36 +3220,126 @@ case 'admin/updateUserPermissions':
 
     /**************************************************************************************/
     /**************************************************************************************/
-    case 'pos_search_products':
-    try {
-        $query = $_GET['query'] ?? '';
+case 'pos_search_products':
+    if ($method == 'GET' && isset($_GET['query'])) {
+        $query = trim($_GET['query']);
+        
+        // Obtener tienda: prioriza store_id de GET, luego sesión
+        $storeId = $_GET['store_id'] ?? ($_SESSION['pos_store_id'] ?? ($_SESSION['id_tienda'] ?? null));
+        $userRole = $_SESSION['rol'] ?? 'empleado';
 
-            // CORRECCIÓN: Usamos el ID de la tienda guardado en la sesión.
-        $id_tienda_final = $_SESSION['pos_store_id'] ?? $_SESSION['id_tienda'] ?? null;
-
-        if (empty($query) || empty($id_tienda_final)) {
+        // Validar longitud mínima de búsqueda
+        if (strlen($query) < 2) {
+            header('Content-Type: application/json');
             echo json_encode([]);
-            break;
+            exit;
         }
 
-        $stock_selection_sql = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = :id_tienda), 0) AS stock_actual";
+        // Validar tienda para usuarios no administradores globales
+        if (!$storeId && $userRole !== 'administrador_global') {
+            header('Content-Type: application/json');
+            echo json_encode([]);
+            exit;
+        }
 
-        $sql = "SELECT p.*, d.departamento AS nombre_departamento, {$stock_selection_sql} 
-        FROM productos p 
-        LEFT JOIN departamentos d ON p.departamento = d.id_departamento 
-        WHERE (p.nombre_producto LIKE :query OR p.codigo_producto LIKE :query) AND p.estado = 1 
-        LIMIT 15";
+        try {
+            $params = [];
+            
+            // Construcción base de la consulta - SIN oferta_activa
+            $sql = "SELECT
+                        p.id_producto, 
+                        p.nombre_producto, 
+                        p.codigo_producto, 
+                        p.precio_venta, 
+                        p.precio_oferta, 
+                        p.oferta_exclusiva, 
+                        p.oferta_caducidad, 
+                        p.oferta_tipo_cliente_id,
+                        p.precio_mayoreo, 
+                        p.usa_inventario,
+                        d.departamento as nombre_departamento";
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':query' => "%$query%", ':id_tienda' => $id_tienda_final]);
-        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode($products);
+            // Selección de stock según el contexto
+            if ($storeId) {
+                // Tienda específica
+                $sql .= ", COALESCE(it.stock, 0) as stock_actual
+                        FROM productos p
+                        LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                        LEFT JOIN inventario_tienda it ON p.id_producto = it.id_producto AND it.id_tienda = :storeId";
+                $params[':storeId'] = $storeId;
+            } else if ($userRole === 'administrador_global') {
+                // Admin global sin tienda: suma stock de todas las tiendas
+                $sql .= ", COALESCE(stock_total.stock, 0) as stock_actual
+                        FROM productos p
+                        LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                        LEFT JOIN (
+                            SELECT id_producto, SUM(stock) as stock 
+                            FROM inventario_tienda 
+                            GROUP BY id_producto
+                        ) stock_total ON p.id_producto = stock_total.id_producto";
+            } else {
+                // Fallback
+                $sql .= ", 0 as stock_actual
+                        FROM productos p
+                        LEFT JOIN departamentos d ON p.departamento = d.id_departamento";
+            }
 
-    } catch (Exception $e) {
-       http_response_code(500);
-       echo json_encode(['error' => 'Error al buscar productos: ' . $e->getMessage()]);
-   }
-   break;
+            // Construcción de condiciones WHERE
+            $where_clauses = [];
+            
+            // --- LÓGICA DE BÚSQUEDA ---
+            $searchConditions = [];
+            
+            // Búsqueda general en nombre o código
+            $searchTermLike = '%' . $query . '%';
+            $params[':searchTermLike'] = $searchTermLike;
+            $searchConditions[] = "p.nombre_producto LIKE :searchTermLike";
+            $searchConditions[] = "p.codigo_producto LIKE :searchTermLike";
+            
+            // Si son 6 o más dígitos, añadir búsqueda al final del código
+            if (preg_match('/^\d{6,}$/', $query)) {
+                $searchTermEnd = '%' . $query;
+                $params[':searchTermEnd'] = $searchTermEnd;
+                $searchConditions[] = "p.codigo_producto LIKE :searchTermEnd";
+            }
+            
+            // Combinar condiciones de búsqueda con OR
+            $where_clauses[] = "(" . implode(' OR ', $searchConditions) . ")";
+            
+            // Filtrar solo productos activos (estado = 1 según tu tabla)
+            $where_clauses[] = "p.estado = 1";
+
+            // Agregar WHERE a la consulta
+            $sql .= " WHERE " . implode(' AND ', $where_clauses);
+            
+            // Ordenar y limitar resultados
+            $sql .= " ORDER BY p.nombre_producto ASC LIMIT 20";
+
+            // Ejecutar consulta
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            header('Content-Type: application/json');
+            echo json_encode($products);
+
+        } catch (PDOException $e) {
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Error de base de datos: ' . $e->getMessage()]);
+            error_log('Error en pos_search_products (PDO): ' . $e->getMessage());
+        } catch (Exception $e) {
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Error al buscar productos: ' . $e->getMessage()]);
+            error_log('Error general en pos_search_products: ' . $e->getMessage());
+        }
+    } else {
+        http_response_code(400);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Parámetros faltantes']);
+    }
+    break;
 
 
 
