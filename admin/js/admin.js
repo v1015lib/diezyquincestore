@@ -7691,8 +7691,13 @@ async function fetchAndRenderReportDetails(reportId) {
         if (result.items.length > 0) {
             result.items.forEach(item => {
                 const row = document.createElement('tr');
+                // *** INICIO CORRECCIÓN: Añadir dataset.itemId ***
+                row.dataset.itemId = item.id_item_reporte; 
+                // *** FIN CORRECCIÓN ***
+                
                 const imageUrl = (item.url_imagen && item.url_imagen !== '0') ? item.url_imagen : 'img/favicon.png';
                 
+                // *** INICIO CORRECCIÓN: Añadir celda con botón de eliminar ***
                 row.innerHTML = `
                     <td>
                         <div class="product-table-img-container">
@@ -7703,16 +7708,22 @@ async function fetchAndRenderReportDetails(reportId) {
                     <td>${item.nombre_producto}</td>
                     <td>$${parseFloat(item.precio_venta).toFixed(2)}</td>
                     <td style="font-weight: bold; font-size: 1.1rem;">${item.cantidad_reportada}</td>
+                    <td> 
+                        <button class="action-btn btn-sm delete-report-item-btn" title="Eliminar Item">❌</button>
+                    </td> 
                 `;
+                // *** FIN CORRECCIÓN ***
                 tableBody.appendChild(row);
             });
         } else {
-            tableBody.innerHTML = '<tr><td colspan="5">Aún no hay productos en este reporte.</td></tr>';
+             // Ajustar colspan a 6 por la nueva columna
+            tableBody.innerHTML = '<tr><td colspan="6">Aún no hay productos en este reporte.</td></tr>';
         }
 
     } catch (error) {
         header.textContent = 'Error al Cargar Reporte';
-        tableBody.innerHTML = `<tr><td colspan="5" style="color:red;">${error.message}</td></tr>`;
+         // Ajustar colspan a 6 por la nueva columna
+        tableBody.innerHTML = `<tr><td colspan="6" style="color:red;">${error.message}</td></tr>`;
     }
 }
 /**
@@ -7763,9 +7774,9 @@ async function handleAddProductToReport(reportId, form) {
 }
 
 async function handleDeleteReportItem(reportItemId, rowElement) {
-    if (!confirm('¿Estás seguro de que quieres eliminar este item del reporte?')) {
+    /*if (!confirm('¿Estás seguro de que quieres eliminar este item del reporte?')) {
         return;
-    }
+    }*/
     try {
         const response = await fetch(`${API_BASE_URL}?resource=admin/deleteInventoryReportItem`, {
             method: 'POST',
