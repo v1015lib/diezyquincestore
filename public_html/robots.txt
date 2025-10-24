@@ -11,7 +11,6 @@ Disallow: /logout.php
 
 # Archivos PHP que generan las páginas (evita contenido duplicado)
 
-Disallow: /index.php
 
 # Ubicación del mapa del sitio
-Sitemap: https://diezyquince.store/sitemap.xml
+Sitemap: https://diezyquince.store/sitemap.php

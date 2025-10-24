@@ -1799,15 +1799,29 @@ function resetProductForm(form) {
 
 
 
-// admin/js/admin.js
-
 function initializeAddProductForm() {
     const form = document.getElementById('add-product-form');
     if (!form) return;
     const codeInput = form.querySelector('#codigo_producto');
     const submitButton = form.querySelector('.form-submit-btn');
+    const generateBarcodeBtn = form.querySelector('#generate-barcode-single');
+    const productNameInput = form.querySelector('#nombre_producto'); // <--- AÑADIDA ESTA LÍNEA
     let typingTimer;
-    
+
+    //Capitalizar nombre del nombre del producto
+    if (productNameInput) {
+        productNameInput.addEventListener('input', () => {
+            const start = productNameInput.selectionStart; // Guarda posición del cursor
+            const end = productNameInput.selectionEnd;
+            let value = productNameInput.value;
+            // Capitaliza la primera letra de cada palabra
+            value = value.toLowerCase().replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
+            productNameInput.value = value;
+            productNameInput.setSelectionRange(start, end); // Restaura posición del cursor
+        });
+    }
+
+    // Validación en vivo del código (existente)
     codeInput.addEventListener('keyup', () => {
         clearTimeout(typingTimer);
         let feedbackDiv = codeInput.closest('.form-group').querySelector('.validation-feedback');
@@ -1836,7 +1850,47 @@ function initializeAddProductForm() {
             }
         }, 500);
     });
-    initializeTagInput();
+
+    // --- NUEVA LÓGICA PARA EL BOTÓN GENERAR CÓDIGO ---
+    if (generateBarcodeBtn) {
+        generateBarcodeBtn.addEventListener('click', async () => {
+            const feedbackDiv = codeInput.closest('.form-group').querySelector('.validation-feedback');
+            generateBarcodeBtn.disabled = true;
+            generateBarcodeBtn.textContent = '...'; // Indicador visual
+            feedbackDiv.textContent = 'Generando código único...';
+            feedbackDiv.style.color = 'inherit';
+
+            try {
+                // Llama al mismo endpoint del generador, pero pidiendo solo 1 código
+                const response = await fetch(`${API_BASE_URL}?resource=admin/generateEan13Codes&quantity=1`);
+                const result = await response.json();
+
+                if (result.success && result.codes && result.codes.length > 0) {
+                    const uniqueCode = result.codes[0];
+                    codeInput.value = uniqueCode; // Inserta el código en el input
+                    feedbackDiv.textContent = 'Código generado y verificado como único.';
+                    feedbackDiv.style.color = 'green';
+                    submitButton.disabled = false; // Habilita el botón de guardar
+                    // Dispara el evento 'keyup' para que se vuelva a validar si es necesario
+                    codeInput.dispatchEvent(new Event('keyup'));
+                } else {
+                    throw new Error(result.error || 'No se pudo generar un código único.');
+                }
+            } catch (error) {
+                feedbackDiv.textContent = `Error: ${error.message}`;
+                feedbackDiv.style.color = 'red';
+                submitButton.disabled = true; // Deshabilita guardar si hubo error
+            } finally {
+                generateBarcodeBtn.disabled = false;
+                generateBarcodeBtn.textContent = 'Generar'; // Restaura el texto del botón
+            }
+        });
+    }
+    // --- FIN NUEVA LÓGICA ---
+
+    initializeTagInput(); // Inicializador de etiquetas (existente)
+
+    // Envío del formulario (existente)
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const messagesDiv = form.querySelector('#form-messages');
@@ -1862,7 +1916,6 @@ function initializeAddProductForm() {
         }
     });
 }
-
 
 
 
@@ -1906,9 +1959,7 @@ function initializeAddProductForm() {
 
 
 
-
-// EN: admin/js/admin.js
-
+// REEMPLAZA esta función completa en admin/js/admin.js
 async function renderEditForm(product) {
     const container = document.getElementById('edit-product-container');
     const searchContainer = document.getElementById('product-search-container');
@@ -1920,26 +1971,31 @@ async function renderEditForm(product) {
     container.classList.remove('hidden');
     barcodeContainer.innerHTML = '';
 
+    // Carga la estructura HTML del formulario de agregar_producto.php
     const formResponse = await fetch('actions/productos/agregar_producto.php');
     container.innerHTML = await formResponse.text();
 
+    // Selecciona el formulario recién cargado y le cambia el ID
     const form = container.querySelector('#add-product-form');
     form.id = 'edit-product-form';
     form.querySelector('.form-submit-btn').textContent = 'Actualizar Producto';
 
+    // Añade el campo oculto con el ID del producto
     const idInput = document.createElement('input');
     idInput.type = 'hidden';
     idInput.name = 'id_producto';
     idInput.value = product.id_producto;
     form.appendChild(idInput);
 
+    // Lista de campos a rellenar
     const fields = [
         'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
         'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen'
-        // Se quita 'id_etiqueta' de aquí porque se manejará diferente
+        // 'id_etiqueta' se maneja por separado
     ];
-    
+
+    // Rellena los campos del formulario con los datos del producto
     fields.forEach(field => {
         const inputId = (field === 'url_imagen') ? 'selected-image-url' : field;
         const formInput = form.querySelector(`#${inputId}`);
@@ -1948,22 +2004,28 @@ async function renderEditForm(product) {
         }
     });
 
-    if (product.url_imagen) {
-        form.querySelector('#image-preview').src = product.url_imagen;
-        form.querySelector('#image-preview').classList.remove('hidden');
-        form.querySelector('#no-image-text').classList.add('hidden');
+    // Muestra la previsualización de la imagen si existe
+    if (product.url_imagen && product.url_imagen !== '0') {
+        const previewImg = form.querySelector('#image-preview');
+        const noImageText = form.querySelector('#no-image-text');
+        if (previewImg && noImageText) {
+            previewImg.src = product.url_imagen;
+            previewImg.classList.remove('hidden');
+            noImageText.classList.add('hidden');
+        }
     }
 
+    // Lógica para deshabilitar campos de inventario si no se usa (ajusta si es necesario)
     const usaInventario = parseInt(product.usa_inventario, 10) === 1;
-    const stockInput = form.querySelector('#stock_actual');
-    const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox');
+    const stockInput = form.querySelector('#stock_actual'); // Asumiendo que existe un #stock_actual
+    const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox'); // Asumiendo que existe
     if (stockInput) stockInput.disabled = usaInventario;
     if (usaInventarioCheckbox) usaInventarioCheckbox.disabled = usaInventario;
 
+    // Muestra el código de barras si es EAN-13 válido
     const productCode = product.codigo_producto.trim();
     if (/^[0-9]{13}$/.test(productCode)) {
         const downloadUrl = `../api/index.php?resource=admin/getBarcodeImage&code=${productCode}&download=true`;
-        
         barcodeContainer.innerHTML = `
             <h4>Código de Barras EAN-13</h4>
             <img src="../api/index.php?resource=admin/getBarcodeImage&code=${productCode}" alt="Código de barras para ${productCode}">
@@ -1975,34 +2037,90 @@ async function renderEditForm(product) {
             <p>N/A (El código actual no es un EAN-13 válido de 13 dígitos)</p>
         `;
     }
-    try {
-        // Llama a la API para obtener las etiquetas actuales del producto
-        const tagsResponse = await fetch(`${API_BASE_URL}?resource=admin/getProductTags&productId=${product.id_producto}`); // <-- Aquí está tagsResponse
-        const tagsResult = await tagsResponse.json();
 
+    // Carga y selecciona las etiquetas existentes del producto
+    try {
+        const tagsResponse = await fetch(`${API_BASE_URL}?resource=admin/getProductTags&productId=${product.id_producto}`);
+        const tagsResult = await tagsResponse.json();
         if (tagsResult.success && tagsResult.tags) {
-            const tagSelect = form.querySelector('#id_etiqueta'); // Apunta al select multiple
+            const tagSelect = form.querySelector('#id_etiqueta');
             if (tagSelect) {
-                // Deselecciona todas primero
                 Array.from(tagSelect.options).forEach(option => option.selected = false);
-                // Selecciona las que vienen de la API
                 tagsResult.tags.forEach(tagId => {
                     const option = tagSelect.querySelector(`option[value="${tagId}"]`);
-                    if (option) {
-                        option.selected = true;
-                    }
+                    if (option) option.selected = true;
                 });
             }
         }
     } catch (error) {
         console.error("Error al cargar etiquetas del producto:", error);
-        // Opcional: Mostrar un mensaje al usuario
     }
-    initializeTagInput();
+
+    // Inicializa el input de etiquetas personalizado para este formulario
+    initializeTagInput('#edit-product-form .tag-input-container');
+
+    // --- INICIO: CÓDIGO INTEGRADO PARA HABILITAR 'GENERAR' EN EDITAR ---
+    const editCodeInput = form.querySelector('#codigo_producto');
+    const editGenerateBtn = form.querySelector('#generate-barcode-single'); // Busca el botón dentro del form
+    const editFeedbackDiv = editCodeInput?.closest('.form-group')?.querySelector('.validation-feedback');
+    const editSubmitButton = form.querySelector('.form-submit-btn');
+
+    if (editGenerateBtn && editCodeInput && editFeedbackDiv && editSubmitButton) {
+        editGenerateBtn.addEventListener('click', async () => {
+            editGenerateBtn.disabled = true;
+            editGenerateBtn.textContent = '...';
+            editFeedbackDiv.textContent = 'Generando código único...';
+            editFeedbackDiv.style.color = 'inherit';
+
+            try {
+                // Llama a la API para obtener un código único
+                const response = await fetch(`${API_BASE_URL}?resource=admin/generateEan13Codes&quantity=1`);
+                const result = await response.json();
+
+                if (result.success && result.codes && result.codes.length > 0) {
+                    const uniqueCode = result.codes[0];
+                    editCodeInput.value = uniqueCode; // Actualiza el input del código
+                    editFeedbackDiv.textContent = 'Código generado y verificado como único.';
+                    editFeedbackDiv.style.color = 'green';
+                    editSubmitButton.disabled = false; // Habilita guardar
+                    // Dispara 'keyup' para la validación en vivo
+                    editCodeInput.dispatchEvent(new Event('keyup', { bubbles: true }));
+                } else {
+                    throw new Error(result.error || 'No se pudo generar un código único.');
+                }
+            } catch (error) {
+                editFeedbackDiv.textContent = `Error: ${error.message}`;
+                editFeedbackDiv.style.color = 'red';
+                editSubmitButton.disabled = true; // Deshabilita guardar si hay error
+            } finally {
+                editGenerateBtn.disabled = false;
+                editGenerateBtn.textContent = 'Generar'; // Restaura el texto
+            }
+        });
+    } else {
+        console.error("No se pudieron encontrar todos los elementos necesarios para el botón 'Generar' en el formulario de edición.");
+    }
+    // --- FIN: CÓDIGO INTEGRADO ---
+
+    // Añade el listener para el envío del formulario de edición
     initializeEditProductFormSubmit(form);
+
+    // --- NUEVA LÓGICA PARA CAPITALIZAR NOMBRE DE PRODUCTO (también en editar) ---
+    const editProductNameInput = form.querySelector('#nombre_producto');
+    if (editProductNameInput) {
+        editProductNameInput.addEventListener('input', () => {
+            const start = editProductNameInput.selectionStart;
+            const end = editProductNameInput.selectionEnd;
+            let value = editProductNameInput.value;
+            value = value.toLowerCase().replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
+            editProductNameInput.value = value;
+            editProductNameInput.setSelectionRange(start, end);
+        });
+        // Aplicar capitalización inicial al cargar el valor
+        editProductNameInput.dispatchEvent(new Event('input'));
+    }
+    // --- FIN NUEVA LÓGICA ---
 }
-
-
 
 
 

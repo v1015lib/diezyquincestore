@@ -4,28 +4,59 @@ ErrorDocument 404 /diezyquincestore/public_html/404.php
 RewriteEngine On
 RewriteBase /diezyquincestore/public_html/
 
-# --- REGLAS PARA PÁGINAS ESTÁTICAS Y ESPECÍFICAS ---
+# --- INICIO: REDIRECCIONES 301 (DE URLS ANTIGUAS A AMIGABLES) ---
+# Redirección para Departamentos (index.php?department_id=X a /departamento/slug)
+RewriteCond %{QUERY_STRING} ^department_id=([0-9]+)$ [NC]
+RewriteRule ^index\.php$ /departamento/%1? [R=301,L,NE]
+# El %1 captura el número del department_id. Necesitarás una lógica (PHP o reglas adicionales complejas)
+# para convertir ese ID al SLUG correcto si no coinciden directamente.
+# Esta regla asume que el slug es el ID por simplicidad, AJUSTA SI ES NECESARIO.
+
+# Redirección para Productos (index.php?product_id=X a /producto/slug)
+RewriteCond %{QUERY_STRING} ^product_id=([0-9]+)$ [NC]
+RewriteRule ^index\.php$ /producto/%1? [R=301,L,NE]
+# Similar al anterior, asume que el slug es el ID. AJUSTA SI ES NECESARIO.
+
+# Redirección para Ofertas (index.php?ofertas=true a /ofertas/)
+RewriteCond %{QUERY_STRING} ^ofertas=true$ [NC]
+RewriteRule ^index\.php$ /ofertas/? [R=301,L,NE]
+
+# Redirección para Marcas (index.php?marca_id=X a /marca-slug/)
+RewriteCond %{QUERY_STRING} ^marca_id=([0-9]+)$ [NC]
+RewriteRule ^index\.php$ /marca/%1? [R=301,L,NE]
+# Asume slug = ID. AJUSTA SI ES NECESARIO.
+
+# Redirección para Etiquetas (index.php?etiqueta_id=X a /etiqueta/slug/)
+RewriteCond %{QUERY_STRING} ^etiqueta_id=([0-9]+)$ [NC]
+RewriteRule ^index\.php$ /etiqueta/%1? [R=301,L,NE]
+# Asume slug = ID. AJUSTA SI ES NECESARIO.
+
+# --- FIN: REDIRECCIONES 301 ---
+
+# --- REGLAS PARA PÁGINAS ESTÁTICAS Y ESPECÍFICAS (EXISTENTES) ---
 RewriteRule ^ingresar/?$ login.php [L,QSA]
 RewriteRule ^registro/?$ registro.php [L,QSA]
-RewriteRule ^ofertas/?$ pageuniquecontent.php?ofertas=true [L,QSA]
+RewriteRule ^ofertas/?$ pageuniquecontent.php?ofertas=true [L,QSA] # Esta podría necesitar ajuste si también usas slugs para campañas
 
-# --- REGLAS PARA CONTENIDO DINÁMICO (PRODUCTOS, DEPARTAMENTOS, ETC.) ---
+# --- REGLAS PARA CONTENIDO DINÁMICO (URLS AMIGABLES - EXISTENTES) ---
 RewriteRule ^producto/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?product_slug=$1 [L,QSA]
 RewriteRule ^departamento/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?department_slug=$1 [L,QSA]
 RewriteRule ^ofertas/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?ofertas=true&campaign=$1 [L,QSA]
-RewriteRule ^productos/([a-zA-Z0-9_-]+)/?$ index.php?campaign=$1 [L,QSA]
+RewriteRule ^productos/([a-zA-Z0-9_-]+)/?$ index.php?campaign=$1 [L,QSA] # ¿Seguro que esta va a index.php y no a pageuniquecontent.php?
 
-# --- REGLAS GENÉRICAS PARA MARCAS (Se procesan al final) ---
+# --- REGLAS GENÉRICAS PARA MARCAS Y ETIQUETAS (EXISTENTES) ---
 RewriteRule ^etiqueta/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?etiqueta_slug=$1 [L,QSA]
+
 # Evitar que las reglas de abajo se apliquen a archivos o directorios existentes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
 # Regla para MARCA / TIPO (ej: /starmate/audifonos)
 RewriteRule ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?marca_slug=$1&etiqueta_slug=$2 [L,QSA]
+
 # Evitar que las reglas de abajo se apliquen a archivos o directorios existentes (de nuevo por seguridad)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Regla para MARCA (ej: /starmate) - ¡Esta es la que resuelve tu pregunta!
+# Regla para MARCA (ej: /starmate)
 RewriteRule ^([a-zA-Z0-9_-]+)/?$ pageuniquecontent.php?marca_slug=$1 [L,QSA]

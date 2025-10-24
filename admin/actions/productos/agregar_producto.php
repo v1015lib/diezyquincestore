@@ -8,24 +8,52 @@ $proveedores = $pdo->query("SELECT id_proveedor, nombre_proveedor FROM proveedor
 $unidades_medida = $pdo->query("SELECT id_unidad_medida, nombre_unidad FROM unidad_medida ORDER BY nombre_unidad")->fetchAll(PDO::FETCH_ASSOC);
 $marcas = $pdo->query("SELECT id_marca, nombre_marca FROM marcas ORDER BY nombre_marca")->fetchAll(PDO::FETCH_ASSOC);
 $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORDER BY nombre_etiqueta")->fetchAll(PDO::FETCH_ASSOC);
+$id_estado_activo = null;
+foreach ($estados as $est) {
+    if (strtolower($est['nombre_estado']) === 'activo') {
+        $id_estado_activo = $est['id_estado'];
+        break;
+    }
+}
 
+$id_proveedor_tienda_central = null;
+foreach ($proveedores as $prov) {
+    // Ajusta 'tienda central' si el nombre exacto es diferente en tu base de datos
+    if (strtolower($prov['nombre_proveedor']) === 'tienda central') {
+        $id_proveedor_tienda_central = $prov['id_proveedor'];
+        break;
+    }
+}
+
+
+$id_unidad_medida_unidad = null;
+foreach ($unidades_medida as $um) {
+    // Asegúrate que 'unidad' sea el nombre exacto en tu tabla unidad_medida
+    if (strtolower($um['nombre_unidad']) === 'unidad') {
+        $id_unidad_medida_unidad = $um['id_unidad_medida'];
+        break;
+    }
+}
 ?>
 
 <div class="form-container">
     <form id="add-product-form" method="POST" enctype="multipart/form-data">
         <div id="form-messages"></div>
 
-<div class="form-group">
-    <label for="codigo_producto">Código de Producto</label>
-    <div style="display: flex; flex-grow: 0.2; gap: 0.5rem;">
-        <input type="text" id="codigo_producto" name="codigo_producto" required style="flex-grow: 1;">
-        
-        <button type="button" id="scan-barcode-add-product" class="btn btn-primary" title="Escanear código de barras" style="flex-shrink: 0; padding: 0.5rem;">📷
-        </button>
-        
-    </div>
-    <div class="validation-feedback"></div>
-</div>
+        <div class="form-group">
+            <label for="codigo_producto">Código de Producto</label>
+            <div style="display: flex; flex-grow: 0.2; gap: 0.5rem; align-items: center;"> 
+                <input type="text" id="codigo_producto" name="codigo_producto" required style="flex-grow: 1;">
+                
+
+                <button type="button" id="generate-barcode-single" class="action-btn" title="Generar código EAN-13 único" style="flex-shrink: 0; padding: 0.5rem; background-color: #e0e0e0; color: #333;">Generar</button>
+
+                
+                <button type="button" id="scan-barcode-add-product" class="btn btn-primary" title="Escanear código de barras" style="flex-shrink: 0; padding: 0.5rem;">📷</button>
+            </div>
+            <div class="validation-feedback"></div>
+        </div>
+
 
         <div class="form-group">
             <label for="nombre_producto">Nombre de Producto</label>
@@ -73,8 +101,11 @@ $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORD
             <label for="tipo_de_venta">Unidad de Medida</label>
             <select id="tipo_de_venta" name="tipo_de_venta" required>
                 <option value="">Selecciona una unidad</option>
-                <?php foreach ($unidades_medida as $um): ?>
-                    <option value="<?php echo htmlspecialchars($um['id_unidad_medida']); ?>"><?php echo htmlspecialchars($um['nombre_unidad']); ?></option>
+<?php foreach ($unidades_medida as $um): ?>
+                    <?php // --- MODIFICACIÓN AQUÍ --- ?>
+                    <option value="<?php echo htmlspecialchars($um['id_unidad_medida']); ?>" <?php echo ($id_unidad_medida_unidad !== null && $um['id_unidad_medida'] == $id_unidad_medida_unidad) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($um['nombre_unidad']); ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -83,8 +114,11 @@ $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORD
             <label for="estado">Estado</label>
             <select id="estado" name="estado" required>
                 <option value="">Selecciona un estado</option>
-                <?php foreach ($estados as $est): ?>
-                    <option value="<?php echo htmlspecialchars($est['id_estado']); ?>"><?php echo htmlspecialchars($est['nombre_estado']); ?></option>
+<?php foreach ($estados as $est): ?>
+                    <?php // --- MODIFICACIÓN AQUÍ --- ?>
+                    <option value="<?php echo htmlspecialchars($est['id_estado']); ?>" <?php echo ($id_estado_activo !== null && $est['id_estado'] == $id_estado_activo) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($est['nombre_estado']); ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -93,12 +127,15 @@ $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORD
             <label for="proveedor">Proveedor</label>
             <select id="proveedor" name="proveedor" required>
                 <option value="">Selecciona un proveedor</option>
-                <?php foreach ($proveedores as $prov): ?>
-                    <option value="<?php echo htmlspecialchars($prov['id_proveedor']); ?>"><?php echo htmlspecialchars($prov['nombre_proveedor']); ?></option>
+<?php foreach ($proveedores as $prov): ?>
+                     <?php // --- MODIFICACIÓN AQUÍ --- ?>
+                    <option value="<?php echo htmlspecialchars($prov['id_proveedor']); ?>" <?php echo ($id_proveedor_tienda_central !== null && $prov['id_proveedor'] == $id_proveedor_tienda_central) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($prov['nombre_proveedor']); ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
         </div>
-        
+
         <?php // --- BLOQUES MODIFICADOS Y AÑADIDOS --- ?>
         <div class="form-group">
             <label for="id_marca">Marca</label>
@@ -119,7 +156,7 @@ $etiquetas = $pdo->query("SELECT id_etiqueta, nombre_etiqueta FROM etiquetas ORD
                 <input type="text" id="tag-search-input" placeholder="Buscar o añadir etiquetas...">
                 <div class="tag-suggestions" id="tag-suggestions-list">
                     </div>
-                
+
                 <?php // El select original ahora está oculto y servirá para enviar los datos ?>
                 <select id="id_etiqueta" name="id_etiqueta[]" multiple class="original-tag-select">
                     <?php foreach ($etiquetas as $etiqueta): ?>
