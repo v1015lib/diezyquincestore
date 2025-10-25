@@ -3674,7 +3674,148 @@ break;
 
 
 
+case 'admin/obtenerReporteVentas':
+    try {
+        // Verificar sesión activa
+        if (!isset($_SESSION['id_usuario'])) {
+            http_response_code(401);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Sesión no válida'
+            ]);
+            exit;
+        }
 
+        // Verificar permisos
+        $roles_permitidos = ['administrador_global', 'admin_tienda'];
+        if (!in_array($_SESSION['rol'], $roles_permitidos)) {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'message' => 'No tienes permisos para ver reportes'
+            ]);
+            exit;
+        }
+
+        // Obtener filtros de fecha
+        $fechaInicio = $_GET['fechaInicio'] ?? date('Y-m-d', strtotime('-30 days'));
+        $fechaFin = $_GET['fechaFin'] ?? date('Y-m-d');
+        
+        // Validar formato de fechas
+        $fechaInicioObj = DateTime::createFromFormat('Y-m-d', $fechaInicio);
+        $fechaFinObj = DateTime::createFromFormat('Y-m-d', $fechaFin);
+        
+        if (!$fechaInicioObj || !$fechaFinObj) {
+            throw new Exception('Formato de fecha inválido');
+        }
+
+        $id_tienda = $_SESSION['rol'] === 'administrador_global' ? null : $_SESSION['id_tienda'];
+
+        // ===== CONSULTA: PRODUCTOS VENDIDOS POR DÍA =====
+        $sql_por_dia = "
+            SELECT 
+                DATE(v.fecha_venta) as fecha,
+                p.codigo_producto as codigo_barras,
+                p.nombre_producto as nombre,
+                SUM(dv.cantidad) as unidades,
+                SUM(dv.subtotal) as total
+            FROM detalle_ventas dv
+            INNER JOIN ventas v ON dv.id_venta = v.id_venta
+            INNER JOIN productos p ON dv.id_producto = p.id_producto
+            WHERE v.estado_id = 29
+                AND DATE(v.fecha_venta) BETWEEN :fechaInicio AND :fechaFin
+        ";
+
+        $params_dia = [
+            ':fechaInicio' => $fechaInicio,
+            ':fechaFin' => $fechaFin
+        ];
+
+        if ($id_tienda !== null) {
+            $sql_por_dia .= " AND v.id_tienda = :id_tienda";
+            $params_dia[':id_tienda'] = $id_tienda;
+        }
+
+        $sql_por_dia .= "
+            GROUP BY DATE(v.fecha_venta), p.id_producto, p.codigo_producto, p.nombre_producto
+            ORDER BY fecha DESC, total DESC
+            LIMIT 200
+        ";
+
+        $stmt_dia = $pdo->prepare($sql_por_dia);
+        $stmt_dia->execute($params_dia);
+        $productos_por_dia = $stmt_dia->fetchAll(PDO::FETCH_ASSOC);
+
+        // ===== CONSULTA: TOP 15 PRODUCTOS DEL PERÍODO =====
+        $sql_top = "
+            SELECT 
+                p.nombre_producto as nombre,
+                SUM(dv.subtotal) as total
+            FROM detalle_ventas dv
+            INNER JOIN ventas v ON dv.id_venta = v.id_venta
+            INNER JOIN productos p ON dv.id_producto = p.id_producto
+            WHERE v.estado_id = 29
+                AND DATE(v.fecha_venta) BETWEEN :fechaInicio AND :fechaFin
+        ";
+
+        $params_top = [
+            ':fechaInicio' => $fechaInicio,
+            ':fechaFin' => $fechaFin
+        ];
+
+        if ($id_tienda !== null) {
+            $sql_top .= " AND v.id_tienda = :id_tienda";
+            $params_top[':id_tienda'] = $id_tienda;
+        }
+
+        $sql_top .= "
+            GROUP BY p.id_producto, p.nombre_producto
+            ORDER BY total DESC
+            LIMIT 15
+        ";
+
+        $stmt_top = $pdo->prepare($sql_top);
+        $stmt_top->execute($params_top);
+        $top_productos = $stmt_top->fetchAll(PDO::FETCH_ASSOC);
+
+        // Convertir tipos de datos
+        foreach ($productos_por_dia as &$producto) {
+            $producto['unidades'] = (int)$producto['unidades'];
+            $producto['total'] = (float)$producto['total'];
+        }
+
+        foreach ($top_productos as &$top) {
+            $top['total'] = (float)$top['total'];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'productos_por_dia' => $productos_por_dia,
+                'top_productos' => $top_productos
+            ],
+            'periodo' => [
+                'inicio' => $fechaInicio,
+                'fin' => $fechaFin
+            ]
+        ], JSON_NUMERIC_CHECK);
+
+    } catch (PDOException $e) {
+        error_log("Error PDO en obtenerReporteVentas: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error al consultar la base de datos'
+        ]);
+    } catch (Exception $e) {
+        error_log("Error en obtenerReporteVentas: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+    }
+    break;
 
 
 

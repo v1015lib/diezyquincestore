@@ -1642,6 +1642,7 @@ async function loadActionContent(actionPath) {
                 await initializeInventoryReportView(actionContent);
                 break;
             case 'estadisticas/resumen': loadStatisticsWidgets(); break;
+            case 'estadisticas/reportes_ventas': initReportesVentas(); break;
             case 'dashboard/ventas_por_usuario': await fetchAndRenderUserSales(); break;
             case 'usuarios/gestion': initializeUserManagement(); break;
             case 'usuarios/permisos': initializePermissionsManagement(); break;
@@ -5191,7 +5192,7 @@ async function fetchAndRenderProductStats(storeId = null) {
         if (result.success) {
             const stats = result.stats;
             topProductsWidget.innerHTML = `
-                <ol style="padding-left: 1.5rem;">
+                <ol style="padding-left: .5rem;">
                     ${stats.top_products.map(p => `
                         <li style="margin-bottom: 0.5rem;">
                             ${p.nombre_producto} - <strong>$${parseFloat(p.total_sold).toFixed(2)}</strong>
@@ -5257,11 +5258,11 @@ function renderSalesChart(chartData) {
             data: storeData.data,
             borderColor: color,
             backgroundColor: color.replace('1)', '0.1)'),
-            borderWidth: 2,
-            tension: 0.4,       // ✅ Suaviza la línea
+            borderWidth: 1,
+            tension: 0,       // ✅ Suaviza la línea
             pointRadius: 1,     // ✅ Elimina los puntos visibles
-            pointHoverRadius: 5, // ✅ El punto aparece al pasar el ratón
-            fill: true
+            pointHoverRadius: 2, // ✅ El punto aparece al pasar el ratón
+            fill: false
         };
     });
 
@@ -7912,8 +7913,436 @@ async function handleDeleteReportItem(reportItemId, rowElement) {
 }
 // --- FIN: MÓDULO REPORTES RÁPIDOS DE INVENTARIO ---
 
+// =================================================================
+// INICIO: MÓDULO DE REPORTE DE VENTAS
+// =================================================================
 
+// Variable global para guardar la instancia del gráfico
+let chartProductos = null;
 
+// Helper para formatear a moneda
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+});
+
+/**
+ * Inicializa el módulo de reportes con filtros de fecha
+ */
+function initReportesVentas() {
+    console.log('Iniciando initReportesVentas...');
+    
+    const canvas = document.getElementById('grafico-pastel-productos');
+    if (!canvas) {
+        console.log('Canvas no encontrado, no estamos en la página de reportes');
+        return;
+    }
+    
+    console.log('Canvas encontrado:', canvas);
+    
+    // Destruir gráfico anterior si existe
+    if (chartProductos) {
+        chartProductos.destroy();
+        chartProductos = null;
+    }
+
+    // Inicializar fechas por defecto (últimos 30 días)
+    initializeDateFilters();
+    
+    // Event listeners para los filtros
+    setupFilterListeners();
+    
+    // Cargar datos iniciales
+    fetchReporteData();
+}
+
+/**
+ * Inicializa los campos de fecha con valores por defecto
+ */
+function initializeDateFilters() {
+    const fechaFin = document.getElementById('reporte-fecha-fin');
+    const fechaInicio = document.getElementById('reporte-fecha-inicio');
+    
+    if (!fechaFin || !fechaInicio) return;
+    
+    // Fecha de hoy
+    const hoy = new Date();
+    fechaFin.value = hoy.toISOString().split('T')[0];
+    
+    // Hace 30 días
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hace30Dias.getDate() - 30);
+    fechaInicio.value = hace30Dias.toISOString().split('T')[0];
+    
+    updatePeriodoText();
+}
+
+/**
+ * Actualiza el texto que muestra el período seleccionado
+ */
+function updatePeriodoText() {
+    const fechaInicio = document.getElementById('reporte-fecha-inicio')?.value;
+    const fechaFin = document.getElementById('reporte-fecha-fin')?.value;
+    const periodoSpan = document.getElementById('periodo-seleccionado');
+    
+    if (!fechaInicio || !fechaFin || !periodoSpan) return;
+    
+    const inicio = new Date(fechaInicio + 'T00:00:00');
+    const fin = new Date(fechaFin + 'T00:00:00');
+    
+    const opcionesFormato = { year: 'numeric', month: 'short', day: 'numeric' };
+    const textoInicio = inicio.toLocaleDateString('es-SV', opcionesFormato);
+    const textoFin = fin.toLocaleDateString('es-SV', opcionesFormato);
+    
+    periodoSpan.textContent = `Período: ${textoInicio} - ${textoFin}`;
+}
+
+/**
+ * Configura los event listeners de los filtros
+ */
+function setupFilterListeners() {
+    const btnAplicar = document.getElementById('aplicar-filtro-reporte');
+    const btnLimpiar = document.getElementById('limpiar-filtro-reporte');
+    
+    if (btnAplicar) {
+        btnAplicar.addEventListener('click', () => {
+            updatePeriodoText();
+            fetchReporteData();
+        });
+    }
+    
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', () => {
+            initializeDateFilters();
+            fetchReporteData();
+        });
+    }
+}
+
+/**
+ * Busca los datos del reporte desde la API con filtros de fecha
+ */
+async function fetchReporteData() {
+    const tbodyProd = document.querySelector('#tabla-reporte-productos tbody');
+    const tbodyTop = document.querySelector('#tabla-reporte-departamentos tbody');
+    
+    // Obtener fechas de los filtros
+    const fechaInicio = document.getElementById('reporte-fecha-inicio')?.value;
+    const fechaFin = document.getElementById('reporte-fecha-fin')?.value;
+    
+    if (!fechaInicio || !fechaFin) {
+        console.error('Fechas no definidas');
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    if (tbodyProd) tbodyProd.innerHTML = '<tr><td colspan="5">Cargando datos...</td></tr>';
+    if (tbodyTop) tbodyTop.innerHTML = '<tr><td colspan="3">Cargando datos...</td></tr>';
+    
+    try {
+        console.log('Fetch con fechas:', fechaInicio, fechaFin);
+        
+        const url = `${API_BASE_URL}?resource=admin/obtenerReporteVentas&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+        console.log('URL completa:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Datos recibidos:', result);
+
+        if (result.success) {
+            renderTablaProductosPorDia(result.data.productos_por_dia);
+            renderTablaProductosTop(result.data.top_productos);
+            renderGraficoProductos(result.data.top_productos);
+        } else {
+            throw new Error(result.message || 'Error desconocido en la API');
+        }
+
+    } catch (error) {
+        console.error('Error al cargar el reporte de ventas:', error);
+        
+        const errorMessage = `Error al cargar: ${error.message}`;
+        if (tbodyProd) {
+            tbodyProd.innerHTML = `<tr><td colspan="5" style="color:red; padding: 1rem;">${errorMessage}</td></tr>`;
+        }
+        if (tbodyTop) {
+            tbodyTop.innerHTML = `<tr><td colspan="3" style="color:red; padding: 1rem;">${errorMessage}</td></tr>`;
+        }
+    }
+}
+
+/**
+ * Renderiza la tabla de productos vendidos por día
+ */
+function renderTablaProductosPorDia(productosPorDia) {
+    const tbody = document.querySelector('#tabla-reporte-productos tbody');
+    const tfootTotal = document.querySelector('#total-productos');
+    
+    if (!tbody || !tfootTotal) {
+        console.error('Elementos de tabla de productos no encontrados');
+        return;
+    }
+
+    tbody.innerHTML = '';
+    let totalGeneral = 0;
+
+    if (!productosPorDia || productosPorDia.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 1rem;">No se encontraron ventas en el período seleccionado.</td></tr>';
+        tfootTotal.textContent = currencyFormatter.format(0);
+        return;
+    }
+
+    productosPorDia.forEach(p => {
+        const total = parseFloat(p.total) || 0;
+        totalGeneral += total;
+        
+        // Formatear fecha
+        const fecha = new Date(p.fecha + 'T00:00:00');
+        const fechaFormateada = fecha.toLocaleDateString('es-SV', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        
+        const row = `
+            <tr>
+                <td style="white-space: nowrap;">${fechaFormateada}</td>
+                <td>${p.codigo_barras || 'N/A'}</td>
+                <td>${p.nombre || 'Sin nombre'}</td>
+                <td style="text-align: center;">${p.unidades || 0}</td>
+                <td style="text-align: right; font-weight: 500;">${currencyFormatter.format(total)}</td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+
+    tfootTotal.innerHTML = `<strong>${currencyFormatter.format(totalGeneral)}</strong>`;
+}
+
+/**
+ * Renderiza la tabla de TOP productos
+ */
+function renderTablaProductosTop(topProductos) {
+    const tbody = document.querySelector('#tabla-reporte-departamentos tbody');
+    const tfootTotal = document.querySelector('#total-departamentos');
+    
+    if (!tbody || !tfootTotal) {
+        console.error('Elementos de tabla de top productos no encontrados');
+        return;
+    }
+
+    tbody.innerHTML = '';
+    let totalGeneral = 0;
+
+    if (!topProductos || topProductos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 1rem;">No se encontraron datos.</td></tr>';
+        tfootTotal.textContent = currencyFormatter.format(0);
+        return;
+    }
+
+    topProductos.forEach((p, index) => {
+        const total = parseFloat(p.total) || 0;
+        totalGeneral += total;
+        
+        // Medalla para el top 3
+        let rankDisplay = `${index + 1}`;
+        if (index === 0) rankDisplay = '🥇';
+        else if (index === 1) rankDisplay = '🥈';
+        else if (index === 2) rankDisplay = '🥉';
+        
+        const row = `
+            <tr>
+                <td style="text-align: center; font-size: 1.2rem;">${rankDisplay}</td>
+                <td>${p.nombre || 'Sin nombre'}</td>
+                <td style="text-align: right; font-weight: bold;">${currencyFormatter.format(total)}</td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+
+    tfootTotal.innerHTML = `<strong>${currencyFormatter.format(totalGeneral)}</strong>`;
+}
+
+/**
+ * Renderiza el gráfico de pastel de TOP productos
+ */
+function renderGraficoProductos(topProductos) {
+    const canvas = document.getElementById('grafico-pastel-productos');
+    
+    if (!canvas) {
+        console.error('Canvas para gráfico no encontrado');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.error('No se pudo obtener el contexto 2D del canvas');
+        return;
+    }
+
+    console.log('Iniciando renderizado del gráfico...');
+
+    // Destruir gráfico anterior si existe
+    if (chartProductos) {
+        chartProductos.destroy();
+        chartProductos = null;
+    }
+
+    if (!topProductos || topProductos.length === 0) {
+        console.log('No hay datos para el gráfico');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'center';
+        ctx.fillText('No hay datos para mostrar en el período seleccionado', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    const labels = topProductos.map(p => p.nombre || 'Sin nombre');
+    const data = topProductos.map(p => parseFloat(p.total) || 0);
+
+    // Paleta de colores vibrante
+    const colorPalette = [
+        'rgba(54, 162, 235, 0.8)',
+        'rgba(255, 99, 132, 0.8)',
+        'rgba(75, 192, 192, 0.8)',
+        'rgba(255, 206, 86, 0.8)',
+        'rgba(153, 102, 255, 0.8)',
+        'rgba(255, 159, 64, 0.8)',
+        'rgba(201, 203, 207, 0.8)',
+        'rgba(83, 102, 255, 0.8)',
+        'rgba(255, 99, 255, 0.8)',
+        'rgba(99, 255, 132, 0.8)',
+        'rgba(255, 193, 7, 0.8)',
+        'rgba(156, 39, 176, 0.8)',
+        'rgba(0, 150, 136, 0.8)',
+        'rgba(244, 67, 54, 0.8)',
+        'rgba(33, 150, 243, 0.8)'
+    ];
+
+    const backgroundColors = data.map((_, index) => 
+        colorPalette[index % colorPalette.length]
+    );
+
+    const borderColors = backgroundColors.map(color => 
+        color.replace('0.8)', '1)')
+    );
+
+    try {
+        chartProductos = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ventas',
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 11
+                            },
+                            boxWidth: 15,
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        
+                                        let displayLabel = label;
+                                        if (label.length > 30) {
+                                            displayLabel = label.substring(0, 30) + '...';
+                                        }
+                                        
+                                        return {
+                                            text: displayLabel,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: isNaN(value),
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += currencyFormatter.format(context.parsed);
+                                    
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    label += ` (${percentage}%)`;
+                                }
+                                return label;
+                            }
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        padding: 12,
+                        cornerRadius: 4,
+                        titleFont: {
+                            size: 14
+                        },
+                        bodyFont: {
+                            size: 13
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Top 15 Productos Más Vendidos',
+                        font: {
+                            size: 18,
+                            weight: 'bold'
+                        },
+                        padding: {
+                            top: 10,
+                            bottom: 20
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('Gráfico renderizado exitosamente');
+        
+    } catch (error) {
+        console.error('Error al crear el gráfico:', error);
+    }
+}
+
+// =================================================================
+// FIN: MÓDULO DE REPORTE DE VENTAS
+// =================================================================
 
 });
 

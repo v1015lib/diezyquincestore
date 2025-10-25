@@ -4,7 +4,7 @@
 
     <div class="action-ribbon">
         <button class="action-btn active" data-action="estadisticas/resumen">Resumen General</button>
-        <button class="action-btn" data-action="estadisticas/reporte_ventas">Reporte de Ventas</button>
+        <button class="action-btn" data-action="estadisticas/reportes_ventas">Reporte de Ventas</button>
     </div>
 </div>
 

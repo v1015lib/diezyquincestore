@@ -769,49 +769,47 @@ async function startOrResumeSale(storeId = null) {
         changeAmountSpan.textContent = (cambio >= 0 && paymentMethodSelect.value !== '2') ? `$${cambio.toFixed(2)}` : '$0.00';
     }
 
-    cobrarBtn.addEventListener('click', async () => {
+// Reemplaza la función cobrarBtn.addEventListener('click', ...) 
+
+cobrarBtn.addEventListener('click', async () => {
     const total = parseFloat(totalAmountInput.value);
     if (total <= 0) return;
 
     cobrarBtn.disabled = true;
     cobrarBtn.textContent = 'Procesando...';
 
-
-
-
-
-
-
-
-
-
     const finalClientId = (paymentMethodSelect.value === '2' && cardOwnerId) 
         ? cardOwnerId 
         : currentClientId;
 
-
-
-    // Aquí se recolectan los datos necesarios para la venta.
- const saleData = {
+    const saleData = {
         sale_id: currentSaleId,
-        client_id: finalClientId, // Se usa el ID del cliente correcto
+        client_id: finalClientId,
         payment_method_id: paymentMethodSelect.value,
         total_amount: total,
         card_number: cardNumberInput.value.trim()
     };
-    // --- FIN DE LA CORRECCIÓN ---
 
     try {
         const response = await fetch(`${API_URL}?resource=pos_finalize_sale`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(saleData) // Ahora saleData contiene la información correcta
+            body: JSON.stringify(saleData)
         });
 
         const result = await response.json();
+        
         if (result.success) {
             showPOSNotificationModal('Éxito', 'Venta finalizada correctamente.', 'success');
-            closeCheckoutModal(); // Cierra el modal de pago
+            closeCheckoutModal();
+            
+            // ✅ NUEVO: Si el modal de historial está abierto, refrescar automáticamente
+            if (salesHistoryModal && salesHistoryModal.style.display === 'block') {
+                const currentDate = salesHistoryDateInput.value;
+                console.log('Refrescando historial para:', currentDate);
+                await fetchAndRenderSalesHistory(currentDate);
+            }
+            
             await startOrResumeSale(selectedStoreId);
         } else {
             showPOSNotificationModal('Error', result.error || 'Error al finalizar la venta.', 'error');
@@ -819,6 +817,7 @@ async function startOrResumeSale(storeId = null) {
             cobrarBtn.textContent = 'Cobrar y Finalizar';
         }
     } catch (error) {
+        console.error('Error al finalizar venta:', error);
         showPOSNotificationModal('Error de Conexión', 'No se pudo finalizar la venta.', 'error');
         cobrarBtn.disabled = false;
         cobrarBtn.textContent = 'Cobrar y Finalizar';
@@ -1110,23 +1109,24 @@ async function fetchAndRenderSaleDetails(saleId) {
         }
     }
 
-    if(openHistoryModalBtn) {
-        openHistoryModalBtn.addEventListener('click', () => {
-            salesHistoryModal.style.display = 'block';
+if(openHistoryModalBtn) {
+    openHistoryModalBtn.addEventListener('click', async () => {
+        salesHistoryModal.style.display = 'block';
 
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Se crea la fecha de hoy manualmente para evitar problemas de zona horaria
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const todayString = `${year}-${month}-${day}`;
+        // Crear fecha de hoy con zona horaria local
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayString = `${year}-${month}-${day}`;
 
-            salesHistoryDateInput.value = todayString;
-            fetchAndRenderSalesHistory(todayString);
-            // --- FIN DE LA CORRECCIÓN ---
-        });
-    }
+        console.log('Abriendo historial para fecha:', todayString);
+        salesHistoryDateInput.value = todayString;
+        
+        // ✅ Esperar a que cargue antes de continuar
+        await fetchAndRenderSalesHistory(todayString);
+    });
+}
     
     if(salesHistoryModal) {
         salesHistoryModal.querySelector('.close-button').addEventListener('click', () => {
