@@ -5296,32 +5296,65 @@ function renderSalesChart(chartData) {
 
 
 async function loadStatisticsWidgets() {
+
+
     const endDateInput = document.getElementById('end-date');
     const startDateInput = document.getElementById('start-date');
     const storeFilter = document.getElementById('stats-store-filter');
 
+    // Helper para formatear fecha a YYYY-MM-DD
     const formatDate = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        // Añadimos una validación extra por si acaso
+        if (!(date instanceof Date) || isNaN(date)) {
+            console.error("Error en formatDate: Se recibió un valor inválido:", date);
+            return ''; // Devolver vacío si la fecha no es válida
+        }
+        try {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        } catch (e) {
+            console.error("Excepción en formatDate:", e);
+            return '';
+        }
     };
 
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 1);
+    // --- MODIFICACIÓN AQUÍ: FECHAS POR DEFECTO AÑO ACTUAL ---
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const startDate = new Date(currentYear, 0, 1); // currentYear, 0, 1 ----- 1 de Enero del año actual
+    const endDate = today; // La fecha actual
+ 
+    const formattedStartDate = formatDate(startDate);
+    const formattedEndDate = formatDate(endDate);
 
-    startDateInput.value = formatDate(startDate);
-    endDateInput.value = formatDate(endDate);
-    
+    // Asignar las fechas a los inputs y verificar si existen
+    if (startDateInput) {
+        startDateInput.value = formattedStartDate;
+    } else {
+        console.error("Error crítico: Input #start-date NO encontrado en el DOM."); // DEBUG
+    }
+    if (endDateInput) {
+        endDateInput.value = formattedEndDate;
+    } 
+
+    // Obtener el ID de tienda inicial (si existe)
     const initialStoreId = storeFilter ? storeFilter.value : null;
 
-    await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value, initialStoreId);
-    // --- CORRECCIÓN: Se envían las fechas a ambas funciones para consistencia ---
-    await fetchAndRenderProductStats(startDateInput.value, endDateInput.value, initialStoreId);
+    // Cargar los widgets con las fechas por defecto
+    // Asegurarse de que los inputs tengan valor antes de llamar a las funciones
+    if (startDateInput && endDateInput && startDateInput.value && endDateInput.value) {
+
+        await fetchAndRenderSalesSummary(startDateInput.value, endDateInput.value, initialStoreId);
+        await fetchAndRenderProductStats(startDateInput.value, endDateInput.value, initialStoreId);
+    } else {
+
+        const salesWidget = document.getElementById('sales-summary-widget');
+        if(salesWidget) salesWidget.innerHTML = '<p style="color:red;">Error al inicializar las fechas. Revisa la consola (F12).</p>';
+    }
+
 }
-
-
 async function fetchAndRenderProductStats(startDate, endDate, storeId = null) {
     const topProductsWidget = document.getElementById('top-products-widget');
     const lowStockWidget = document.getElementById('low-stock-widget');
