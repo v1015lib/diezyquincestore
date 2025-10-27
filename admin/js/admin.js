@@ -55,6 +55,29 @@ let isLoading = false;
 
 
 
+/**
+ * Aplica capitalización automática (primera letra de cada palabra) a un campo de texto.
+ * @param {string} inputId El ID del elemento input al que se aplicará la capitalización.
+ */
+     function applyCapitalization(inputId) {
+    const inputElement = document.getElementById(inputId);
+    if (inputElement && inputElement.tagName === 'INPUT') {
+        inputElement.addEventListener('input', () => {
+            const start = inputElement.selectionStart; // Guarda posición del cursor
+            const end = inputElement.selectionEnd;
+            let value = inputElement.value;
+            // Capitaliza la primera letra de cada palabra
+            value = value.toLowerCase().replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
+            inputElement.value = value;
+            inputElement.setSelectionRange(start, end); // Restaura posición del cursor
+        });
+        console.log(`Capitalización aplicada a #${inputId}`); // Mensaje de confirmación
+    } else {
+        console.warn(`No se encontró el input con id #${inputId} o no es un elemento INPUT.`);
+    }
+}
+
+
 
 // --- LÓGICA PARA MODAL DE CAMBIO DE PRECIO ---
 
@@ -512,6 +535,8 @@ function initializeAddCustomerForm() {
              submitButton.textContent = 'Guardar Cliente';
         }
     });
+    applyCapitalization('nombre');      
+    applyCapitalization('apellido');    
 }
 
 async function renderEditCustomerForm(customer) {
@@ -4597,6 +4622,7 @@ function initializeDepartmentManagement() {
     // Carga inicial
     fetchAndRenderDepartments();
     preloadNextDepartmentCode();
+    applyCapitalization('departamento');
 }
 
 
@@ -6337,6 +6363,7 @@ function initializeTiendaManagement() {
     if (createForm) {
         createForm.addEventListener('submit', handleTiendaFormSubmit);
     }
+    applyCapitalization('nombre_tienda');
 }
 
 async function fetchAndRenderTiendas() {
@@ -6474,6 +6501,7 @@ function initializeProveedorManagement() {
     if (createForm) {
         createForm.addEventListener('submit', handleProveedorFormSubmit);
     }
+    applyCapitalization('nombre_proveedor');
 }
 
 async function fetchAndRenderProveedores() {
@@ -6956,6 +6984,7 @@ function initializeMarcaManagement() {
     if (createForm) {
         createForm.addEventListener('submit', handleMarcaFormSubmit);
     }
+    applyCapitalization('nombre_marca');
 }
 
 async function fetchAndRenderMarcas() {
@@ -7078,7 +7107,9 @@ function initializeEtiquetaManagement() {
     const createForm = document.getElementById('create-etiqueta-form');
     if (createForm) {
         createForm.addEventListener('submit', handleEtiquetaFormSubmit);
+
     }
+    applyCapitalization('nombre_etiqueta');
 }
 
 async function fetchAndRenderEtiquetas() {
