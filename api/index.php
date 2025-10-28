@@ -6279,35 +6279,39 @@ try {
       break;
 
 
-
-      case 'deactivate':
+      case 'mark-out-of-stock':
+                  $estado_id = 4; // Asumiendo ID 4 para 'Agotado' (¡VERIFICA ESTO!)
+                  $message = count($productIds) . ' producto(s) marcado(s) como Agotado.';
+                  $logActionType = 'Producto Agotado (Lote)';
+                  $logBaseDescription = 'Se marcaron como agotados';
+                  break;
+                  case 'deactivate':
             // Asumiendo que el estado 'Inactivo' tiene el ID 2
-      $stmt = $pdo->prepare("UPDATE productos SET estado = 2 WHERE id_producto IN ($placeholders)");
-      $stmt->execute($productIds);
-      $message = count($productIds) . ' producto(s) inactivado(s) en la tienda.';
-      break;
+                  $stmt = $pdo->prepare("UPDATE productos SET estado = 2 WHERE id_producto IN ($placeholders)");
+                  $stmt->execute($productIds);
+                  $message = count($productIds) . ' producto(s) inactivado(s) en la tienda.';
+                  break;
 
                     // --- CÓDIGO INTEGRADO ---
-      case 'activate':
-                        // Asumiendo que el estado 'Activo' tiene el ID 1
-      $stmt = $pdo->prepare("UPDATE productos SET estado = 1 WHERE id_producto IN ($placeholders)");
-      $stmt->execute($productIds);
-      $message = count($productIds) . ' producto(s) activado(s) en la tienda.';
-      break;
-      break;
+                  case 'activate':
+                  // Asumiendo que el estado 'Activo' tiene el ID 1 (¡Verifica esto en tu tabla 'estados'!)
+                  $stmt = $pdo->prepare("UPDATE productos SET estado = 1 WHERE id_producto IN ($placeholders)");
+                  $stmt->execute($productIds);
+                  $message = count($productIds) . ' producto(s) activado(s) en la tienda.';
+                  break;
                     // --- FIN DEL CÓDIGO INTEGRADO ---
-      case 'change-department':
-      $departmentId = $data['departmentId'] ?? null;
-      if (!$departmentId) {
-        throw new Exception('No se especificó el departamento de destino.');
-    }
+                  case 'change-department':
+                  $departmentId = $data['departmentId'] ?? null;
+                  if (!$departmentId) {
+                    throw new Exception('No se especificó el departamento de destino.');
+                }
 
                 // 1. La consulta ahora solo usa '?'
-    $stmt = $pdo->prepare("UPDATE productos SET departamento = ? WHERE id_producto IN ($placeholders)");
+                $stmt = $pdo->prepare("UPDATE productos SET departamento = ? WHERE id_producto IN ($placeholders)");
 
                 // 2. Construimos el array de parámetros en el orden correcto
                 // El primer '?' corresponde al departmentId, los siguientes a los productIds.
-    $params = array_merge([$departmentId], $productIds);
+                $params = array_merge([$departmentId], $productIds);
 
                 // 3. Ejecutamos con el array de parámetros unificado
     $stmt->execute($params);

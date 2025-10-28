@@ -1763,7 +1763,10 @@ async function saveFieldUpdate(productId, field, value, cell, newDisplayText = n
 
 
 function updateBatchActionsState() {
-    const selectedRows = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => cb.closest('tr'));
+    // Busca los elementos relevantes DENTRO del contenedor principal 'mainContent'
+    const selectedElements = Array.from(mainContent.querySelectorAll('.product-checkbox:checked')).map(cb => {
+        return cb.closest('tr') || cb.closest('.product-card');
+    }).filter(el => el);
     const batchSelector = mainContent.querySelector('#batch-action-selector');
     const batchButton = mainContent.querySelector('#batch-action-execute');
 
@@ -1771,9 +1774,16 @@ function updateBatchActionsState() {
 
     const activateOption = batchSelector.querySelector('option[value="activate"]');
     const deactivateOption = batchSelector.querySelector('option[value="deactivate"]');
-    if (!activateOption || !deactivateOption) return;
+    const outOfStockOption = batchSelector.querySelector('option[value="mark-out-of-stock"]'); // <-- Obtener la nueva opción
 
-    const totalSelected = selectedRows.length;
+    // Verificar si todas las opciones existen
+    if (!activateOption || !deactivateOption || !outOfStockOption) {
+         console.error("Falta una o más opciones de acción en lote (activate/deactivate/mark-out-of-stock).");
+         return;
+    }
+
+
+    const totalSelected = selectedElements.length;
 
     // 1. Estado inicial: todo deshabilitado y opciones ocultas
     batchSelector.disabled = true;
@@ -1781,6 +1791,7 @@ function updateBatchActionsState() {
     batchSelector.value = ''; // Resetea la selección
     activateOption.style.display = 'none';
     deactivateOption.style.display = 'none';
+    outOfStockOption.style.display = 'none'; // <-- Ocultar la nueva opción
 
     // 2. Si no hay nada seleccionado, no hacemos nada más
     if (totalSelected === 0) return;
@@ -1789,19 +1800,28 @@ function updateBatchActionsState() {
     batchSelector.disabled = false;
 
     // 4. Verificamos el estado de los productos seleccionados
-    // dataset.status viene de la fila <tr> que se genera en fetchAndRenderProducts
-    const areAllActive = selectedRows.every(row => row.dataset.status === 'activo');
-    const areAllInactive = selectedRows.every(row => row.dataset.status !== 'activo');
-    
-    // 5. Mostramos la opción correspondiente según la lógica
+    const areAllActive = selectedElements.every(el => el.dataset.status === 'activo');
+    const areAllInactive = selectedElements.every(el => el.dataset.status !== 'activo');
+    const areAnyActive = selectedElements.some(el => el.dataset.status === 'activo'); // <-- Nuevo: verificar si alguno está activo
+
+    // 5. Mostramos las opciones correspondientes según la lógica
     if (areAllActive) {
-        // Si todos están activos, solo mostramos la opción para desactivar
+        // Si todos están activos, mostrar 'Desactivar' y 'Marcar como Agotado'
         deactivateOption.style.display = 'block';
+        outOfStockOption.style.display = 'block'; // <-- Mostrar la nueva opción
     } else if (areAllInactive) {
-        // Si todos están inactivos, solo mostramos la opción para activar
+        // Si todos están inactivos, solo mostrar 'Activar'
         activateOption.style.display = 'block';
+    } else if (areAnyActive) {
+         // Si hay una mezcla, pero AL MENOS UNO está activo, mostrar 'Marcar como Agotado'
+         outOfStockOption.style.display = 'block'; // <-- Mostrar la nueva opción
+         // Podrías decidir mostrar también 'Desactivar' aquí si tiene sentido para tu flujo
+         // deactivateOption.style.display = 'block';
     }
-    // Si hay una mezcla de activos e inactivos, ninguna opción se mostrará.
+    // Si hay una mezcla donde ninguno está activo, solo se mostrará 'Activar' (cubierto por areAllInactive)
+
+    // Habilitar el botón Ejecutar solo si hay una acción seleccionada en el desplegable
+    batchButton.disabled = !batchSelector.value;
 }
 
 function resetProductForm(form) {

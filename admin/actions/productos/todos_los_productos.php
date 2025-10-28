@@ -28,6 +28,7 @@
         <option value="">Acciones en lote...</option>
         <option value="activate" style="display:none;">Activar seleccionados</option>
         <option value="deactivate" style="display:none;">Desactivar seleccionados</option>
+        <option value="mark-out-of-stock" style="display:none;">Marcar como Agotado</option>
         <option value="change-department">Cambiar departamento</option>
         <option value="change-price-massive">Cambiar Precio</option>
         <option value="find-replace-name">Buscar y Reemplazar Nombre</option>
