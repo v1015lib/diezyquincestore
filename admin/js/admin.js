@@ -7703,6 +7703,10 @@ async function initializeInventoryReportManagement() {
             else if (target.classList.contains('copy-items-btn')) {
                  await copyReportItemsToClipboard(reportId); // Llama a la nueva función
             }
+            else if (target.classList.contains('export-pdf-btn')) {
+                // Abre la URL del endpoint de la API en una nueva pestaña para iniciar la descarga
+                window.open(`${API_BASE_URL}?resource=admin/exportInventoryReportPDF&id_reporte=${reportId}`, '_blank');
+            }
         });
     }
 
@@ -7743,8 +7747,8 @@ async function fetchAndRenderInventoryReports(storeId = '') {
                     <td class="action-buttons-cell">
                         <button class="action-btn btn-sm view-report-btn" title="Ver/Editar">📝 Ver</button>
                         <button class="action-btn btn-sm delete-report-btn" title="Eliminar" style="background-color: #f8d7da;">❌</button>
-                    <button class="action-btn btn-sm copy-items-btn" title="Copiar Items al Portapapeles">📋</button>
-                    
+                        <button class="action-btn btn-sm copy-items-btn" title="Copiar Items al Portapapeles">📋</button>
+                        <button class="action-btn btn-sm export-pdf-btn" title="Exportar a PDF">📄</button>
                     </td>
 
                 `;

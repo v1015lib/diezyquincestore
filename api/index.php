@@ -52,6 +52,150 @@ try {
     // --- MANEJADOR DE RECURSOS (ROUTER) ---
     switch ($resource) {
 
+
+
+case 'admin/exportInventoryReportPDF':
+    // --- INICIO DE LA CORRECCIÓN ---
+    ob_start(); // Captura cualquier salida prematura (como warnings)
+    // --- FIN DE LA CORRECCIÓN ---
+
+    // Seguridad: Verificar sesión y rol (admin o bodeguero)
+    if (!isset($_SESSION['id_usuario']) || !in_array($_SESSION['rol'], ['administrador_global', 'admin_tienda', 'bodeguero'])) {
+        ob_end_clean(); // Limpiar buffer antes de salir
+        http_response_code(403);
+        echo "Acceso denegado.";
+        exit;
+    }
+
+    $id_reporte = filter_input(INPUT_GET, 'id_reporte', FILTER_VALIDATE_INT);
+    if (!$id_reporte) {
+        ob_end_clean(); // Limpiar buffer antes de salir
+        http_response_code(400);
+        echo "ID de reporte no válido.";
+        exit;
+    }
+
+    try {
+        // --- Obtener datos del reporte y tienda ---
+        $stmt_report = $pdo->prepare("
+            SELECT r.nombre_reporte, t.nombre_tienda, r.fecha_creacion
+            FROM reportes_inventario r
+            JOIN tiendas t ON r.id_tienda = t.id_tienda
+            WHERE r.id_reporte = :id_reporte
+        ");
+        $stmt_report->execute([':id_reporte' => $id_reporte]);
+        $reportDetails = $stmt_report->fetch(PDO::FETCH_ASSOC);
+
+        if (!$reportDetails) {
+            throw new Exception('Reporte no encontrado.');
+        }
+
+        // --- Verificar permiso de tienda (si no es admin global) ---
+        if ($_SESSION['rol'] !== 'administrador_global') {
+             $stmt_check_tienda = $pdo->prepare("SELECT id_tienda FROM reportes_inventario WHERE id_reporte = :id");
+             $stmt_check_tienda->execute([':id' => $id_reporte]);
+             if ($stmt_check_tienda->fetchColumn() != $_SESSION['id_tienda']) {
+                 throw new Exception('No tienes permiso para ver este reporte.');
+             }
+         }
+
+
+        // --- Obtener los items del reporte ---
+        $stmt_items = $pdo->prepare("
+            SELECT codigo_producto, nombre_producto, precio_venta, cantidad_reportada
+            FROM reportes_inventario_items
+            WHERE id_reporte = :id_reporte
+            ORDER BY nombre_producto ASC
+        ");
+        $stmt_items->execute([':id_reporte' => $id_reporte]);
+        $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        // --- INICIO DE LA CORRECCIÓN ---
+        ob_end_clean(); // Limpia cualquier salida (warnings) ANTES de incluir FPDF
+        // --- FIN DE LA CORRECCIÓN ---
+
+        // --- Generar PDF con FPDF ---
+        require_once __DIR__ . '/../lib/fpdf/fpdf.php'; // Asegúrate que la ruta sea correcta
+
+        class PDF_Reporte extends FPDF {
+            // Cabecera de página
+            function Header() {
+                 $logoPath = __DIR__ . '/../public_html/img/logoinv.png'; // Ruta al logo
+                 if (file_exists($logoPath)) {
+                     $this->Image($logoPath, 10, 6, 30); // Logo en la esquina superior izquierda
+                 }
+                $this->SetFont('Arial', 'B', 14);
+                $this->Cell(0, 10, 'Reporte Rapido de Inventario', 0, 1, 'C');
+                $this->Ln(5);
+            }
+
+            // Pie de página
+            function Footer() {
+                $this->SetY(-15);
+                $this->SetFont('Arial', 'I', 8);
+                $this->Cell(0, 10, 'Pagina ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+            }
+
+             // Tabla simple mejorada
+            function BasicTable($header, $data) {
+                // Anchos de las columnas (ajusta según necesidad)
+                $w = array(40, 85, 30, 35);
+                // Cabecera
+                $this->SetFillColor(230, 230, 230); // Gris claro para el fondo
+                $this->SetFont('Arial', 'B', 10);
+                for($i=0; $i<count($header); $i++)
+                    $this->Cell($w[$i], 7, $header[$i], 1, 0, 'C', true); // Celda con borde, centrada y con fondo
+                $this->Ln();
+                // Datos
+                $this->SetFont('Arial', '', 9);
+                $this->SetFillColor(255); // Fondo blanco para datos
+                $fill = false; // Alternar color de fila
+                foreach($data as $row) {
+                    $this->Cell($w[0], 6, $row['codigo_producto'], 'LR', 0, 'L', $fill);
+                    // --- CORRECCIÓN: Se elimina utf8_decode ---
+                    $this->Cell($w[1], 6, $row['nombre_producto'], 'LR', 0, 'L', $fill);
+                    // --- FIN CORRECCIÓN ---
+                    $this->Cell($w[2], 6, '$'.number_format($row['precio_venta'], 2), 'LR', 0, 'R', $fill);
+                    $this->Cell($w[3], 6, $row['cantidad_reportada'], 'LR', 0, 'C', $fill);
+                    $this->Ln();
+                    $fill = !$fill; // Alternar relleno
+                }
+                // Línea de cierre
+                $this->Cell(array_sum($w), 0, '', 'T');
+            }
+        }
+
+        $pdf = new PDF_Reporte();
+        $pdf->AliasNbPages();
+        $pdf->AddPage();
+
+        // --- Información del Reporte ---
+        $pdf->SetFont('Arial', '', 11);
+        // --- CORRECCIÓN: Se elimina utf8_decode ---
+        $pdf->Cell(0, 6, 'Reporte: ' . $reportDetails['nombre_reporte'], 0, 1);
+        $pdf->Cell(0, 6, 'Tienda: ' . $reportDetails['nombre_tienda'], 0, 1);
+        // --- FIN CORRECCIÓN ---
+        $pdf->Cell(0, 6, 'Fecha de Creacion: ' . date("d/m/Y H:i", strtotime($reportDetails['fecha_creacion'])), 0, 1);
+        $pdf->Ln(10); // Espacio antes de la tabla
+
+        // --- Tabla de Items ---
+        $header = array('Codigo', 'Producto', 'P. Venta', 'Cant. Reportada');
+        $pdf->BasicTable($header, $items);
+
+        // --- Salida del PDF ---
+        $fileName = "Reporte_" . preg_replace('/[^a-z0-9_]/i', '', $reportDetails['nombre_reporte']) . ".pdf";
+        $pdf->Output('D', $fileName); // 'D' fuerza la descarga
+        exit;
+
+    } catch (Exception $e) {
+        ob_end_clean(); // Asegura limpiar el buffer también en caso de error
+        // En caso de error, muestra un mensaje simple (podrías mejorarlo)
+        http_response_code(500);
+        echo "Error al generar el PDF: " . $e->getMessage();
+        exit;
+    }
+    break;
+
 // --- INICIO: REPORTES RÁPIDOS DE INVENTARIO ---
 
 
