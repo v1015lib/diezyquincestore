@@ -5972,6 +5972,12 @@ case 'admin/createProduct':
 case 'admin/updateProduct':
         $pdo->beginTransaction();
         try {
+            // Obtener estado ANTES de la actualización para la notificación
+            $stmt_old_status_check = $pdo->prepare("SELECT estado FROM productos WHERE id_producto = :id_producto");
+            $stmt_old_status_check->execute([':id_producto' => $_POST['id_producto'] ?? 0]);
+            $estado_anterior = $stmt_old_status_check->fetchColumn();
+
+
             $productId = $_POST['id_producto'] ?? 0;
             $userId = $_SESSION['id_usuario'] ?? null;
 
@@ -5987,10 +5993,9 @@ case 'admin/updateProduct':
             $precio_venta = filter_var($_POST['precio_venta'] ?? 0.00, FILTER_VALIDATE_FLOAT);
             $precio_mayoreo = filter_var($_POST['precio_mayoreo'] ?? 0.00, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
             $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? 0, FILTER_VALIDATE_INT);
-            $estado_id = filter_var($_POST['estado'] ?? 0, FILTER_VALIDATE_INT);
+            $estado_id = filter_var($_POST['estado'] ?? 0, FILTER_VALIDATE_INT); // Nuevo estado
             $proveedor_id = filter_var($_POST['proveedor'] ?? 0, FILTER_VALIDATE_INT);
             $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
-            // $id_etiqueta = !empty($_POST['id_etiqueta']) ? filter_var($_POST['id_etiqueta'], FILTER_VALIDATE_INT) : null; // <-- Ya no se usa para una sola etiqueta
             $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
             $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
             $url_imagen = $_POST['url_imagen'] ?? '';
@@ -6036,7 +6041,64 @@ case 'admin/updateProduct':
             logActivity($pdo, $userId, 'Producto Modificado', "Se actualizó el producto (formulario): '{$nombre_producto}' (Código: {$codigo_producto})"); // <-- Línea de referencia
 
             $pdo->commit();
+
+            // --- INICIO: Lógica de Notificación por Cambio de Estado ---
+            try {
+                // IDs de estado relevantes: 1 = Activo, 4 = Agotado
+                $estado_activo = 1;
+                $estado_agotado = 4;
+
+                // Solo notificar si el estado ANTERIOR era diferente al NUEVO
+                // Y si el cambio fue entre Activo y Agotado
+                if ($estado_anterior !== false && $estado_anterior != $estado_id &&
+                    (($estado_anterior == $estado_activo && $estado_id == $estado_agotado) || ($estado_anterior == $estado_agotado && $estado_id == $estado_activo)) )
+                {
+
+                    $cambio_a_activo = ($estado_id == $estado_activo); // True si el nuevo estado es Activo
+                    $cambio_a_agotado = ($estado_id == $estado_agotado); // True si el nuevo estado es Agotado
+
+                    // Obtener el ID del departamento del producto actualizado (ya lo tienes en $departamento_id)
+                    if ($departamento_id) {
+                        // Encontrar clientes que tienen este departamento en sus preferencias
+                        $stmt_clientes = $pdo->prepare(
+                            "SELECT id_cliente FROM preferencias_cliente WHERE id_departamento = :id_departamento"
+                        );
+                        $stmt_clientes->execute([':id_departamento' => $departamento_id]);
+                        $clientes_a_notificar = $stmt_clientes->fetchAll(PDO::FETCH_COLUMN);
+
+                        // Crear el mensaje adecuado
+                        $mensaje = "";
+                        if ($cambio_a_activo) {
+                            $mensaje = "¡Buenas noticias! El producto '" . htmlspecialchars($nombre_producto) . "' vuelve a estar disponible.";
+                        } elseif ($cambio_a_agotado) {
+                            $mensaje = "El producto '" . htmlspecialchars($nombre_producto) . "' se ha agotado temporalmente.";
+                        }
+
+                        // Construir la URL del producto
+                        $product_url = "producto/" . $slug; // Usamos el slug que ya generaste
+
+                        // Enviar notificación a cada cliente interesado
+                        foreach ($clientes_a_notificar as $cliente_id) {
+                            // Llamamos a la función crearNotificacion (pull y push)
+                            crearNotificacion($pdo, (int)$cliente_id, 'stock', $mensaje, $product_url);
+                        }
+                        // Log opcional para saber a cuántos se notificó
+                        if (count($clientes_a_notificar) > 0) {
+                            logActivity($pdo, $userId, 'Notificación Stock', "Se notificó a " . count($clientes_a_notificar) . " clientes sobre cambio de stock del producto ID: {$productId}");
+                        }
+                    }
+                }
+            } catch (Exception $notif_error) {
+                // Si falla el envío de notificaciones, no revertimos la transacción del producto,
+                // pero sí registramos el error para depuración.
+                error_log("Error al procesar notificaciones de stock para producto ID {$productId}: " . $notif_error->getMessage());
+                // Podrías añadir un mensaje adicional al 'message' del JSON de éxito si quieres informar al admin.
+                // $message .= " (Error al enviar notificaciones)";
+            }
+            // --- FIN: Lógica de Notificación por Cambio de Estado ---
+
             echo json_encode(['success' => true, 'message' => 'Producto actualizado correctamente.']);
+
 
         } catch (Exception $e) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
@@ -6045,7 +6107,6 @@ case 'admin/updateProduct':
             echo json_encode(['success' => false, 'error' => "Error al actualizar producto: " . $e->getMessage()]);
         }
         break;
-
 
 
 
@@ -7531,13 +7592,24 @@ function handleProductsRequest(PDO $pdo) {
              }
              // --- FIN DE LA CORRECCIÓN ---
          }
-       
+        
+        // ==================================================================
+        // --- INICIO DE LA MODIFICACIÓN (BÚSQUEDA POR ETIQUETAS) ---
+        // ==================================================================
          if (!empty($search_term)) {
-            $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term_code)";
+            // Se añade "et.nombre_etiqueta" a la cláusula OR.
+            // Se reutiliza :search_term para todas las condiciones.
+            $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term OR et.nombre_etiqueta LIKE :search_term)";
             $params[':search_term'] = '%' . $search_term . '%';
-            $params[':search_term_code'] = '%' . $search_term . '%';
+            
+            // La variable :search_term_code que tenías antes ya no es necesaria, 
+            // pero si la dejas no afecta, aunque así es más limpio.
+            
             $filter_name = $search_term;
         }
+        // ==================================================================
+        // --- FIN DE LA MODIFICACIÓN ---
+        // ==================================================================
 
         // --- INICIO DE LA CORRECCIÓN PARA OFERTAS ---
         if ($ofertas_only) {
@@ -7554,71 +7626,73 @@ function handleProductsRequest(PDO $pdo) {
             $offer_conditions[] = "(p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)";
             // Para registrados (si el usuario está logueado)
             if ($is_user_logged_in) {
-               $offer_conditions[] = "(p.oferta_exclusiva = 1 AND p.oferta_tipo_cliente_id IS NULL)";
+                 $offer_conditions[] = "(p.oferta_exclusiva = 1 AND p.oferta_tipo_cliente_id IS NULL)";
                  // Para su tipo de cliente específico (si tiene tipo)
-               if ($client_type_id) {
-                   $offer_conditions[] = "(p.oferta_tipo_cliente_id = :client_type_id)";
-                   $params[':client_type_id'] = $client_type_id;
-               }
-           }
+                if ($client_type_id) {
+                     $offer_conditions[] = "(p.oferta_tipo_cliente_id = :client_type_id)";
+                     $params[':client_type_id'] = $client_type_id;
+                }
+            }
             // Solo si hay condiciones de oferta aplicables, se añaden a la consulta
-           if (!empty($offer_conditions)) {
-               $where_clauses[] = "(" . implode(" OR ", $offer_conditions) . ")";
-           } else if (!$is_user_logged_in) {
+            if (!empty($offer_conditions)) {
+                 $where_clauses[] = "(" . implode(" OR ", $offer_conditions) . ")";
+            } else if (!$is_user_logged_in) {
                  // Si no está logueado y solo hay ofertas exclusivas, no mostrar nada
                  // (Podrías ajustar esto si quieres mostrar públicas siempre)
                  //$where_clauses[] = "1 = 0"; // O solo la condición de pública: (p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)
-               $where_clauses[] = "(p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)";
+                $where_clauses[] = "(p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)";
 
-           }
+            }
 
-       }
+        }
          // --- FIN DE LA CORRECCIÓN PARA OFERTAS ---
-   }
+    }
 
     // --- Construcción y Ejecución de Consultas (igual que antes) ---
-   $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+    $where_sql = " WHERE " . implode(" AND ", $where_clauses);
 
-   $countSql = "SELECT COUNT(DISTINCT p.id_producto) " . $base_sql . $where_sql;
-   $stmtCount = $pdo->prepare($countSql);
-   $stmtCount->execute($params);
-   $total_products = $stmtCount->fetchColumn();
-   $total_pages = ceil($total_products / $limit);
+    // NOTA: COUNT(DISTINCT p.id_producto) es crucial por el JOIN con etiquetas
+    $countSql = "SELECT COUNT(DISTINCT p.id_producto) " . $base_sql . $where_sql;
+    $stmtCount = $pdo->prepare($countSql);
+    $stmtCount->execute($params);
+    $total_products = $stmtCount->fetchColumn();
+    $total_pages = ceil($total_products / $limit);
 
-   $sql = "SELECT DISTINCT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
-   if ($sort_by === 'random') { $sql .= " ORDER BY RAND()"; }
-   else { $sql .= " ORDER BY " . $sort_by . " " . $order; }
-   $sql .= " LIMIT :limit OFFSET :offset";
+    // NOTA: SELECT DISTINCT es crucial aquí también
+    $sql = "SELECT DISTINCT " . $select_fields . ", d.departamento AS nombre_departamento " . $base_sql . $where_sql;
+    
+    if ($sort_by === 'random') { $sql .= " ORDER BY RAND()"; }
+    else { $sql .= " ORDER BY " . $sort_by . " " . $order; }
+    $sql .= " LIMIT :limit OFFSET :offset";
 
-   $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare($sql);
 
-    // Bindear parámetros comunes
-   foreach ($params as $key => &$val) {
-        $type = PDO::PARAM_STR; // Default a string
-        if (str_ends_with($key, '_id') || $key === ':limit' || $key === ':offset' || $key === ':client_type_id') {
+     // Bindear parámetros comunes
+    foreach ($params as $key => &$val) {
+         $type = PDO::PARAM_STR; // Default a string
+         if (str_ends_with($key, '_id') || $key === ':limit' || $key === ':offset' || $key === ':client_type_id') {
            $type = PDO::PARAM_INT;
-       }
-       $stmt->bindParam($key, $val, $type);
-   }
-    // Bindear límite y offset explícitamente como INT
-   $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-   $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        }
+        $stmt->bindParam($key, $val, $type);
+    }
+     // Bindear límite y offset explícitamente como INT
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
 
 
-   $stmt->execute();
-   $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute();
+    $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // --- Respuesta JSON (igual que antes) ---
-   echo json_encode([
-    'products' => $products,
-    'total_products' => (int)$total_products,
-    'total_pages' => $total_pages,
-    'current_page' => $page,
-    'limit' => $limit,
-        'filter_name' => $filter_name // Nombre del filtro para mostrar en UI
-    ]);
+     // --- Respuesta JSON (igual que antes) ---
+    echo json_encode([
+     'products' => $products,
+     'total_products' => (int)$total_products,
+     'total_pages' => $total_pages,
+     'current_page' => $page,
+     'limit' => $limit,
+         'filter_name' => $filter_name // Nombre del filtro para mostrar en UI
+     ]);
 }
-
 
 function handleDepartmentsRequest(PDO $pdo) {
     // 1. Lee la configuración actual desde el archivo.

@@ -1,4 +1,5 @@
 // EN: public_html/service-worker.js
+console.log('Evento PUSH recibido (prueba navegador)');
 
 self.addEventListener('push', function(event) {
     let data;
