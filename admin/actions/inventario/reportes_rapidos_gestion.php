@@ -72,6 +72,7 @@ $user_store_id = $_SESSION['id_tienda'] ?? null;
         </table>
     </div>
 </div>
+<div id="copy-feedback" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #28a745; color: white; padding: 10px 20px; border-radius: 5px; display: none; z-index: 1000;"></div>
 
 <?php
 // Devuelve el contenido del buffer

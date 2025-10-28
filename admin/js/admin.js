@@ -7595,16 +7595,67 @@ function stopAdminScanner() {
         }
         // ...otros listeners de click en mainContent...
     });
-    // --- FIN LÓGICA DEL ESCÁNER ---
-
-
-
-
-    // --- INICIO: MÓDULO REPORTES RÁPIDOS DE INVENTARIO ---
+ 
 
 /**
- * Inicializa la vista de gestión de reportes (la lista principal).
+ * Obtiene los items de un reporte y los copia al portapapeles en formato TSV.
+ * @param {string} reportId - ID del reporte a copiar.
  */
+async function copyReportItemsToClipboard(reportId) {
+    const feedbackDiv = document.getElementById('copy-feedback');
+    if (!feedbackDiv) {
+        console.error("Elemento copy-feedback no encontrado.");
+        alert('Error: No se encontró el elemento para mostrar mensajes.');
+        return;
+    }
+
+    feedbackDiv.textContent = 'Copiando...';
+    feedbackDiv.style.backgroundColor = '#ffc107'; // Amarillo para 'cargando'
+    feedbackDiv.style.display = 'block';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?resource=admin/getInventoryReportDetails&id_reporte=${reportId}`);
+        const result = await response.json();
+
+        if (!result.success || !result.items) {
+            throw new Error(result.error || 'No se pudieron obtener los items del reporte.');
+        }
+
+        if (result.items.length === 0) {
+            feedbackDiv.textContent = 'El reporte está vacío.';
+            feedbackDiv.style.backgroundColor = '#dc3545'; // Rojo para error/vacío
+            setTimeout(() => { feedbackDiv.style.display = 'none'; }, 2000);
+            return;
+        }
+
+        // Formatear los datos como TSV (Tab-Separated Values)
+        let clipboardText = "Código\tNombre Producto\tPrecio Venta (Snapshot)\tCantidad Reportada\n"; // Encabezados
+        result.items.forEach(item => {
+            clipboardText += `${item.codigo_producto}\t`;
+            clipboardText += `${item.nombre_producto}\t`;
+            clipboardText += `$${parseFloat(item.precio_venta).toFixed(2)}\t`;
+            clipboardText += `${item.cantidad_reportada}\n`;
+        });
+
+        // Copiar al portapapeles
+        await navigator.clipboard.writeText(clipboardText);
+
+        feedbackDiv.textContent = '¡Items copiados al portapapeles!';
+        feedbackDiv.style.backgroundColor = '#28a745'; // Verde para éxito
+
+    } catch (error) {
+        console.error('Error al copiar items:', error);
+        feedbackDiv.textContent = `Error: ${error.message}`;
+        feedbackDiv.style.backgroundColor = '#dc3545'; // Rojo para error
+    } finally {
+        // Ocultar el mensaje después de unos segundos
+        setTimeout(() => {
+            feedbackDiv.style.display = 'none';
+        }, 3000); // 3 segundos
+    }
+}
+
+
 async function initializeInventoryReportManagement() {
     const createForm = document.getElementById('create-report-form');
     const reportsTbody = document.getElementById('inventory-reports-tbody');
@@ -7649,6 +7700,9 @@ async function initializeInventoryReportManagement() {
                     await deleteInventoryReport(reportId, row);
                 }
             }
+            else if (target.classList.contains('copy-items-btn')) {
+                 await copyReportItemsToClipboard(reportId); // Llama a la nueva función
+            }
         });
     }
 
@@ -7689,7 +7743,10 @@ async function fetchAndRenderInventoryReports(storeId = '') {
                     <td class="action-buttons-cell">
                         <button class="action-btn btn-sm view-report-btn" title="Ver/Editar">📝 Ver</button>
                         <button class="action-btn btn-sm delete-report-btn" title="Eliminar" style="background-color: #f8d7da;">❌</button>
+                    <button class="action-btn btn-sm copy-items-btn" title="Copiar Items al Portapapeles">📋</button>
+                    
                     </td>
+
                 `;
                 tableBody.appendChild(row);
             });
