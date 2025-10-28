@@ -49,6 +49,7 @@ if (isset($_SESSION['id_cliente'])) {
             <li><a href="dashboard.php?view=favoritos">Mis Favoritos</a></li>
             <li><a href="dashboard.php?view=pedidos">Historial de Pedidos</a></li>
             <li><a href="dashboard.php?view=ofertas">Mis Ofertas</a></li>
+            <li><a href="dashboard.php?view=preferencias">Mis Preferencias</a></li>
             <li><a href="dashboard.php?view=notificaciones">Mis Notificaciones <span id="notification-count-badge" style="display:none;"></span></a></li>
 
             <li class="separator"></li>

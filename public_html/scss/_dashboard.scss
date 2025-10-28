@@ -788,3 +788,75 @@
         color: #e9ecef;
     }
 }
+
+
+/* Estilos compactos solo para la vista de Preferencias */
+#preferences-view-wrapper {
+    
+    // Anula el max-width del contenedor de perfil solo aquí
+    .form-container-profile {
+        max-width: none;
+    }
+
+    // Aplica el grid de múltiples columnas
+    .departments-checklist-container {
+        display: grid;
+        // Crea 3 columnas en escritorio, 2 en tablet, 1 en móvil
+        grid-template-columns: repeat(4, 1fr);
+        gap:.3rem; // Menos espacio vertical, más horizontal
+        margin-bottom: .3rem;
+        padding: .3rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius);
+        max-height: fit-content; // Quitamos la altura fija
+        overflow-y: auto;
+
+        // Estilos para cada item del checklist
+        .form-group-checkbox {
+            margin: 0; // Resetea el margen para que el 'gap' funcione
+            padding: 0.25rem;
+            border-radius: var(--border-radius-small);
+            transition: background-color 0.2s ease;
+
+            /* --- INICIO DE LA CORRECCIÓN --- */
+            display: flex;          // 1. Alinea los elementos (input y label) en una fila
+            align-items: center;    // 2. Centra verticalmente el checkbox y el texto
+            gap: 0.5rem;            // 3. Añade un espacio entre el checkbox y el label
+            /* --- FIN DE LA CORRECCIÓN --- */
+
+            &:hover {
+                background-color: var(--color-background-soft);
+            }
+            
+            label {
+                font-weight: 600;
+                font-size: 0.8rem; // Letra un poco más pequeña
+                // Evita que el texto largo se salte de línea
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            input[type="checkbox"] {
+                // Achica un poco el checkbox
+                width: .8rem;
+                height: .8rem;
+                flex-shrink: 0; // <-- AÑADIDO: Evita que el checkbox se encoja
+            }
+        }
+    }
+
+    // Media query para tablets
+    @media (max-width: 768px) {
+        .departments-checklist-container {
+            grid-template-columns: repeat(2, 1fr); // 2 columnas
+        }
+    }
+
+    // Media query para móviles
+    @media (max-width: 480px) {
+        .departments-checklist-container {
+            grid-template-columns: 1fr; // 1 columna
+        }
+    }
+}

@@ -1,0 +1,115 @@
+@media (max-width: 768px) {
+  .sidemenu-user-section {
+    display: block;
+  }
+  .main-header .main-nav .hide-on-mobile {
+    display: none;
+  }
+  .main-header .header-content {
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+            justify-content: space-between;
+  }
+  .main-header .search-bar {
+    -webkit-box-ordinal-group: 4;
+        -ms-flex-order: 3;
+            order: 3;
+    width: 100%;
+    margin: 1rem 0 0 0;
+    max-width: 100%;
+  }
+  .main-header .search-bar button {
+    display: none;
+  }
+  .main-header .main-nav .welcome-message {
+    display: none;
+  }
+  .main-header .mobile-menu-toggle {
+    display: block;
+  }
+  .sidemenu {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100vh;
+    z-index: 2000;
+    -webkit-transition: left 0.3s ease-in-out;
+    transition: left 0.3s ease-in-out;
+    -webkit-box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+  }
+  .sidemenu ul {
+    display: -ms-grid;
+    display: grid;
+    -ms-grid-columns: (1fr)[2];
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sidemenu.active {
+    left: 0;
+  }
+  .sidemenu .sidemenu-header .close-sidemenu {
+    display: block;
+  }
+}
+.main-container {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+}
+.main-container .grid-inner {
+  overflow-y: auto;
+}
+.main-container .grid-inner::-webkit-scrollbar {
+  width: 5px; /* Ancho para scrollbars verticales */
+  height: 10px; /* Alto para scrollbars horizontales */
+}
+.main-container .grid-inner::-webkit-scrollbar-track {
+  background: #0C0A4E;
+}
+.main-container .grid-inner::-webkit-scrollbar-thumb {
+  background: #090737;
+}
+/*******Responsividad*******/
+@media (max-width: 768px) {
+  .sidemenu {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100vh;
+    z-index: 2000;
+    -webkit-transition: left 0.3s ease-in-out;
+    transition: left 0.3s ease-in-out;
+    -webkit-box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+  }
+  .sidemenu.active {
+    opacity: 0.95;
+    left: 0;
+  }
+  .sidemenu .sidemenu-header .close-sidemenu {
+    display: block;
+  }
+}
+@media screen and (max-width: 425px) {
+  .sidemenu {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100vh;
+    z-index: 2000;
+    -webkit-transition: left 0.3s ease-in-out;
+    transition: left 0.3s ease-in-out;
+    -webkit-box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+  }
+  .sidemenu.active {
+    opacity: 0.95;
+    left: 0;
+  }
+  .sidemenu .sidemenu-header .close-sidemenu {
+    display: block;
+  }
+}

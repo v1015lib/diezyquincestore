@@ -59,6 +59,7 @@ $base_url = "{$protocol}://{$host}{$path}/";
             <div class="dashboard-content">
                 <?php
                 switch ($view) {
+
                     case 'notificaciones':
                     ?>
                         <h1>Mis Notificaciones</h1>
@@ -116,7 +117,24 @@ $base_url = "{$protocol}://{$host}{$path}/";
                             include 'includes/dashboard_tarjeta.php';
                             break; 
 
-
+                            // --- INICIO DE LA SECCIÓN QUE DEBES AGREGAR ---
+                    case 'preferencias':
+                    ?>
+                    <div id="preferences-view-wrapper">
+                       
+                        <div class="form-container-profile">
+                            <h2>Elige tu departamentos de interes</h2>
+                            <form id="preferences-form">
+                                <div id="departments-checklist" class="departments-checklist-container">
+                                    <p>Cargando departamentos...</p>
+                                </div>
+                                <button type="submit" class="submit-btn" id="save-preferences-btn">Guardar Preferencias</button>
+                            </form>
+                        </div>
+                    </div>
+                    <?php
+                    break; 
+                    // --- FIN DE LA SECCIÓN QUE DEBES AGREGAR ---
                             case 'perfil':
                             default:
                             ?>
@@ -173,9 +191,12 @@ $base_url = "{$protocol}://{$host}{$path}/";
                             <?php
                             break; // Fin del case 'perfil'
                         }
+
                         ?>
                         
                     </div>
+                
+
                 </main>
 
             </div>
@@ -238,6 +259,9 @@ $base_url = "{$protocol}://{$host}{$path}/";
             <?php if ($view === 'pedidos'): ?>
                 <script type="module" src="js/dashboard_orders.js"></script>
             <?php endif; ?>
+            <?php if ($view === 'preferencias'): ?>
+    <script type="module" src="js/dashboard_preferences.js"></script>
+<?php endif; ?>
     <div id="share-modal" class="modal-overlay">
         <div class="modal-content share-modal-content">
             <div class="modal-header">

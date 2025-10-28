@@ -1,0 +1,445 @@
+@charset "UTF-8";
+/* DESPUÉS (Reemplaza el contenido de tu archivo con esto) */
+/* 1. Define la animación (sin cambios) */
+@-webkit-keyframes shake {
+  10%, 90% {
+    -webkit-transform: translateX(-1px);
+            transform: translateX(-1px);
+  }
+  20%, 80% {
+    -webkit-transform: translateX(2px);
+            transform: translateX(2px);
+  }
+  30%, 50%, 70% {
+    -webkit-transform: translateX(-4px);
+            transform: translateX(-4px);
+  }
+  40%, 60% {
+    -webkit-transform: translateX(4px);
+            transform: translateX(4px);
+  }
+}
+@keyframes shake {
+  10%, 90% {
+    -webkit-transform: translateX(-1px);
+            transform: translateX(-1px);
+  }
+  20%, 80% {
+    -webkit-transform: translateX(2px);
+            transform: translateX(2px);
+  }
+  30%, 50%, 70% {
+    -webkit-transform: translateX(-4px);
+            transform: translateX(-4px);
+  }
+  40%, 60% {
+    -webkit-transform: translateX(4px);
+            transform: translateX(4px);
+  }
+}
+.products-container {
+  background: #F0F2F5;
+}
+
+/* Estilos solo para la cuadrícula principal */
+.product-grid {
+  display: -ms-grid;
+  display: grid;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  min-height: 100vh;
+  -ms-grid-columns: (0.7fr)[1];
+  grid-template-columns: repeat(1, 0.7fr);
+}
+@media (min-width: 325px) {
+  .product-grid {
+    -ms-grid-columns: (0.7fr)[2];
+    grid-template-columns: repeat(2, 0.7fr);
+  }
+}
+@media (min-width: 768px) {
+  .product-grid {
+    -ms-grid-columns: (0.9fr)[4];
+    grid-template-columns: repeat(4, 0.9fr);
+  }
+}
+@media (min-width: 1440px) {
+  .product-grid {
+    -ms-grid-columns: (0.9fr)[5];
+    grid-template-columns: repeat(5, 0.9fr);
+  }
+}
+
+/* --- ¡LA CORRECCIÓN CLAVE! --- */
+/* Ahora los estilos de la tarjeta son globales y se aplicarán en todas partes */
+.product-card {
+  padding: 1rem;
+  position: relative;
+  -webkit-box-shadow: 0px 5px 20px -10px rgba(0, 0, 0, 0.68);
+          box-shadow: 0px 5px 20px -10px rgba(0, 0, 0, 0.68);
+  background: #F8F8F8;
+  border-radius: 0.5rem;
+  margin: 0.3rem;
+  height: -webkit-fit-content;
+  height: -moz-fit-content;
+  height: fit-content;
+  -webkit-transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease; /* Para una transición suave al opacar */
+  /* --- NUEVO: ESTILO PARA TARJETA AGOTADA --- */
+}
+.product-card.out-of-stock-card {
+  opacity: 0.6; /* Atenúa toda la tarjeta */
+  pointer-events: none; /* Deshabilita interacciones de ratón */
+}
+.product-card .share-btn {
+  position: absolute;
+  border: none;
+  background: white;
+  color: #D4A017;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #D4A017;
+  border-radius: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  font-size: 1rem;
+  font-weight: 900;
+  left: 5%;
+  bottom: 78%;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  cursor: pointer;
+}
+.product-card .product-image-container {
+  width: 150px;
+  height: 150px;
+  padding: 0.2rem;
+  margin: auto;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -ms-flex-line-pack: center;
+      align-content: center;
+}
+.product-card .product-image-container img {
+  max-width: 100%;
+  -o-object-fit: contain;
+     object-fit: contain;
+  aspect-ratio: 1/1;
+}
+.product-card .product-image-container .discount-badge {
+  position: absolute;
+  top: 5%;
+  right: 5%;
+  width: 3rem;
+  height: 3rem;
+  font-variant: all-small-caps;
+  padding: 0.2rem;
+  background: #0C0A4E;
+  color: yellow;
+  font-size: 1rem;
+  border-radius: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-weight: 600;
+}
+.product-card .product-image-container .discount-badge::before {
+  content: "Ahorras:";
+  font-variant: none;
+  font-weight: 600;
+  background: #D4A017;
+  color: #0C0A4E;
+  position: absolute;
+  font-size: 0.7rem;
+  top: -25%;
+  padding: 0.1rem;
+}
+.product-card .favorite-btn {
+  border: none;
+  position: absolute;
+  top: 5%;
+  left: 5%;
+  background: white;
+  color: #D4A017;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #D4A017;
+  border-radius: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  font-size: 1rem;
+  font-weight: 900;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.product-card .favorite-btn.is-favorite {
+  -webkit-box-shadow: none;
+          box-shadow: none;
+  border: none;
+  border-radius: 100%;
+  background: red;
+  color: white;
+  border: 1px solid red;
+  -webkit-animation: shake 0.82s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+          animation: shake 0.82s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.product-card .product-info {
+  margin-top: 0.5rem;
+}
+.product-card .product-info h3 {
+  color: black;
+  font-size: 0.8rem;
+  height: 150px;
+  font-weight: 600;
+}
+.product-card .product-info .department {
+  height: 50px;
+  font-size: 0.8rem;
+  color: #0C0A4E;
+  font-weight: 600;
+}
+.product-card .product-info .price-container {
+  height: 75px;
+  font-size: 1rem;
+}
+.product-card .product-info .price-container .price {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: red;
+}
+.product-card .product-info .price-container .price-offer {
+  font-size: inherit;
+  font-weight: 600;
+  color: red;
+  height: 1.5rem;
+}
+.product-card .product-info .price-container .price-older {
+  color: #0C0A4E;
+  font-weight: 900;
+  text-decoration: line-through;
+}
+.product-card .product-info .price-container .code {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.product-card .product-info .quantity-selector {
+  width: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-line-pack: center;
+      align-content: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  margin: 0.8rem 0;
+  padding-bottom: 0.5rem;
+}
+.product-card .product-info .quantity-selector .quantity-input {
+  -webkit-box-flex: 1;
+      -ms-flex-positive: 1;
+          flex-grow: 1;
+  all: unset;
+  height: 100%;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.2rem;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.product-card .product-info .quantity-selector .quantity-btn {
+  -webkit-box-flex: 1;
+      -ms-flex: 1;
+          flex: 1;
+  width: 100%;
+}
+.product-card .product-info .quantity-selector .quantity-btn.minus, .product-card .product-info .quantity-selector .quantity-btn.plus {
+  all: unset;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: #0C0A4E;
+  color: #D4A017;
+  font-size: 1rem;
+  -webkit-box-flex: 0.3;
+      -ms-flex-positive: 0.3;
+          flex-grow: 0.3;
+  text-align: center;
+  font-weight: 900;
+}
+@media screen and (min-width: 320px) and (max-width: 1024px) {
+  .product-card .product-info .quantity-selector .quantity-btn.plus, .product-card .product-info .quantity-selector .quantity-btn.minus {
+    -webkit-box-flex: 0.4;
+        -ms-flex: 0.4;
+            flex: 0.4;
+  }
+}
+
+.product-carousel-section {
+  max-width: 1200px;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+.product-carousel-section h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  color: #0C0A4E;
+  text-align: center;
+}
+
+.product-carousel-container {
+  position: relative;
+  overflow: hidden;
+}
+.product-carousel-container::before, .product-carousel-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  z-index: 2;
+  pointer-events: none;
+}
+.product-carousel-container::before {
+  left: 0;
+  background: -webkit-gradient(linear, left top, right top, color-stop(1%, white), color-stop(60%, transparent));
+  background: linear-gradient(to right, white 1%, transparent 60%);
+}
+.product-carousel-container::after {
+  right: 0;
+  background: -webkit-gradient(linear, right top, left top, color-stop(1%, white), color-stop(60%, transparent));
+  background: linear-gradient(to left, white 1%, transparent 60%);
+}
+
+.product-carousel-slides {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  gap: 1rem;
+}
+
+/* Estilos para los controles de la lista de productos */
+.product-list-controls {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding: 0 1rem 1rem 1rem;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.results-summary-style {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.sort-control {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  gap: 0.5rem;
+}
+.sort-control label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.sort-control select {
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* AÑADIR AL FINAL DE _product_card.scss */
+.login-prompt-message {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0C0A4E; /* Color primario del tema */
+  background-color: #f0f2f5; /* Un fondo sutil */
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.out-of-stock-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -webkit-transform: translate(-50%, -50%) rotate(-15deg);
+          transform: translate(-50%, -50%) rotate(-15deg);
+  /* --- CAMBIO DE COLOR DEL BADGE A ROJO --- */
+  background-color: rgba(220, 53, 69, 0.9); /* Un rojo fuerte y visible */
+  color: white;
+  padding: 0.5rem 2rem;
+  font-weight: bold;
+  font-size: 1.2rem;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.quantity-selector.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.quantity-selector.disabled button, .quantity-selector.disabled input {
+  pointer-events: none;
+}

@@ -1631,7 +1631,60 @@ case 'admin/deleteShoppingList':
 
     /*************************************************************************************/
     /*************************************************************************************/
+case 'get-client-preferences':
+    if ($method === 'GET') {
+        if (!isset($_SESSION['id_cliente'])) {
+            throw new Exception("Acceso no autorizado.", 401);
+        }
+        $client_id = (int)$_SESSION['id_cliente'];
+        
+        // Busca solo los IDs de los departamentos que el cliente ya tiene guardados
+        $stmt = $pdo->prepare("SELECT id_departamento FROM preferencias_cliente WHERE id_cliente = :client_id");
+        $stmt->execute([':client_id' => $client_id]);
+        
+        $preferences = $stmt->fetchAll(PDO::FETCH_COLUMN, 0); 
+        
+        echo json_encode(['success' => true, 'preferences' => $preferences]);
+    }
+    break;
 
+case 'save-client-preferences':
+    if ($method === 'POST') {
+        if (!isset($_SESSION['id_cliente'])) {
+            throw new Exception("Acceso no autorizado.", 401);
+        }
+        $client_id = (int)$_SESSION['id_cliente'];
+        $data = json_decode(file_get_contents('php://input'), true);
+        $department_ids = $data['department_ids'] ?? [];
+
+        $pdo->beginTransaction();
+        try {
+            // 1. Borra todas las preferencias antiguas
+            $stmt_delete = $pdo->prepare("DELETE FROM preferencias_cliente WHERE id_cliente = :client_id");
+            $stmt_delete->execute([':client_id' => $client_id]);
+
+            // 2. Inserta las nuevas preferencias
+            if (!empty($department_ids)) {
+                $stmt_insert = $pdo->prepare("INSERT INTO preferencias_cliente (id_cliente, id_departamento) VALUES (:client_id, :dept_id)");
+                foreach ($department_ids as $dept_id) {
+                    if (filter_var($dept_id, FILTER_VALIDATE_INT)) {
+                        $stmt_insert->execute([
+                            ':client_id' => $client_id,
+                            ':dept_id'   => (int)$dept_id
+                        ]);
+                    }
+                }
+            }
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => '¡Tus preferencias han sido guardadas!']);
+
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e; 
+        }
+    }
+    break;
 
     case 'admin/getShoppingLists':
     try {

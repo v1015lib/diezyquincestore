@@ -1,0 +1,162 @@
+@charset "UTF-8";
+.promo-section {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  gap: 0.5rem;
+  max-width: 1200px;
+  margin: 0.5rem;
+}
+.promo-section .promo-main-column {
+  -webkit-box-flex: 2;
+      -ms-flex: 2;
+          flex: 2;
+  min-width: 0;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+}
+.promo-section .promo-sidebar-column {
+  -webkit-box-flex: 1;
+      -ms-flex: 1;
+          flex: 1;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  gap: 0.4rem;
+}
+
+.carousel-container {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  -webkit-box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  height: 100%;
+}
+
+.carousel-slides {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.carousel-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  -webkit-transition: opacity 0.6s ease-in-out, visibility 0.6s ease-in-out;
+  transition: opacity 0.6s ease-in-out, visibility 0.6s ease-in-out;
+}
+.carousel-slide.active {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+}
+.carousel-slide img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+
+.carousel-control {
+  position: absolute;
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+          transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.4);
+  color: white;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-size: 1.5rem;
+  z-index: 10;
+}
+.carousel-control:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+.carousel-control.prev {
+  left: 15px;
+}
+.carousel-control.next {
+  right: 15px;
+}
+
+.fixed-ad {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  -webkit-box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  -webkit-transition: 0.3s;
+  transition: 0.3s;
+}
+.fixed-ad img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  -o-object-fit: contain;
+     object-fit: contain;
+}
+.fixed-ad:hover {
+  scale: 0.95;
+}
+
+@media (max-width: 1024px) {
+  .promo-section {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+  }
+}
+.carousel-slide img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover; /* Esto hará que tu imagen cuadrada quepa sin deformarse */
+}
+
+/* Para la columna derecha */
+.fixed-ad {
+  height: 160px; /* <-- Define una altura fija para los anuncios laterales. Ajústala. */
+  background-color: #f7f7f7; /* Color de fondo opcional */
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  margin-bottom: 10px; /* Para separar los dos anuncios */
+}
+@media screen and (max-width: 768px) {
+  .fixed-ad {
+    height: auto;
+  }
+}

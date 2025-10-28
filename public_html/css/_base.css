@@ -1,0 +1,64 @@
+*, *::before, *::after {
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+  margin: 0;
+  -webkit-transition: 0.3s !important;
+  transition: 0.3s !important;
+  padding: 0;
+  font-family: "Montserrat", sans-serif;
+  font-size: 1rem;
+  scroll-behavior: smooth;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  all: unset;
+  border: none;
+}
+
+/* Para Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+  all: unset;
+}
+
+input[type=button] {
+  all: unset;
+}
+
+html {
+  font-size: 1rem;
+}
+@media (min-width: 768px) {
+  html {
+    font-size: 1rem;
+  }
+}
+@media (min-width: 1200px) {
+  html {
+    font-size: 1.15rem;
+  }
+}
+
+body {
+  line-height: 1.5;
+  color: #343a40;
+  background-color: #f8f9fa;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+ul, li, a {
+  text-decoration: none;
+  list-style: none;
+  color: black;
+}

@@ -1,0 +1,118 @@
+@charset "UTF-8";
+.sidemenu {
+  width: 220px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+  background-color: #0C0A4E;
+  position: fiex;
+  height: 100%;
+  overflow-y: auto;
+  z-index: 100000;
+}
+.sidemenu::-webkit-scrollbar {
+  width: 0px; /* Ancho para scrollbars verticales */
+  height: 10px; /* Alto para scrollbars horizontales */
+}
+.sidemenu::-webkit-scrollbar-track {
+  background: #0C0A4E;
+}
+.sidemenu::-webkit-scrollbar-thumb {
+  background: #060525;
+}
+.sidemenu .sidemenu-header {
+  width: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding: 1rem 0.5rem;
+  background: #0C0A4E;
+}
+.sidemenu .sidemenu-header h3 {
+  width: 100%;
+  margin: 0;
+  color: #D4A017;
+}
+.sidemenu .sidemenu-header .close-sidemenu {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: white;
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 1rem;
+  font-weight: 600;
+}
+.sidemenu ul {
+  height: inherit;
+}
+.sidemenu ul li a {
+  font-size: clamp(0.7rem, 2.5vw, 0.8rem);
+  display: block;
+  padding: 0.3rem;
+  color: #D4A017;
+  font-weight: 600;
+  width: 100%;
+}
+.sidemenu ul li a:hover, .sidemenu ul li a.active {
+  background-color: #F0F2F5;
+  color: #0C0A4E;
+  text-decoration: none;
+}
+
+/* --- INICIO: Animaciones para el Carrito --- */
+/* 1. Animación para desvanecer y eliminar un item */
+.cart-item.is-removing {
+  opacity: 0;
+  -webkit-transform: scale(0.95);
+          transform: scale(0.95);
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  border: 0;
+  /* La transición debe ser suave */
+  -webkit-transition: all 0.4s ease-out !important;
+  transition: all 0.4s ease-out !important; /* Usamos !important para asegurar que sobreescriba otras transiciones */
+  overflow: hidden; /* Muy importante para que el contenido no se salga mientras colapsa */
+}
+
+/* 2. Animación de "destello" para confirmar una actualización */
+@-webkit-keyframes flash-success {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: #e8f5e9;
+  } /* Un verde muy claro */
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes flash-success {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: #e8f5e9;
+  } /* Un verde muy claro */
+  100% {
+    background-color: transparent;
+  }
+}
+.cart-item.is-updated {
+  /* Ejecuta la animación de destello */
+  -webkit-animation: flash-success 0.7s ease-out;
+          animation: flash-success 0.7s ease-out;
+}
+
+/* --- FIN: Animaciones para el Carrito --- */
