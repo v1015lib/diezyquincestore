@@ -2,7 +2,7 @@
 date_default_timezone_set('America/El_Salvador');
 
 session_start();
-
+$fecha_actual_php = date('Y-m-d H:i:s');
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -3540,9 +3540,7 @@ case 'pos_search_products':
 
 
 
-// api/index.php
-
-   case 'pos_start_sale':
+case 'pos_start_sale':
    if ($method === 'POST') {
     if (!isset($_SESSION['id_usuario'])) {
         http_response_code(403); echo json_encode(['success' => false, 'error' => 'No autorizado.']); break;
@@ -3598,8 +3596,19 @@ case 'pos_search_products':
             $stmt_default_client->execute();
             $default_client_id = $stmt_default_client->fetchColumn() ?: 1;
 
-            $stmt_create = $pdo->prepare("INSERT INTO ventas (id_cliente, id_usuario_venta, id_metodo_pago, monto_total, estado_id, id_tienda) VALUES (:id_cliente, :id_usuario, 1, 0.00, 8, :id_tienda)");
-            $stmt_create->execute([':id_cliente' => $default_client_id, ':id_usuario' => $id_usuario_actual, ':id_tienda' => $id_tienda_final]);
+            // ===== MODIFICACIÓN AQUÍ =====
+            $stmt_create = $pdo->prepare(
+                "INSERT INTO ventas (id_cliente, id_usuario_venta, id_metodo_pago, monto_total, estado_id, id_tienda, fecha_venta) 
+                 VALUES (:id_cliente, :id_usuario, 1, 0.00, 8, :id_tienda, :fecha_venta)"
+            );
+            $stmt_create->execute([
+                ':id_cliente' => $default_client_id, 
+                ':id_usuario' => $id_usuario_actual, 
+                ':id_tienda' => $id_tienda_final,
+                ':fecha_venta' => $fecha_actual_php // Variable integrada
+            ]);
+            // ===== FIN DE LA MODIFICACIÓN =====
+
             $saleId = $pdo->lastInsertId();
         }
 
@@ -3612,45 +3621,6 @@ case 'pos_search_products':
     }
 }
 break;
-
-case 'pos_add_item':
-if ($method === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
-    $sale_id = $data['sale_id']; $product_id = $data['product_id']; $quantity = $data['quantity']; $unit_price = $data['unit_price'];
-    $pdo->beginTransaction();
-    try {
-        if ($quantity <= 0) {
-            $stmt_delete = $pdo->prepare("DELETE FROM detalle_ventas WHERE id_venta = :sale_id AND id_producto = :product_id");
-            $stmt_delete->execute([':sale_id' => $sale_id, ':product_id' => $product_id]);
-        } else {
-            $stmt = $pdo->prepare("SELECT id_detalle_venta FROM detalle_ventas WHERE id_venta = :sale_id AND id_producto = :product_id");
-            $stmt->execute([':sale_id' => $sale_id, ':product_id' => $product_id]);
-            $existing_detail_id = $stmt->fetchColumn();
-            $subtotal = $quantity * $unit_price;
-            if ($existing_detail_id) {
-                $stmt_update = $pdo->prepare("UPDATE detalle_ventas SET cantidad = :qty, subtotal = :subtotal, precio_unitario = :price WHERE id_detalle_venta = :id");
-                $stmt_update->execute([':qty' => $quantity, ':subtotal' => $subtotal, ':price' => $unit_price, ':id' => $existing_detail_id]);
-            } else {
-                $stmt_insert = $pdo->prepare("INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal) VALUES (:sale_id, :product_id, :qty, :price, :subtotal)");
-                $stmt_insert->execute([':sale_id' => $sale_id, ':product_id' => $product_id, ':qty' => $quantity, ':price' => $unit_price, ':subtotal' => $subtotal]);
-            }
-        }
-        $pdo->commit();
-        echo json_encode(['success' => true]);
-    } catch (Exception $e) {
-        $pdo->rollBack(); http_response_code(400); echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-}
-break;
-
-
-
-
-
-
-// api/index.php
-
-
 
 case 'pos_finalize_sale':
 if ($method === 'POST' && isset($inputData['sale_id'])) {
@@ -3695,7 +3665,8 @@ if ($method === 'POST' && isset($inputData['sale_id'])) {
             $stmt_update_saldo->execute([':nuevo_saldo' => $nuevo_saldo, ':id_tarjeta' => $tarjeta['id_tarjeta']]);
         }
 
-            // Actualizar la venta principal, incluyendo el ID de la tarjeta
+            // ===== MODIFICACIÓN AQUÍ =====
+            // Actualizar la venta principal, incluyendo el ID de la tarjeta y la fecha_venta
         $stmt_update_venta = $pdo->prepare(
             "UPDATE ventas SET 
             id_cliente = :id_cliente, 
@@ -3703,7 +3674,8 @@ if ($method === 'POST' && isset($inputData['sale_id'])) {
             monto_total = :monto_total, 
             estado_id = 29, 
             id_usuario_venta = :id_usuario_venta,
-            id_tarjeta_recargable = :id_tarjeta_recargable
+            id_tarjeta_recargable = :id_tarjeta_recargable,
+            fecha_venta = :fecha_venta 
             WHERE id_venta = :id_venta"
         );
         $stmt_update_venta->execute([
@@ -3712,8 +3684,11 @@ if ($method === 'POST' && isset($inputData['sale_id'])) {
             ':monto_total' => $totalAmount, 
             ':id_venta' => $saleId, 
             ':id_usuario_venta' => $userId,
-                ':id_tarjeta_recargable' => $cardIdToStore // Aquí se guarda el ID
+            ':id_tarjeta_recargable' => $cardIdToStore, // Aquí se guarda el ID
+            ':fecha_venta' => $fecha_actual_php // Variable integrada
             ]);
+            // ===== FIN DE LA MODIFICACIÓN =====
+
 
             // Lógica de inventario
         $stmt_items = $pdo->prepare("
@@ -3765,6 +3740,49 @@ if ($method === 'POST' && isset($inputData['sale_id'])) {
     }
 }
 break;
+
+
+
+case 'pos_add_item':
+if ($method === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $sale_id = $data['sale_id']; $product_id = $data['product_id']; $quantity = $data['quantity']; $unit_price = $data['unit_price'];
+    $pdo->beginTransaction();
+    try {
+        if ($quantity <= 0) {
+            $stmt_delete = $pdo->prepare("DELETE FROM detalle_ventas WHERE id_venta = :sale_id AND id_producto = :product_id");
+            $stmt_delete->execute([':sale_id' => $sale_id, ':product_id' => $product_id]);
+        } else {
+            $stmt = $pdo->prepare("SELECT id_detalle_venta FROM detalle_ventas WHERE id_venta = :sale_id AND id_producto = :product_id");
+            $stmt->execute([':sale_id' => $sale_id, ':product_id' => $product_id]);
+            $existing_detail_id = $stmt->fetchColumn();
+            $subtotal = $quantity * $unit_price;
+            if ($existing_detail_id) {
+                $stmt_update = $pdo->prepare("UPDATE detalle_ventas SET cantidad = :qty, subtotal = :subtotal, precio_unitario = :price WHERE id_detalle_venta = :id");
+                $stmt_update->execute([':qty' => $quantity, ':subtotal' => $subtotal, ':price' => $unit_price, ':id' => $existing_detail_id]);
+            } else {
+                $stmt_insert = $pdo->prepare("INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario, subtotal) VALUES (:sale_id, :product_id, :qty, :price, :subtotal)");
+                $stmt_insert->execute([':sale_id' => $sale_id, ':product_id' => $product_id, ':qty' => $quantity, ':price' => $unit_price, ':subtotal' => $subtotal]);
+            }
+        }
+        $pdo->commit();
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        $pdo->rollBack(); http_response_code(400); echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+break;
+
+
+
+
+
+
+// api/index.php
+
+
+
+
 
 
 

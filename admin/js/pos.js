@@ -994,9 +994,9 @@ async function fetchAndRenderSalesHistory(date) {
                 if (sale.estado_id == 16) {
                     row.classList.add('sale-canceled');
                 }
-                row.innerHTML = `
+row.innerHTML = `
                     <td>${sale.id_venta}</td>
-                    <td>${new Date(sale.fecha_venta).toLocaleTimeString()}</td>
+                    <td>${new Date(sale.fecha_venta).toLocaleString('es-SV')}</td>
                     <td>${sale.cantidad_items}</td>
                     <td>$${parseFloat(sale.monto_total).toFixed(2)}</td>
                 `;
