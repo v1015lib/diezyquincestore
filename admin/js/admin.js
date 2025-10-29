@@ -995,26 +995,16 @@ function initializeSidemenu() {
 }
 
 function checkSidemenuState() {
-    const sidemenu = document.getElementById('admin-sidemenu');
-    if (!sidemenu) return;
-
-    // Si es escritorio y estaba colapsado, lo vuelve a colapsar
     if (window.innerWidth > 991 && localStorage.getItem('sidemenuCollapsed') === 'true') {
-        sidemenu.classList.add('collapsed');
+        sidemenu.classList.add('collapsed'); // <--- ✅ CORRECCIÓN
     }
 }
-
 // Llamar estas funciones al cargar
 document.addEventListener('DOMContentLoaded', () => {
     initializeSidemenu();
     checkSidemenuState();
 });
 
-    function checkSidemenuState() {
-        if (window.innerWidth > 991 && localStorage.getItem('sidemenuCollapsed') === 'true') {
-            sidemenu.classList.add('sidemenu-collapsed');
-        }
-    }
 
 
 async function loadModule(moduleName) {
