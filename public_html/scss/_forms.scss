@@ -181,7 +181,7 @@
     font-weight: 500;
     transition: all 0.2s;
     &:hover { border-color: #1a73e8; }
-    &.selected {
+    &.active {
       background-color: #f2f6fe;
       border-color: #1a73e8;
       color: #1a73e8;
@@ -221,10 +221,24 @@
     background-color: transparent;
     &:hover { background-color: #f2f6fe; }
   }
+  
   #btn-next {
     color: #fff;
-    background-color: lighten($primary-color, 35%);
-    &:hover { background-color:  darken($primary-color, 1%) }
+    background-color: $primary-color;
+    
+    &:hover { 
+      background-color: darken($primary-color, 10%);
+    }
+    
+    &:disabled {
+      background-color: lighten($primary-color, 35%);
+      cursor: not-allowed;
+      opacity: 0.6;
+      
+      &:hover {
+        background-color: lighten($primary-color, 35%);
+      }
+    }
   }
 }
 
@@ -272,4 +286,32 @@
   input{
     width: 40px;
   }
+}
+/* --- NUEVO: Estilos para la Barra de Progreso --- */
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 2rem; /* Espacio donde estaba el subtítulo */
+}
+
+#progress-bar-fill {
+    height: 100%;
+    width: 0%; /* Inicia en 0 */
+    background-color: $primary-color; /* Usa tu color primario */
+    border-radius: 4px;
+    transition: width 0.4s ease-in-out;
+}
+
+/* --- Corrección para ocultar pasos condicionales --- */
+.form-step.step-hidden {
+    display: none;
+}
+
+/* --- Elimina la regla antigua si existe --- */
+/* Si tienes ".student-fields.hidden", puedes borrarla */
+.student-fields.hidden {
+  display: none; /* Esta regla ya no es necesaria si usas .step-hidden */
 }
