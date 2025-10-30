@@ -7,6 +7,7 @@ function initializePOS() {
     let cardOwnerId = null;
     let activeTicketRowIndex = -1;
     let selectedStoreId = null;
+    let highlightedSearchIndex = -1; // Para la navegación del modal de búsqueda
     // Referencias a elementos del DOM (sin cambios)
     const productInput = document.getElementById('pos-product-input');
     const openSearchModalBtn = document.getElementById('open-search-modal-btn');
@@ -69,6 +70,125 @@ if (storeSelectionModal) {
         }
     });
 }
+
+
+/**
+     * Manejador de la tecla Escape para cerrar modales.
+     * Cierra el modal de mayor prioridad que esté visible.
+     * @param {Event} e - El evento de teclado.
+     * @param {Array<Object>} priorityList - Un array de objetos {element, action} en orden de prioridad.
+     */
+    function handleModalEscape(e, priorityList) {
+        // Recorremos la lista de modales en orden de prioridad
+        for (const modal of priorityList) {
+            
+            // Comprueba si el elemento del modal existe Y está visible
+            if (modal.element && modal.element.style.display === 'block') {
+                
+                e.preventDefault(); // Previene cualquier otra acción por defecto de 'Escape'
+                
+                modal.action();     // Ejecuta la acción de cierre específica
+                
+                return;             // Detiene el bucle. Solo cierra un modal a la vez.
+            }
+        }
+    }
+
+// --- INICIO: LISTA DE PRIORIDAD PARA CIERRE DE MODALES ---
+    // Define el orden en que se deben cerrar los modales con 'Escape' (de mayor a menor prioridad)
+    const escapePriorityList = [
+        {
+            element: notificationModal,
+            action: () => closePOSNotificationModal()
+        },
+        {
+            element: salesHistoryModal,
+            action: () => { salesHistoryModal.style.display = 'none'; }
+        },
+        {
+            element: clientModal, // Se abre desde el modal de checkout
+            action: () => { clientModal.style.display = 'none'; }
+        },
+        {
+            element: productSearchModal,
+            action: () => {
+                closeProductSearchModal();
+                productInput.focus();
+            }
+        },
+        {
+            element: checkoutModal,
+            action: () => closeCheckoutModal()
+        },
+        {
+            element: storeSelectionModal,
+            action: () => { storeSelectionModal.style.display = 'none'; }
+        }
+    ];
+    // --- FIN: LISTA DE PRIORIDAD ---
+
+
+/**
+     * Resalta un item en la lista de resultados de búsqueda del modal.
+     * @param {number} index - El índice del item a resaltar.
+     */
+    function highlightSearchResult(index) {
+        const resultsList = document.getElementById('modal-search-results-list');
+        if (!resultsList) return;
+        
+        const items = resultsList.querySelectorAll('.search-result-item');
+        if (items.length === 0) return;
+
+        // Quitar resaltado anterior
+        items.forEach(item => item.classList.remove('search-result-highlighted'));
+
+        // Validar índice y ajustar si se sale de los límites
+        if (index < 0) {
+            index = items.length - 1; // Loop al final
+        }
+        if (index >= items.length) {
+            index = 0; // Loop al inicio
+        }
+        
+        highlightedSearchIndex = index; // Actualizar índice global
+        
+        // Aplicar nuevo resaltado
+        const activeItem = items[highlightedSearchIndex];
+        if (activeItem) {
+            activeItem.classList.add('search-result-highlighted');
+            // Asegurarse de que el item sea visible en el scroll
+            activeItem.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // Añadir listeners de teclado al input de búsqueda del modal
+    if (modalSearchInput) {
+        modalSearchInput.addEventListener('keydown', (e) => {
+            const resultsList = document.getElementById('modal-search-results-list');
+            if (!resultsList) return;
+            const items = resultsList.querySelectorAll('.search-result-item');
+            if (items.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    highlightSearchResult(highlightedSearchIndex + 1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    highlightSearchResult(highlightedSearchIndex - 1);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (highlightedSearchIndex >= 0 && items[highlightedSearchIndex]) {
+                        items[highlightedSearchIndex].click(); // Simular clic en el item resaltado
+                    }
+                    break;
+            }
+        });
+    }
+
+
 function playBeepSound() {
         try {
             // Crea un contexto de audio (si no existe ya)
@@ -375,25 +495,47 @@ function enablePOSControls() {
     }
 
 
-        function openCheckoutModal() {
-        if (currentTicket.length === 0) return;
+// REEMPLAZA ESTA FUNCIÓN EN: admin/js/pos.js
+function openCheckoutModal() {
+    if (currentTicket.length === 0) return;
 
-        // Poblar el resumen del ticket en el modal
-        checkoutTicketList.innerHTML = '';
-        currentTicket.forEach(item => {
-            const subtotal = item.cantidad * item.precio_venta;
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'ticket-item';
-            itemDiv.innerHTML = `
-                <span class="item-name">${item.cantidad} x ${item.nombre_producto}</span>
-                <span class="item-details">$${subtotal.toFixed(2)}</span>
-            `;
-            checkoutTicketList.appendChild(itemDiv);
-        });
+    // Poblar el resumen del ticket en el modal
+    checkoutTicketList.innerHTML = '';
+    let currentTotal = 0; // Se calcula el total al momento de abrir
+    currentTicket.forEach(item => {
+        const subtotal = item.cantidad * item.precio_venta;
+        currentTotal += subtotal; // Acumular total
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'ticket-item';
+        itemDiv.innerHTML = `
+            <span class="item-name">${item.cantidad} x ${item.nombre_producto}</span>
+            <span class="item-details">$${subtotal.toFixed(2)}</span>
+        `;
+        checkoutTicketList.appendChild(itemDiv);
+    });
 
-        checkoutModal.style.display = 'block';
-        pagaConInput.focus(); // Poner el foco en el campo de pago
+    // --- INICIO DE LA INTEGRACIÓN ---
+    // 1. Asegurar que el total esté en el input de Total a Pagar
+    totalAmountInput.value = currentTotal.toFixed(2);
+    // 2. Asignar ese mismo total al campo "Paga con" por defecto
+    pagaConInput.value = currentTotal.toFixed(2); 
+    // 3. Llamar a updateChange() para calcular el cambio (0.00) y habilitar el botón 'cobrarBtn'
+    updateChange(); 
+    // --- FIN DE LA INTEGRACIÓN ---
+
+    checkoutModal.style.display = 'block';
+
+    // --- LÓGICA DE FOCO MEJORADA ---
+    if (paymentMethodSelect.value === '1') { // '1' es Efectivo
+        pagaConInput.focus(); 
+        pagaConInput.select(); // Seleccionar para sobreescribir fácil si paga con más
+    } else if (paymentMethodSelect.value === '2') { // '2' es Tarjeta Interna
+        cardNumberInput.focus();
+    } else {
+        pagaConInput.focus(); // Fallback
     }
+    // --- FIN LÓGICA DE FOCO ---
+}
 
         function closeCheckoutModal() {
         checkoutModal.style.display = 'none';
@@ -410,18 +552,46 @@ function enablePOSControls() {
     // Atajo de teclado para abrir el modal
     document.addEventListener('keydown', (e) => {
 
-        // ... (otros atajos) ...
+        if (e.key === 'F10') {
+            e.preventDefault();
+            // Abre el modal de búsqueda de producto si los controles están activos
+            if (openSearchModalBtn && !openSearchModalBtn.disabled) {
+                // Cierra el modal de pago si está abierto, para evitar superposición
+                if (checkoutModal.style.display === 'block') {
+                    closeCheckoutModal();
+                }
+                openSearchModalBtn.click();
+            }
+        }
         if (e.key === 'F12') {
             e.preventDefault();
             openCheckoutModal();
         }
-        if (e.key === 'Escape') {
-        // --- INICIO DE LA MODIFICACIÓN ---
-            if (storeSelectionModal.style.display === 'block') {
-                storeSelectionModal.style.display = 'none';
 
-            } 
+
+        if (e.key === 'F2') {
+        e.preventDefault();
+        // PRIMERO: Verifica si el modal de pago está abierto
+        if (checkoutModal.style.display === 'block') {
+            // Si está abierto y el botón Cobrar está listo, simula el clic
+            if (!cobrarBtn.disabled) {
+                cobrarBtn.click();
+            }
+        } else {
+            // Si el modal NO está abierto, F2 aplica el precio de oferta (si hay fila activa)
+            // Asegúrate de que la función applySpecialPrice exista en tu código
+            if (typeof applySpecialPrice === 'function') {
+                applySpecialPrice('oferta');
+            } else {
+                console.warn('La función applySpecialPrice no está definida para el atajo F2 (oferta).');
+            }
         }
+    }
+    if (e.key === 'Escape') {
+            // Llama a la nueva función reutilizable
+            handleModalEscape(e, escapePriorityList);
+        }
+
     });
 
 
@@ -690,7 +860,7 @@ setupPOSForRole();
         const resultsList = document.getElementById('modal-search-results-list');
         if (!resultsList) return;
         resultsList.innerHTML = '';
-        
+        highlightedSearchIndex = -1; // <-- AÑADIR ESTA LÍNEA
         if (products.length > 0) {
             products.forEach(product => {
                 const stockInfo = product.usa_inventario ? product.stock_actual : 'N/A';

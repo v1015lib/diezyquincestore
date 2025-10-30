@@ -299,6 +299,10 @@
     .search-result-item {
         cursor: pointer;
         &:hover { background-color: lighten($primary-color, 70%); }
+        &.search-result-highlighted {
+            background-color: lighten($primary-color, 60%); // Un fondo un poco más oscuro
+            font-weight: 600;
+        }
     }
     .col-price, .col-stock { text-align: right; }
 }
