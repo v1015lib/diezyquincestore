@@ -1,4 +1,4 @@
-// EN: public_html/js/main.js
+// REEMPLAZA EL CONTENIDO COMPLETO de public_html/js/main.js
 
 import { loadProducts, currentProductParams } from './ajax/product_loader.js';
 import { initializeSearch } from './ajax/search_handler.js';
@@ -15,9 +15,8 @@ import { initializeCookieBanner } from './cookie_handler.js';
 import { initializePushNotifications } from './push_manager.js';
 
 const API_BASE_URL = 'api/index.php';
-// Se quita la llamada de aquí para moverla adentro.
 
-initializeCookieBanner(); // El banner de cookies sí puede ir aquí.
+initializeCookieBanner(); 
 
 document.addEventListener('DOMContentLoaded', () => {
     // Inicialización de todos los módulos
@@ -32,16 +31,115 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCarousel('.carousel-container');
     initializeProductCarousels();
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Verificamos si existe un enlace a "Mi Cuenta", lo que indica que el usuario inició sesión.
     const isLoggedIn = document.querySelector('a[href="dashboard.php"]');
     if (isLoggedIn) {
-        // Si el usuario SÍ ha iniciado sesión, llamamos a la función aquí.
-        // Esto asegura que solo los usuarios registrados reciban la solicitud de permiso.
         console.log("Usuario logueado, inicializando notificaciones PUSH...");
         initializePushNotifications();
     }
-    // --- FIN DE LA CORRECCIÓN ---
+    
+    // --- INICIO: LÓGICA DEL SLIDER DE IMÁGENES DE LA TARJETA ---
+    // Agregamos un listener al contenedor principal de productos
+    const productListElement = document.getElementById('product-list');
+    if (productListElement) {
+        productListElement.addEventListener('click', (event) => {
+            // Verificamos si el clic fue en un punto de navegación
+if (productListElement) {
+        productListElement.addEventListener('click', (event) => {
+            
+            // Verificamos si el clic fue en un punto de navegación
+            if (event.target.classList.contains('product-slider-dot')) {
+                event.preventDefault(); // Prevenimos la acción por defecto
+                event.stopPropagation(); // <-- ¡¡ARREGLO CLAVE!! Detiene el clic aquí
+                
+                const dot = event.target; // Definimos dot aquí
+                
+                // Buscamos la tarjeta (article) más cercana
+                const card = dot.closest('.product-card');
+                if (!card) return;
+                
+                // Encontramos el 'track' del slider y el contenedor de 'dots'
+                const track = card.querySelector('.product-image-slider-track');
+                const dotsContainer = card.querySelector('.product-slider-dots');
+                if (!track || !dotsContainer) return;
+
+                // Obtenemos el índice del slide al que ir (desde 'data-slide-index')
+                const index = parseInt(dot.dataset.slideIndex, 10);
+                if (isNaN(index)) return;
+
+                // Movemos el 'track' horizontalmente
+                track.style.transform = `translateX(-${index * 100}%)`;
+
+                // Actualizamos la clase 'active' en los puntos
+                dotsContainer.querySelectorAll('.product-slider-dot').forEach(d => d.classList.remove('active'));
+                dot.classList.add('active');
+            }
+        });
+    }
+        });
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let currentTrack = null;
+        let currentCard = null;
+        let slideCount = 0;
+        let currentIndex = 0;
+        const swipeThreshold = 50; // Mínimo de 50px para considerarlo un swipe
+
+        productListElement.addEventListener('touchstart', (event) => {
+            const trackContainer = event.target.closest('.product-image-slider-container');
+            if (!trackContainer) return; // No se tocó un slider
+
+            currentTrack = trackContainer.querySelector('.product-image-slider-track');
+            currentCard = trackContainer.closest('.product-card');
+            if (!currentTrack || !currentCard) return;
+
+            touchStartX = event.touches[0].clientX;
+            
+            // Obtenemos el índice y total de slides
+            const activeDot = currentCard.querySelector('.product-slider-dot.active');
+            currentIndex = activeDot ? parseInt(activeDot.dataset.slideIndex, 10) : 0;
+            slideCount = currentCard.querySelectorAll('.product-image-slider-track img').length;
+            
+            if (slideCount <= 1) currentTrack = null; // No hay nada que deslizar
+        }, { passive: true }); // Usamos passive: true para mejor rendimiento de scroll
+
+        productListElement.addEventListener('touchend', (event) => {
+            if (!currentTrack) return; // Si no empezamos en un track, ignoramos
+
+            touchEndX = event.changedTouches[0].clientX;
+            const deltaX = touchEndX - touchStartX;
+
+            let newIndex = currentIndex;
+
+            if (deltaX < -swipeThreshold) {
+                // Swipe hacia la izquierda (siguiente imagen)
+                newIndex = (currentIndex + 1) % slideCount;
+            } else if (deltaX > swipeThreshold) {
+                // Swipe hacia la derecha (imagen anterior)
+                newIndex = (currentIndex - 1 + slideCount) % slideCount;
+            }
+
+            // Si el índice cambió, actualizamos el slider
+            if (newIndex !== currentIndex) {
+                currentTrack.style.transform = `translateX(-${newIndex * 100}%)`;
+                
+                const dots = currentCard.querySelectorAll('.product-slider-dot');
+                if (dots.length > 0) {
+                    dots[currentIndex].classList.remove('active');
+                    dots[newIndex].classList.add('active');
+                }
+            }
+
+            // Reseteamos las variables de estado
+            touchStartX = 0;
+            touchEndX = 0;
+            currentTrack = null;
+            currentCard = null;
+            slideCount = 0;
+            currentIndex = 0;
+        });
+    }
+    // --- FIN: LÓGICA DEL SLIDER ---
+
 
     // El resto de tu código para cargar productos no cambia...
     const urlParams = new URLSearchParams(window.location.search);

@@ -44,6 +44,10 @@ export async function getUserFavorites() {
 
 
 
+// REEMPLAZA esta función en public_html/js/ajax/product_loader.js
+
+// REEMPLAZA esta función en public_html/js/ajax/product_loader.js
+
 export function createProductCardHTML(product, cartQuantity = 0, isFavorite = false) {
     const precioVenta = parseFloat(product.precio_venta);
     const precioOferta = parseFloat(product.precio_oferta);
@@ -54,11 +58,19 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
     
     const finalPrice = (precioOferta > 0 && precioOferta < precioVenta) ? precioOferta : precioVenta;
     
+    // --- INICIO MODIFICACIÓN SLIDER ---
+    // Usamos la primera imagen del array 'imagenes' para el schema, o un placeholder.
+    // 'product.imagenes' es el array que envía la API
+    const schemaImageUrl = (product.imagenes && product.imagenes.length > 0) 
+                           ? product.imagenes[0] // Usa la primera imagen
+                           : 'https://via.placeholder.com/200';
+    // --- FIN MODIFICACIÓN SLIDER ---
+
     const schema = {
       "@context": "https://schema.org/",
       "@type": "Product",
       "name": product.nombre_producto,
-      "image": product.url_imagen || 'https://via.placeholder.com/200',
+      "image": schemaImageUrl, // Usamos la URL actualizada
       "description": product.descripcion || `Encuentra ${product.nombre_producto} en Variedades 10 y 15. Productos de calidad al mejor precio.`,
       "sku": product.codigo_producto,
       "brand": {
@@ -146,9 +158,55 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
         badgeHtml = `<div class="discount-badge">${discountPercent}%</div>`;
     }
 
+    // --- INICIO MODIFICACIÓN SLIDER ---
+    // Generamos el HTML para el slider de imágenes
+    let imageSliderHtml = '';
+    // Verificamos que 'imagenes' exista y tenga al menos una imagen
+    if (product.imagenes && product.imagenes.length > 0) {
+        // Creamos un <img> para cada URL en el array
+        const imagesHtml = product.imagenes.map((imgUrl, index) => `
+            <img src="${imgUrl || 'https://via.placeholder.com/200'}" 
+                 alt="${product.nombre_producto} - imagen ${index + 1}" 
+                 loading="lazy"
+                 width="200"
+                 height="200">
+        `).join('');
+        
+        // Creamos los puntos de navegación, solo si hay MÁS de una imagen
+        const dotsHtml = product.imagenes.length > 1 ? `
+            <div class="product-slider-dots">
+                ${product.imagenes.map((_, index) => `
+                    <span class="product-slider-dot ${index === 0 ? 'active' : ''}" data-slide-index="${index}"></span>
+                `).join('')}
+            </div>
+        ` : '';
+
+        // Ensamblamos el slider
+        imageSliderHtml = `
+            <div class="product-image-slider-container">
+                <div class="product-image-slider-track">
+                    ${imagesHtml}
+                </div>
+                ${dotsHtml}
+            </div>
+            ${badgeHtml}
+        `;
+    } else {
+        // Fallback: si no hay imágenes, mostramos el placeholder (como antes)
+        imageSliderHtml = `
+            <img src="https://via.placeholder.com/200" 
+                 alt="${product.nombre_producto}" 
+                 loading="lazy"
+                 width="200"
+                 height="200">
+            ${badgeHtml}
+        `;
+    }
+    // --- FIN MODIFICACIÓN SLIDER ---
+
+
     const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card';
 
-    // ▼▼▼ CORRECCIÓN AQUÍ ▼▼▼
     return `
         <article class="${cardClass}" data-product-id="${product.id_producto}" data-product-slug="${product.slug}">
             
@@ -164,13 +222,7 @@ ${JSON.stringify(schema, null, 2)}
             </div>
             
             <div class="product-image-container product-image-preview-trigger">
-                <img src="${product.url_imagen || 'https://via.placeholder.com/200'}" 
-                     alt="${product.nombre_producto}" 
-                     loading="lazy"
-                     width="200"
-                     height="200">
-                ${badgeHtml}
-            </div>
+                ${imageSliderHtml} </div>
 
             <div class="product-info">
                 <h3>${product.nombre_producto}</h3>
@@ -183,8 +235,6 @@ ${JSON.stringify(schema, null, 2)}
         </article>
     `;
 }
-
-
 
 
 export async function loadProducts(productListId, paginationControlsId, params = {}) {

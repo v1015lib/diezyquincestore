@@ -2,11 +2,7 @@
 
 import { showNotification } from './notification_handler.js';
 
-// --- INICIO DE LA CORRECCIÓN ---
-// Bandera para asegurar que la inicialización ocurra solo una vez.
 let isInitialized = false;
-// --- FIN DE LA CORRECCIÓN ---
-
 let productUrlToCopy = '';
 
 function openShareModal(productName, productUrl) {
@@ -22,7 +18,7 @@ function openShareModal(productName, productUrl) {
     const twitterBtn = document.getElementById('share-twitter');
 
     productNameEl.textContent = productName;
-    productUrlToCopy = productUrl;
+    productUrlToCopy = productUrl; // Guardamos la URL para el botón de copiar
 
     const encodedUrl = encodeURIComponent(productUrl);
     const encodedText = encodeURIComponent(`¡Mira este producto que encontré: ${productName}!`);
@@ -41,27 +37,21 @@ function closeShareModal() {
     shareModal.classList.remove('visible');
 }
 
-
 export function initializeShareHandler() {
-    // --- INICIO DE LA CORRECCIÓN ---
     if (isInitialized) {
         return;
     }
     isInitialized = true;
-    // --- FIN DE LA CORRECCIÓN ---
 
     document.body.addEventListener('click', (event) => {
         // Abrir el modal
         const shareButton = event.target.closest('.share-btn');
         if (shareButton) {
             const productCard = shareButton.closest('.product-card');
-            // ▼▼▼ CORRECCIÓN AQUÍ ▼▼▼
-            const productSlug = productCard.dataset.productSlug; // Obtenemos el slug
+            const productSlug = productCard.dataset.productSlug;
             const productName = productCard.querySelector('h3').textContent;
             
-            // Construimos la URL base de forma segura
-            const baseUrl = `${window.location.origin}/`; 
-            // Usamos el slug para la URL amigable
+            const baseUrl = document.baseURI;
             const productUrl = `${baseUrl}producto/${productSlug}`;
 
             openShareModal(productName, productUrl);
@@ -73,15 +63,46 @@ export function initializeShareHandler() {
             closeShareModal();
         }
 
+        // --- INICIO DE LA CORRECCIÓN ---
         // Botón de Copiar
         const copyLinkBtn = event.target.closest('#share-copy-link');
         if (copyLinkBtn) {
-            navigator.clipboard.writeText(productUrlToCopy).then(() => {
-                showNotification('¡Enlace copiado al portapapeles!');
-                closeShareModal();
-            }).catch(err => {
-                showNotification('No se pudo copiar el enlace.', 'error');
-            });
+            
+            // Verificamos si navigator.clipboard está disponible (HTTPS / localhost)
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(productUrlToCopy).then(() => {
+                    showNotification('¡Enlace copiado al portapapeles!');
+                    closeShareModal();
+                }).catch(err => {
+                    console.error('Error al copiar (navigator.clipboard):', err);
+                    showNotification('No se pudo copiar el enlace.', 'error');
+                });
+            } else {
+                // Fallback para contextos inseguros (HTTP)
+                try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = productUrlToCopy;
+                    
+                    // Hacemos el textarea invisible
+                    textArea.style.position = 'fixed';
+                    textArea.style.top = '-9999px';
+                    textArea.style.left = '-9999px';
+                    
+                    document.body.appendChild(textArea);
+                    
+                    textArea.select(); // Seleccionamos el contenido
+                    document.execCommand('copy'); // Ejecutamos la copia
+                    
+                    document.body.removeChild(textArea); // Limpiamos el DOM
+                    
+                    showNotification('¡Enlace copiado al portapapeles!');
+                    closeShareModal();
+                } catch (err) {
+                    console.error('Error al copiar (execCommand):', err);
+                    showNotification('No se pudo copiar el enlace.', 'error');
+                }
+            }
         }
+        // --- FIN DE LA CORRECCIÓN ---
     });
 }

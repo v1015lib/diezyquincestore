@@ -275,3 +275,38 @@
         }
     }
 }
+// AÑADE ESTO al final de public_html/scss/_modal.scss
+
+/* Estilos para la navegación de la galería en el modal */
+.modal-content {
+    position: relative; // Necesario para posicionar los botones
+}
+
+.modal-image-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    font-size: 2rem;
+    font-weight: bold;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    z-index: 100; // Asegura que esté sobre la imagen
+    display: none; // Ocultos por defecto
+
+    &:hover {
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+
+    &.prev {
+        left: 10px;
+    }
+
+    &.next {
+        right: 10px;
+    }
+}

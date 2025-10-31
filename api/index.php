@@ -7726,6 +7726,7 @@ function handleCheckUsernameRequest(PDO $pdo) {
 
 
 
+
 function handleProductsRequest(PDO $pdo) {
     // --- Obtener datos del cliente (si está logueado) ---
     $is_user_logged_in = isset($_SESSION['id_cliente']);
@@ -7749,7 +7750,7 @@ function handleProductsRequest(PDO $pdo) {
     $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'random';
     $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
     $filter_name = '';
-    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true'; // <--- Variable clave
+    $ofertas_only = isset($_GET['ofertas']) && $_GET['ofertas'] === 'true';
     $hide_no_image = isset($_GET['hide_no_image']) && $_GET['hide_no_image'] === 'true';
 
     // --- Validación y Construcción de la Consulta ---
@@ -7757,8 +7758,9 @@ function handleProductsRequest(PDO $pdo) {
     if (!in_array($sort_by, $allowedSorts)) { $sort_by = 'random'; }
     if (!in_array($order, ['ASC', 'DESC'])) { $order = 'ASC'; }
 
-    // --- Campos a seleccionar (incluyendo cálculo de precio_oferta condicional) ---
-    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.departamento, p.precio_venta, p.url_imagen,
+    // --- Campos a seleccionar (SIN p.url_imagen) ---
+    // p.url_imagen se ha quitado de esta lista
+    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.departamento, p.precio_venta,
     p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
     CASE
     WHEN p.oferta_caducidad IS NOT NULL AND p.oferta_caducidad < NOW() THEN 0 -- Oferta caducada
@@ -7780,14 +7782,17 @@ function handleProductsRequest(PDO $pdo) {
     $where_clauses = ["p.estado IN (1, 4)"]; // Productos Activos o Agotados
     $params = [];
 
-    // --- Lógica de Filtrado (igual que antes) ---
+    // --- Lógica de Filtrado ---
     if ($product_id !== null && $product_id > 0) {
         $where_clauses = ["p.id_producto = :product_id"];
         $params[':product_id'] = $product_id;
         $limit = 1;
     } else {
         if ($hide_no_image) {
-            $where_clauses[] = "(p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')";
+            // --- MODIFICACIÓN: Comprueba la nueva tabla de imágenes ---
+            // (p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')
+            // se reemplaza por:
+            $where_clauses[] = "(EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))";
         }
         if ($department_id !== null && $department_id > 0) {
             $where_clauses[] = "p.departamento = :department_id";
@@ -7810,41 +7815,19 @@ function handleProductsRequest(PDO $pdo) {
             $where_clauses[] = "et.slug = :etiqueta_slug"; // Usa la columna slug
             $params[':etiqueta_slug'] = $etiqueta_slug;
 
-             // --- ⭐ CORRECCIÓN PARA EL NOMBRE DEL FILTRO ⭐ ---
-             // Intenta obtener el nombre real de la etiqueta desde la BD
              $stmt_etiqueta_name = $pdo->prepare("SELECT nombre_etiqueta FROM etiquetas WHERE slug = :slug");
              $stmt_etiqueta_name->execute([':slug' => $etiqueta_slug]);
              if ($etiqueta_name = $stmt_etiqueta_name->fetchColumn()) {
-                 // Si se encuentra la etiqueta, USA SOLO SU NOMBRE como filter_name
-                 $filter_name = $etiqueta_name; // <--- ESTA LÍNEA SOBREESCRIBE CUALQUIER NOMBRE DE MARCA
-             } else {
-                 // Fallback si no se encuentra (poco probable): usa el slug transformado
-                 $filter_name_fallback = ucfirst(str_replace('-', ' ', $etiqueta_slug));
-                 // Si ya había nombre de marca, lo sobreescribe; si no, lo establece
-                 $filter_name = $filter_name_fallback;
+                 $filter_name = $etiqueta_name;
              }
-             // --- FIN DE LA CORRECCIÓN ---
          }
         
-        // ==================================================================
-        // --- INICIO DE LA MODIFICACIÓN (BÚSQUEDA POR ETIQUETAS) ---
-        // ==================================================================
          if (!empty($search_term)) {
-            // Se añade "et.nombre_etiqueta" a la cláusula OR.
-            // Se reutiliza :search_term para todas las condiciones.
             $where_clauses[] = "(p.nombre_producto LIKE :search_term OR p.codigo_producto LIKE :search_term OR et.nombre_etiqueta LIKE :search_term)";
             $params[':search_term'] = '%' . $search_term . '%';
-            
-            // La variable :search_term_code que tenías antes ya no es necesaria, 
-            // pero si la dejas no afecta, aunque así es más limpio.
-            
             $filter_name = $search_term;
         }
-        // ==================================================================
-        // --- FIN DE LA MODIFICACIÓN ---
-        // ==================================================================
 
-        // --- INICIO DE LA CORRECCIÓN PARA OFERTAS ---
         if ($ofertas_only) {
             $filter_name = 'Ofertas';
             // Añadir las condiciones específicas para filtrar solo ofertas válidas para el usuario
@@ -7871,14 +7854,10 @@ function handleProductsRequest(PDO $pdo) {
                  $where_clauses[] = "(" . implode(" OR ", $offer_conditions) . ")";
             } else if (!$is_user_logged_in) {
                  // Si no está logueado y solo hay ofertas exclusivas, no mostrar nada
-                 // (Podrías ajustar esto si quieres mostrar públicas siempre)
-                 //$where_clauses[] = "1 = 0"; // O solo la condición de pública: (p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)
                 $where_clauses[] = "(p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)";
-
             }
 
         }
-         // --- FIN DE LA CORRECCIÓN PARA OFERTAS ---
     }
 
     // --- Construcción y Ejecución de Consultas (igual que antes) ---
@@ -7916,7 +7895,14 @@ function handleProductsRequest(PDO $pdo) {
     $stmt->execute();
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-     // --- Respuesta JSON (igual que antes) ---
+     // --- INICIO DE LA MODIFICACIÓN ---
+     // Recorremos los productos para adjuntarles sus imágenes
+    foreach ($products as $key => $product) {
+        // Llama a la función global (que ya ordena por antigüedad/orden)
+        $products[$key]['imagenes'] = obtenerImagenesProducto($product['id_producto'], $pdo);
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     echo json_encode([
      'products' => $products,
      'total_products' => (int)$total_products,
@@ -7926,7 +7912,6 @@ function handleProductsRequest(PDO $pdo) {
          'filter_name' => $filter_name // Nombre del filtro para mostrar en UI
      ]);
 }
-
 function handleDepartmentsRequest(PDO $pdo) {
     // 1. Lee la configuración actual desde el archivo.
     $configFile = __DIR__ . '/../config/layout_config.php';
