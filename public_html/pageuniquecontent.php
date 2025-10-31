@@ -126,7 +126,7 @@ $base_url = "{$protocol}://{$host}{$path}/";
 
     <?php include 'includes/cart_panel.php'; ?>
     <div id="notification-container" class="notification-container"></div>
-    <div id="login-prompt-modal" class="modal-overlay hidden">
+    <div id="login-prompt-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Inicia Sesión para Continuar</h3>
             <p>Debes iniciar sesión o registrarte para efectuar la acción.</p>

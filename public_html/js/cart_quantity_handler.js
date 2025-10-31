@@ -70,10 +70,15 @@ async function updateCartAPI(productId, quantity) {
 }
 
 function handleQuantityInteraction(event) {
-    // --- LA CORRECCIÓN DEFINITIVA ESTÁ AQUÍ ---
-    // Ahora, la variable `isLoggedIn` será verdadera si encuentra el enlace de "Mi Cuenta"
-    // O si encuentra el layout principal del dashboard, lo que soluciona el problema.
-    const isLoggedIn = document.querySelector('.my-account-link') || document.querySelector('.dashboard-layout');
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Comprobamos si existe el enlace ".login-link" (que te lleva a login.php)
+    const userIsLoggedOut = document.querySelector('.login-link');
+    // Comprobamos si estamos en el dashboard (donde no hay enlace de login)
+    const isOnDashboard = document.querySelector('.dashboard-layout');
+    
+    // El usuario está logueado si (NO existe el enlace de login) O (SÍ está en el dashboard)
+    const isLoggedIn = !userIsLoggedOut || isOnDashboard;
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (!isLoggedIn) {
         showLoginPrompt();
