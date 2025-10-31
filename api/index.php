@@ -384,13 +384,31 @@ case 'admin/getInventoryReportDetails':
             exit;
         }
 
-        // 3. Obtener los items del reporte
-        $sql_items = "SELECT * FROM reportes_inventario_items 
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 3. Obtener los items del reporte (seleccionando campos específicos, excluyendo la url_imagen obsoleta)
+        $sql_items = "SELECT id_item_reporte, id_reporte, id_producto, 
+                             cantidad_reportada, codigo_producto, 
+                             nombre_producto, precio_venta 
+                      FROM reportes_inventario_items 
                       WHERE id_reporte = :id_reporte 
                       ORDER BY id_item_reporte DESC";
         $stmt_items = $pdo->prepare($sql_items);
         $stmt_items->execute([':id_reporte' => $id_reporte]);
         $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Iterar sobre los items para adjuntar la imagen principal actualizada
+        foreach ($items as $key => $item) {
+            if (!empty($item['id_producto'])) {
+                // Usamos la función ya existente en la API
+                $imagenes = obtenerImagenesProducto($item['id_producto'], $pdo);
+                
+                // Asignamos la primera imagen encontrada, o null si no hay
+                $items[$key]['url_imagen'] = !empty($imagenes) ? $imagenes[0] : null;
+            } else {
+                $items[$key]['url_imagen'] = null; // Para items sin ID de producto
+            }
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
 
         echo json_encode(['success' => true, 'reportName' => $report['nombre_reporte'], 'items' => $items]);
 
@@ -400,6 +418,7 @@ case 'admin/getInventoryReportDetails':
         echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
     }
     break;
+
 
 case 'admin/addProductToInventoryReport':
     // Verifica permisos
@@ -435,8 +454,9 @@ case 'admin/addProductToInventoryReport':
             exit;
         }
 
-        // 2. Buscar el producto en la base de datos
-        $sql_prod = "SELECT id_producto, nombre_producto, precio_venta, url_imagen 
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 2. Buscar el producto en la base de datos (ya no traemos url_imagen de aquí)
+        $sql_prod = "SELECT id_producto, nombre_producto, precio_venta 
                      FROM productos 
                      WHERE codigo_producto = :codigo_producto";
         $stmt_prod = $pdo->prepare($sql_prod);
@@ -448,7 +468,13 @@ case 'admin/addProductToInventoryReport':
             exit;
         }
 
-        // ✅ 3. NUEVO: Verificar si el producto ya está en el reporte
+        // 3. Obtenemos la imagen principal usando la nueva función
+        $imagenes = obtenerImagenesProducto($producto['id_producto'], $pdo);
+        $imagen_principal = !empty($imagenes) ? $imagenes[0] : null;
+        // --- FIN DE LA MODIFICACIÓN ---
+
+
+        // 4. NUEVO: Verificar si el producto ya está en el reporte
         $sql_exists = "SELECT id_item_reporte FROM reportes_inventario_items 
                        WHERE id_reporte = :id_reporte AND id_producto = :id_producto";
         $stmt_exists = $pdo->prepare($sql_exists);
@@ -465,7 +491,7 @@ case 'admin/addProductToInventoryReport':
             exit;
         }
 
-        // 4. Insertar el "snapshot" del producto en la tabla de items
+        // 5. Insertar el "snapshot" del producto en la tabla de items
         $sql_insert = "INSERT INTO reportes_inventario_items 
                        (id_reporte, id_producto, cantidad_reportada, codigo_producto, nombre_producto, url_imagen, precio_venta)
                        VALUES 
@@ -478,7 +504,7 @@ case 'admin/addProductToInventoryReport':
             ':cantidad' => $cantidad,
             ':codigo_producto' => $codigo_producto,
             ':nombre_producto' => $producto['nombre_producto'],
-            ':url_imagen' => $producto['url_imagen'],
+            ':url_imagen' => $imagen_principal, // <-- Se usa la imagen principal obtenida
             ':precio_venta' => $producto['precio_venta']
         ]);
 
@@ -2892,28 +2918,37 @@ break;
 case 'pos_get_product_by_code':
 try {
     $code = $_GET['code'] ?? '';
-
-            // CORRECCIÓN: Usamos el ID de la tienda guardado en la sesión.
     $id_tienda_final = $_SESSION['pos_store_id'] ?? $_SESSION['id_tienda'] ?? null;
 
     if (empty($code) || empty($id_tienda_final)) {
         throw new Exception("Falta el código de producto o no se ha seleccionado una tienda.");
     }
 
-            // CORRECCIÓN: La subconsulta ahora es la única fuente para el stock.
     $stock_selection_sql = "COALESCE((SELECT stock FROM inventario_tienda WHERE id_producto = p.id_producto AND id_tienda = :id_tienda), 0) AS stock_actual";
 
-    $sql = "SELECT p.*, d.departamento AS nombre_departamento, {$stock_selection_sql} 
-    FROM productos p 
-    LEFT JOIN departamentos d ON p.departamento = d.id_departamento 
-    WHERE p.codigo_producto = :code AND p.estado = 1 
-    LIMIT 1";
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se reemplaza p.* por una lista de campos explícita
+    $sql = "SELECT p.id_producto, p.nombre_producto, p.codigo_producto, p.precio_venta, 
+                   p.precio_oferta, p.precio_mayoreo, p.usa_inventario, 
+                   p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
+                   d.departamento AS nombre_departamento, 
+                   {$stock_selection_sql} 
+            FROM productos p 
+            LEFT JOIN departamentos d ON p.departamento = d.id_departamento 
+            WHERE p.codigo_producto = :code AND p.estado = 1 
+            LIMIT 1";
+    // --- FIN DE LA MODIFICACIÓN ---
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':code' => $code, ':id_tienda' => $id_tienda_final]);
     $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($product) {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se adjuntan las imágenes de la nueva tabla
+        $product['imagenes'] = obtenerImagenesProducto($product['id_producto'], $pdo);
+        // --- FIN DE LA MODIFICACIÓN ---
+        
         echo json_encode(['success' => true, 'product' => $product]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Producto no encontrado.']);
@@ -6089,7 +6124,7 @@ try {
 case 'admin/createProduct':
         $pdo->beginTransaction();
         try {
-            // --- Recolección y validación de datos (igual que tu código) ---
+            // --- Recolección y validación de datos ---
             $codigo_producto = trim($_POST['codigo_producto'] ?? '');
             $nombre_producto = trim($_POST['nombre_producto'] ?? '');
             $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
@@ -6102,10 +6137,9 @@ case 'admin/createProduct':
             $estado_id = filter_var($_POST['estado'] ?? '', FILTER_VALIDATE_INT);
             $proveedor_id = filter_var($_POST['proveedor'] ?? '', FILTER_VALIDATE_INT);
             $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
-            // $id_etiqueta = ...; // <-- LÍNEA ELIMINADA (Ya no se necesita para una sola etiqueta)
             $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
             $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
-            $url_imagen = trim($_POST['url_imagen'] ?? '');
+            // $url_imagen = trim($_POST['url_imagen'] ?? ''); // <-- LÍNEA ELIMINADA
             $creado_por = $_SESSION['id_usuario'] ?? null;
 
             if (empty($codigo_producto) || empty($nombre_producto) || !$departamento_id || $precio_venta === false) {
@@ -6114,42 +6148,57 @@ case 'admin/createProduct':
 
             $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto');
 
-            // --- Inserción en tabla 'productos' (igual que tu código) ---
+            // --- Inserción en tabla 'productos' (sin url_imagen) ---
             $sql_insert = "INSERT INTO productos
-            (codigo_producto, nombre_producto, slug, departamento, precio_compra, precio_venta, precio_mayoreo, url_imagen, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, id_marca)
+            (codigo_producto, nombre_producto, slug, departamento, precio_compra, precio_venta, precio_mayoreo, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, id_marca)
             VALUES
-            (:codigo_producto, :nombre_producto, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :url_imagen, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id, :id_marca)";
+            (:codigo_producto, :nombre_producto, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id, :id_marca)";
+            // El campo url_imagen se quitó de la consulta ^
 
             $stmt_insert = $pdo->prepare($sql_insert);
 
             $stmt_insert->execute([
                 ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':slug' => $slug,
                 ':departamento_id' => $departamento_id, ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta,
-                ':precio_mayoreo' => $precio_mayoreo, ':url_imagen' => $url_imagen, ':stock_minimo' => $stock_minimo,
+                ':precio_mayoreo' => $precio_mayoreo, ':stock_minimo' => $stock_minimo,
                 ':stock_maximo' => $stock_maximo, ':tipo_de_venta_id' => $tipo_de_venta_id, ':estado_id' => $estado_id,
                 ':creado_por' => $creado_por, ':proveedor_id' => $proveedor_id,':id_marca' => $id_marca
+                // ':url_imagen' => $url_imagen, // <-- PARÁMETRO ELIMINADO
             ]);
 
             $new_product_id = $pdo->lastInsertId();
 
-            // --- BLOQUE ANTIGUO ELIMINADO ---
-            // if ($id_etiqueta) {
-            //     $stmt_etiqueta = $pdo->prepare("INSERT INTO producto_etiquetas (id_producto, id_etiqueta) VALUES (:id_producto, :id_etiqueta)");
-            //     $stmt_etiqueta->execute([':id_producto' => $new_product_id, ':id_etiqueta' => $id_etiqueta]);
-            // }
-            // --- FIN BLOQUE ANTIGUO ELIMINADO ---
-
-            // --- INICIO: MANEJO DE MÚLTIPLES ETIQUETAS (Tu código que sí está bien) ---
-            $etiquetas_seleccionadas = $_POST['id_etiqueta'] ?? []; // Ahora es un array
+            // --- Lógica de etiquetas (sin cambios) ---
+            $etiquetas_seleccionadas = $_POST['id_etiqueta'] ?? [];
             if (!empty($etiquetas_seleccionadas) && is_array($etiquetas_seleccionadas)) {
                 $stmt_etiqueta = $pdo->prepare("INSERT INTO producto_etiquetas (id_producto, id_etiqueta) VALUES (:id_producto, :id_etiqueta)");
                 foreach ($etiquetas_seleccionadas as $etiqueta_id) {
-                    if (filter_var($etiqueta_id, FILTER_VALIDATE_INT)) { // Validar cada ID
+                    if (filter_var($etiqueta_id, FILTER_VALIDATE_INT)) {
                         $stmt_etiqueta->execute([':id_producto' => $new_product_id, ':id_etiqueta' => $etiqueta_id]);
                     }
                 }
             }
-            // --- FIN: MANEJO DE MÚLTIPLES ETIQUETAS ---
+            
+            // --- INICIO: LÓGICA AÑADIDA PARA MÚLTIPLES IMÁGENES ---
+            $product_images = $_POST['product_images'] ?? [];
+            if (!empty($product_images) && is_array($product_images)) {
+                $stmt_insert_image = $pdo->prepare(
+                    "INSERT INTO producto_imagenes (id_producto, url_imagen, orden) 
+                     VALUES (:id_producto, :url_imagen, :orden)"
+                );
+                $orden = 1;
+                foreach ($product_images as $img_url) {
+                    if (!empty(trim($img_url))) {
+                        $stmt_insert_image->execute([
+                            ':id_producto' => $new_product_id,
+                            ':url_imagen'  => $img_url,
+                            ':orden'       => $orden
+                        ]);
+                        $orden++;
+                    }
+                }
+            }
+            // --- FIN: LÓGICA AÑADIDA ---
 
             logActivity($pdo, $creado_por, 'Producto Creado', 'Se creó el nuevo producto: ' . $nombre_producto . ' (Código: ' . $codigo_producto . ')');
 
@@ -6871,19 +6920,19 @@ case 'admin/getProducts':
             case 'reorder':
             if ($method === 'POST' && isset($_SESSION['id_cliente'])) { handleReorderRequest($pdo, $_SESSION['id_cliente'], $inputData['order_id'] ?? 0); }
             break;
-            case 'ofertas':
+case 'ofertas':
             if (isset($_SESSION['id_cliente'])) {
                 $id_cliente = (int)$_SESSION['id_cliente'];
                 
-                // --- INICIO DE LA CORRECCIÓN ---
                 // 1. Obtenemos el tipo de cliente para la validación
                 $stmt_cliente = $pdo->prepare("SELECT id_tipo_cliente FROM clientes WHERE id_cliente = :id_cliente");
                 $stmt_cliente->execute([':id_cliente' => $id_cliente]);
                 $id_tipo_cliente = $stmt_cliente->fetchColumn();
 
-                // 2. Construimos la consulta con las condiciones de oferta correctas
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // 2. Se quita p.url_imagen de la consulta
                 $sql_ofertas = "
-                SELECT p.id_producto, p.nombre_producto, p.codigo_producto, p.precio_venta, p.precio_oferta, p.url_imagen, d.departamento AS nombre_departamento
+                SELECT p.id_producto, p.nombre_producto, p.codigo_producto, p.precio_venta, p.precio_oferta, d.departamento AS nombre_departamento
                 FROM productos p
                 JOIN departamentos d ON p.departamento = d.id_departamento
                 JOIN preferencias_cliente pc ON p.departamento = pc.id_departamento
@@ -6893,22 +6942,26 @@ case 'admin/getProducts':
                 AND p.precio_oferta < p.precio_venta
                 AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW())
                 AND (
-                  -- Condición 1: La oferta es pública
                   (p.oferta_exclusiva = 0 AND p.oferta_tipo_cliente_id IS NULL)
                   OR
-                  -- Condición 2: La oferta es para usuarios registrados en general
                   (p.oferta_exclusiva = 1 AND p.oferta_tipo_cliente_id IS NULL)
                   OR
-                  -- Condición 3: La oferta es para el tipo de cliente específico del usuario
                   (p.oferta_tipo_cliente_id = :id_tipo_cliente)
                   )
                 ";
                 
                 $stmt = $pdo->prepare($sql_ofertas);
                 $stmt->execute([':id_cliente' => $id_cliente, ':id_tipo_cliente' => $id_tipo_cliente]);
-                // --- FIN DE LA CORRECCIÓN ---
-
+                
                 $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // 3. Iteramos para adjuntar la imagen
+                foreach ($data as $key => $item) {
+                    $imagenes = obtenerImagenesProducto($item['id_producto'], $pdo);
+                    $data[$key]['url_imagen'] = !empty($imagenes) ? $imagenes[0] : null;
+                }
+                // --- FIN DE LA MODIFICACIÓN ---
+
                 echo json_encode(['success' => true, 'ofertas' => $data]);
             } else {
                 http_response_code(401);
@@ -7222,52 +7275,52 @@ function handleCheckoutRequest(PDO $pdo) {
     }
 }
 function handleGetFavoriteDetailsRequest(PDO $pdo, int $client_id) {
-    // --- INICIO DE LA CORRECCIÓN ---
-    // 1. Obtenemos el tipo de cliente para poder calcular el precio correcto
+    // 1. Obtenemos el tipo de cliente
     $stmt_client_type = $pdo->prepare("SELECT id_tipo_cliente FROM clientes WHERE id_cliente = :id");
     $stmt_client_type->execute([':id' => $client_id]);
     $client_type_id = $stmt_client_type->fetchColumn();
 
-    // 2. La consulta ahora incluye un CASE para determinar el precio final
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // 2. La consulta ya NO selecciona p.url_imagen
     $sql = "
     SELECT 
     p.id_producto, 
     p.nombre_producto, 
-    p.url_imagen,
+    -- p.url_imagen, <-- CAMPO ELIMINADO
     -- Lógica para seleccionar el precio final
     CASE
-    -- Condición 1: La oferta es válida (precio > 0, no caducada)
-    WHEN p.precio_oferta > 0 AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW()) THEN
-    -- Condición 1.1: La oferta es para el tipo de cliente específico
-    CASE
-    WHEN p.oferta_tipo_cliente_id IS NOT NULL THEN
-    IF(p.oferta_tipo_cliente_id = :client_type_id, p.precio_oferta, p.precio_venta)
-    -- Condición 1.2: La oferta es para cualquier usuario logueado
-    WHEN p.oferta_exclusiva = 1 THEN
-    p.precio_oferta
-    -- Condición 1.3: La oferta es pública
-    WHEN p.oferta_exclusiva = 0 THEN
-    p.precio_oferta
-    -- Si no cumple ninguna condición de oferta, precio normal
-    ELSE
-    p.precio_venta
-END
--- Si no hay oferta válida, precio normal
-ELSE
-p.precio_venta
-END AS precio_venta
-FROM favoritos f
-JOIN productos p ON f.id_producto = p.id_producto
-WHERE f.id_cliente = :client_id
-ORDER BY p.nombre_producto ASC
-";
+        WHEN p.precio_oferta > 0 AND (p.oferta_caducidad IS NULL OR p.oferta_caducidad > NOW()) THEN
+            CASE
+                WHEN p.oferta_tipo_cliente_id IS NOT NULL THEN
+                    IF(p.oferta_tipo_cliente_id = :client_type_id, p.precio_oferta, p.precio_venta)
+                WHEN p.oferta_exclusiva = 1 THEN
+                    p.precio_oferta
+                WHEN p.oferta_exclusiva = 0 THEN
+                    p.precio_oferta
+                ELSE
+                    p.precio_venta
+            END
+        ELSE
+            p.precio_venta
+    END AS precio_venta
+    FROM favoritos f
+    JOIN productos p ON f.id_producto = p.id_producto
+    WHERE f.id_cliente = :client_id
+    ORDER BY p.nombre_producto ASC
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':client_id' => $client_id, ':client_type_id' => $client_type_id]);
+    $favorites = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute([':client_id' => $client_id, ':client_type_id' => $client_type_id]);
-    // --- FIN DE LA CORRECCIÓN ---
+    // 3. Iteramos para adjuntar las imágenes
+    foreach ($favorites as $key => $fav) {
+        $imagenes = obtenerImagenesProducto($fav['id_producto'], $pdo);
+        $favorites[$key]['url_imagen'] = !empty($imagenes) ? $imagenes[0] : null;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
-$favorites = $stmt->fetchAll(PDO::FETCH_ASSOC);
-echo json_encode(['success' => true, 'favorites' => $favorites]);
+    echo json_encode(['success' => true, 'favorites' => $favorites]);
 }
 
 function handleAddMultipleToCartRequest(PDO $pdo, int $client_id, array $product_ids) {
@@ -7675,9 +7728,20 @@ function handleCartDetailsRequest(PDO $pdo) {
     $client_id = $_SESSION['id_cliente'];
     $cart_id = getOrCreateCart($pdo, $client_id);
     if (!$cart_id) { echo json_encode(['cart_items' => [], 'total' => '0.00']); return; }
-    $stmt_items = $pdo->prepare("SELECT p.id_producto, p.nombre_producto, p.url_imagen, dc.cantidad, dc.precio_unitario, (dc.cantidad * dc.precio_unitario) as subtotal FROM detalle_carrito dc JOIN productos p ON dc.id_producto = p.id_producto WHERE dc.id_carrito = :cart_id");
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // 1. Se quita p.url_imagen de la consulta
+    $stmt_items = $pdo->prepare("SELECT p.id_producto, p.nombre_producto, dc.cantidad, dc.precio_unitario, (dc.cantidad * dc.precio_unitario) as subtotal FROM detalle_carrito dc JOIN productos p ON dc.id_producto = p.id_producto WHERE dc.id_carrito = :cart_id");
     $stmt_items->execute([':cart_id' => $cart_id]);
     $cart_items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
+    
+    // 2. Se itera para adjuntar la imagen
+    foreach ($cart_items as $key => $item) {
+        $imagenes = obtenerImagenesProducto($item['id_producto'], $pdo);
+        $cart_items[$key]['url_imagen'] = !empty($imagenes) ? $imagenes[0] : null;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     $total = 0;
     foreach ($cart_items as $item) $total += $item['subtotal'];
     echo json_encode(['cart_items' => $cart_items, 'total' => number_format($total, 2, '.', '')]);//Decimales en los numeros
@@ -7918,8 +7982,7 @@ function handleDepartmentsRequest(PDO $pdo) {
     $config = file_exists($configFile) ? include($configFile) : [];
     $hide_no_image = isset($config['hide_products_without_image']) && $config['hide_products_without_image'];
 
-    // 2. Si la opción de ocultar no está activa, simplemente devuelve todos los departamentos.
-    //    Esto es idéntico a tu código original y soluciona el problema.
+    // 2. Si la opción de ocultar no está activa, devuelve todos
     if (!$hide_no_image) {
         $stmt = $pdo->query("SELECT id_departamento, codigo_departamento, departamento FROM departamentos ORDER BY departamento ASC");
         $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -7927,15 +7990,17 @@ function handleDepartmentsRequest(PDO $pdo) {
         return;
     }
 
-    // 3. Si la opción SÍ está activa, ejecuta la consulta que filtra por productos con imagen.
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // 3. Si la opción SÍ está activa, filtra usando la tabla producto_imagenes
     $sql = "
     SELECT DISTINCT d.id_departamento, d.departamento, d.codigo_departamento
     FROM departamentos d
     JOIN productos p ON d.id_departamento = p.departamento
     WHERE p.estado = 1 
-    AND (p.url_imagen IS NOT NULL AND p.url_imagen != '' AND p.url_imagen != '0')
+    AND (EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))
     ORDER BY d.departamento ASC
     ";
+    // --- FIN DE LA MODIFICACIÓN ---
     
     $stmt = $pdo->query($sql);
     $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);

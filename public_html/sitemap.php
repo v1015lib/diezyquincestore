@@ -93,14 +93,13 @@ function generateUrlEntry($url, $priority = '0.80') {
 $static_pages = [
     "",
     "ofertas",
-    "terminos-y-condiciones.php", // Corregido para usar .php
+    "terminos-y-condiciones.php",
     "politicas-de-privacidad.php",
     "politicas-de-reembolso.php",
     "terminos-de-uso.php"
 ];
 
 foreach ($static_pages as $page) {
-    // No es necesario sanitizar aquí si la lista es estática y controlada por ti
     generateUrlEntry($base_url . $page, '1.00');
 }
 
@@ -111,61 +110,55 @@ try {
     // --- PRODUCTOS (SOLO CON IMAGEN, ACTIVOS O AGOTADOS) ---
     // Contar TODOS los productos con imagen (activos + agotados)
     $stmt_count_all = $pdo->prepare("
-        SELECT COUNT(*) as total FROM productos
-        WHERE slug IS NOT NULL 
-        AND slug != ''
-        AND url_imagen IS NOT NULL 
-        AND url_imagen != ''
-        AND (estado = 1 OR estado = 4) -- ▼▼▼ LÓGICA CORREGIDA ▼▼▼
+        SELECT COUNT(p.id_producto) as total FROM productos p
+        WHERE p.slug IS NOT NULL 
+        AND p.slug != ''
+        AND (EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))
+        AND (p.estado = 1 OR p.estado = 4)
     ");
     $stmt_count_all->execute();
     $count_all = $stmt_count_all->fetch(PDO::FETCH_ASSOC)['total'];
     
     // Contar activos con imagen
     $stmt_count_active = $pdo->prepare("
-        SELECT COUNT(*) as total FROM productos
-        WHERE slug IS NOT NULL 
-        AND slug != ''
-        AND url_imagen IS NOT NULL 
-        AND url_imagen != ''
-        AND estado = 1 -- 1 = Activo
+        SELECT COUNT(p.id_producto) as total FROM productos p
+        WHERE p.slug IS NOT NULL 
+        AND p.slug != ''
+        AND (EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))
+        AND p.estado = 1
     ");
     $stmt_count_active->execute();
     $count_active = $stmt_count_active->fetch(PDO::FETCH_ASSOC)['total'];
     
     // Contar agotados con imagen
     $stmt_count_sold = $pdo->prepare("
-        SELECT COUNT(*) as total FROM productos
-        WHERE slug IS NOT NULL 
-        AND slug != ''
-        AND url_imagen IS NOT NULL 
-        AND url_imagen != ''
-        AND estado = 4 -- 4 = Agotado
+        SELECT COUNT(p.id_producto) as total FROM productos p
+        WHERE p.slug IS NOT NULL 
+        AND p.slug != ''
+        AND (EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))
+        AND p.estado = 4
     ");
     $stmt_count_sold->execute();
     $count_sold = $stmt_count_sold->fetch(PDO::FETCH_ASSOC)['total'];
     
-	error_log("SITEMAP: {$count_all} productos con imagen (Activos: {$count_active} | Agotados: {$count_sold})");
+    error_log("SITEMAP: {$count_all} productos con imagen (Activos: {$count_active} | Agotados: {$count_sold})");
     
-    // Mostrar en XML comment para ver en navegador
-    // ▼▼▼ ✅ ¡ASÍ DEBE VERSE! ▼▼▼
-	echo "    \n";    
+    echo "    \n";    
+    
     // Agregar productos activos y agotados
-    // ▼▼▼ ¡AQUÍ ESTÁ LA CORRECCIÓN! (estado IN (1, 4)) ▼▼▼
     $stmt_products = $pdo->prepare("
-        SELECT slug FROM productos
-        WHERE slug IS NOT NULL 
-        AND slug != ''
-        AND url_imagen IS NOT NULL 
-        AND url_imagen != ''
-        AND estado IN (1, 4) -- 1=Activo, 4=Agotado
+        SELECT p.slug FROM productos p
+        WHERE p.slug IS NOT NULL 
+        AND p.slug != ''
+        AND (EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))
+        AND p.estado IN (1, 4) -- 1=Activo, 4=Agotado
         LIMIT 50000
     ");
     $stmt_products->execute();
-    // --- LÍNEA NUEVA SOLICITADA ---
+    
     $product_count = $stmt_products->rowCount();
     echo "    \n";
-    // --- FIN DE LÍNEA NUEVA ---
+    
     while ($row = $stmt_products->fetch(PDO::FETCH_ASSOC)) {
         $slug = preg_replace('/[^a-zA-Z0-9\-_]/', '', $row['slug']);
         if (!empty($slug)) {
@@ -201,8 +194,6 @@ try {
     while ($row = $stmt_brands->fetch(PDO::FETCH_ASSOC)) {
         $slug = preg_replace('/[^a-zA-Z0-9\-_]/', '', $row['slug']);
         if (!empty($slug)) {
-            // ▼▼▼ LÓGICA CORREGIDA ▼▼▼
-            // Tu htaccess dice que las marcas van en la raíz (ej: /starmate)
             generateUrlEntry($base_url . $slug, '0.70');
         }
     }
