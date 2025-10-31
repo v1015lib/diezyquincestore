@@ -48,8 +48,45 @@ $resource = $_GET['resource'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 $inputData = json_decode(file_get_contents('php://input'), true);
 
+
+/**
+ * Obtiene las imágenes de un producto desde la nueva tabla 'producto_imagenes'.
+ *
+ * @param int $id_producto El ID del producto del cual se quieren obtener las imágenes.
+ * @param PDO $pdo La instancia de la conexión PDO.
+ * @return array Un array de strings (URLs de las imágenes), ordenadas por la columna 'orden'.
+ */
+function obtenerImagenesProducto($id_producto, $pdo) {
+    try {
+        // Preparamos la consulta a la nueva tabla
+        $sql = "SELECT url_imagen 
+                FROM producto_imagenes 
+                WHERE id_producto = :id_producto 
+                ORDER BY orden ASC, id_imagen ASC"; 
+                // Ordenamos por 'orden' primero, y luego por 'id_imagen' como desempate
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindParam(':id_producto', $id_producto, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        // Devolvemos todas las URLs encontradas en un array simple
+        // fetchAll(PDO::FETCH_COLUMN, 0) devuelve solo la primera columna (url_imagen)
+        return $stmt->fetchAll(PDO::FETCH_COLUMN, 0); 
+        
+    } catch (Exception $e) {
+        // Si algo falla, registramos el error y devolvemos un array vacío
+        error_log("Error en obtenerImagenesProducto: " . $e->getMessage());
+        return [];
+    }
+}
+
+
+
 try {
-    // --- MANEJADOR DE RECURSOS (ROUTER) ---
+
+
+
+
     switch ($resource) {
 
 
@@ -5927,76 +5964,82 @@ try {
 
 
 
-        case 'admin/getProductDetails':
-        if (!isset($_SESSION['loggedin'])) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
-            break;
-        }
+ case 'admin/getProductDetails':
+                if (!isset($_SESSION['loggedin'])) {
+                    http_response_code(403);
+                    echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+                    break;
+                }
+        
+                try {
+                    $product_code = $_GET['id'] ?? '';
+                    if (empty($product_code)) {
+                        throw new Exception("No se proporcionó un código de producto.");
+                    }
+        
+                // --- CONSULTA MODIFICADA ---
+                    $stmt_get_product = $pdo->prepare("
+                        SELECT p.*, d.departamento as nombre_departamento, e.nombre_estado, pe.id_etiqueta
+                        FROM productos p
+                        LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                        LEFT JOIN estados e ON p.estado = e.id_estado
+                        LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
+                        WHERE p.codigo_producto = :code_val
+                        LIMIT 1
+                        ");
+                    $stmt_get_product->execute([':code_val' => $product_code]);
+                    $product = $stmt_get_product->fetch(PDO::FETCH_ASSOC);
+        
+                    if (!$product) {
+                       echo json_encode(['success' => false, 'error' => 'Producto no encontrado con ese código.']);
+                       break;
+                   }
+        
+                   $productId = $product['id_producto'];
+                   $rol = $_SESSION['rol'];
+                   $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
+        
+                   if ($rol === 'administrador_global') {
+                    $stmt_stock = $pdo->prepare("
+                        SELECT t.nombre_tienda, it.stock
+                        FROM inventario_tienda it
+                        JOIN tiendas t ON it.id_tienda = t.id_tienda
+                        WHERE it.id_producto = :product_id
+                        ");
+                    $stmt_stock->execute([':product_id' => $productId]);
+                    $stock_por_tienda = $stmt_stock->fetchAll(PDO::FETCH_ASSOC);
+        
+                    $total_stock = array_sum(array_column($stock_por_tienda, 'stock'));
+                    
+                    $product['stock_actual'] = $total_stock;
+                    $product['stock_por_tienda'] = $stock_por_tienda;
+        
+                } else {
+                    $stmt_stock = $pdo->prepare("
+                        SELECT stock FROM inventario_tienda 
+                        WHERE id_producto = :product_id AND id_tienda = :id_tienda
+                        ");
+                    $stmt_stock->execute([
+                        ':product_id' => $productId,
+                        ':id_tienda' => $id_tienda_usuario
+                    ]);
+                    $stock_tienda = $stmt_stock->fetchColumn();
+                    $product['stock_actual'] = $stock_tienda ?: 0;
+                }
+        
+                // --- INICIO DE LA CORRECCIÓN ---
+                // Esta línea ahora está FUERA del if/else, 
+                // por lo que se ejecuta para todos los roles.
+                $product['imagenes'] = obtenerImagenesProducto($productId, $pdo);
+                // --- FIN DE LA CORRECCIÓN ---
 
-        try {
-            $product_code = $_GET['id'] ?? '';
-            if (empty($product_code)) {
-                throw new Exception("No se proporcionó un código de producto.");
+                echo json_encode(['success' => true, 'product' => $product]);
+        
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
-
-        // --- CONSULTA MODIFICADA ---
-            $stmt_get_product = $pdo->prepare("
-                SELECT p.*, d.departamento as nombre_departamento, e.nombre_estado, pe.id_etiqueta
-                FROM productos p
-                LEFT JOIN departamentos d ON p.departamento = d.id_departamento
-                LEFT JOIN estados e ON p.estado = e.id_estado
-                LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
-                WHERE p.codigo_producto = :code_val
-                LIMIT 1
-                ");
-            $stmt_get_product->execute([':code_val' => $product_code]);
-            $product = $stmt_get_product->fetch(PDO::FETCH_ASSOC);
-
-            if (!$product) {
-               echo json_encode(['success' => false, 'error' => 'Producto no encontrado con ese código.']);
-               break;
-           }
-
-           $productId = $product['id_producto'];
-           $rol = $_SESSION['rol'];
-           $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
-
-           if ($rol === 'administrador_global') {
-            $stmt_stock = $pdo->prepare("
-                SELECT t.nombre_tienda, it.stock
-                FROM inventario_tienda it
-                JOIN tiendas t ON it.id_tienda = t.id_tienda
-                WHERE it.id_producto = :product_id
-                ");
-            $stmt_stock->execute([':product_id' => $productId]);
-            $stock_por_tienda = $stmt_stock->fetchAll(PDO::FETCH_ASSOC);
-
-            $total_stock = array_sum(array_column($stock_por_tienda, 'stock'));
-            
-            $product['stock_actual'] = $total_stock;
-            $product['stock_por_tienda'] = $stock_por_tienda;
-
-        } else {
-            $stmt_stock = $pdo->prepare("
-                SELECT stock FROM inventario_tienda 
-                WHERE id_producto = :product_id AND id_tienda = :id_tienda
-                ");
-            $stmt_stock->execute([
-                ':product_id' => $productId,
-                ':id_tienda' => $id_tienda_usuario
-            ]);
-            $stock_tienda = $stmt_stock->fetchColumn();
-            $product['stock_actual'] = $stock_tienda ?: 0;
-        }
-
-        echo json_encode(['success' => true, 'product' => $product]);
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
-    break;
+            break;
 
 
 
@@ -6132,145 +6175,154 @@ case 'admin/createProduct':
 // api/index.php
 
 case 'admin/updateProduct':
-        $pdo->beginTransaction();
-        try {
-            // Obtener estado ANTES de la actualización para la notificación
-            $stmt_old_status_check = $pdo->prepare("SELECT estado FROM productos WHERE id_producto = :id_producto");
-            $stmt_old_status_check->execute([':id_producto' => $_POST['id_producto'] ?? 0]);
-            $estado_anterior = $stmt_old_status_check->fetchColumn();
-
-
-            $productId = $_POST['id_producto'] ?? 0;
-            $userId = $_SESSION['id_usuario'] ?? null;
-
-            if (!$productId || !$userId) {
-                throw new Exception('ID de producto o de usuario no válido.');
-            }
-
-            // --- Recolección y validación de datos (sin cambios) ---
-            $codigo_producto = trim($_POST['codigo_producto'] ?? '');
-            $nombre_producto = trim($_POST['nombre_producto'] ?? '');
-            $departamento_id = filter_var($_POST['departamento'] ?? 0, FILTER_VALIDATE_INT);
-            $precio_compra = filter_var($_POST['precio_compra'] ?? 0.00, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
-            $precio_venta = filter_var($_POST['precio_venta'] ?? 0.00, FILTER_VALIDATE_FLOAT);
-            $precio_mayoreo = filter_var($_POST['precio_mayoreo'] ?? 0.00, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
-            $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? 0, FILTER_VALIDATE_INT);
-            $estado_id = filter_var($_POST['estado'] ?? 0, FILTER_VALIDATE_INT); // Nuevo estado
-            $proveedor_id = filter_var($_POST['proveedor'] ?? 0, FILTER_VALIDATE_INT);
-            $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
-            $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
-            $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
-            $url_imagen = $_POST['url_imagen'] ?? '';
-
-            $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto', $productId);
-
-            // --- Actualización de la tabla 'productos' (sin cambios) ---
-            $sql_update = "UPDATE productos SET
-            codigo_producto = :codigo, nombre_producto = :nombre, slug = :slug, departamento = :depto,
-            precio_compra = :p_compra, precio_venta = :p_venta, precio_mayoreo = :p_mayoreo,
-            url_imagen = :url, stock_minimo = :stock_min,
-            stock_maximo = :stock_max, tipo_de_venta = :tipo_venta, estado = :estado,
-            proveedor = :prov, modificado_por_usuario_id = :user_id, id_marca = :id_marca
-            WHERE id_producto = :id";
-            $stmt_update = $pdo->prepare($sql_update);
-
-            $stmt_update->execute([
-                ':codigo' => $codigo_producto, ':nombre' => $nombre_producto, ':slug' => $slug,
-                ':depto' => $departamento_id, ':p_compra' => $precio_compra, ':p_venta' => $precio_venta,
-                ':p_mayoreo' => $precio_mayoreo, ':url' => $url_imagen, ':stock_min' => $stock_minimo,
-                ':stock_max' => $stock_maximo, ':tipo_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
-                ':prov' => $proveedor_id, ':user_id' => $userId, ':id' => $productId, ':id_marca' => $id_marca
-            ]);
-
-            // --- INICIO: MANEJO DE MÚLTIPLES ETIQUETAS AL ACTUALIZAR ---
-            // 1. Eliminar todas las etiquetas existentes para este producto
-            $stmt_delete_etiquetas = $pdo->prepare("DELETE FROM producto_etiquetas WHERE id_producto = :id_producto");
-            $stmt_delete_etiquetas->execute([':id_producto' => $productId]);
-
-            // 2. Insertar las nuevas etiquetas seleccionadas (si las hay)
-            $etiquetas_seleccionadas = $_POST['id_etiqueta'] ?? []; // Espera un array, por eso el name='id_etiqueta[]' en el HTML
-            if (!empty($etiquetas_seleccionadas) && is_array($etiquetas_seleccionadas)) {
-                $stmt_insert_etiqueta = $pdo->prepare("INSERT INTO producto_etiquetas (id_producto, id_etiqueta) VALUES (:id_producto, :id_etiqueta)");
-                foreach ($etiquetas_seleccionadas as $etiqueta_id) {
-                    // Validar que cada elemento del array sea un entero válido
-                    if (filter_var($etiqueta_id, FILTER_VALIDATE_INT)) {
-                        $stmt_insert_etiqueta->execute([':id_producto' => $productId, ':id_etiqueta' => $etiqueta_id]);
+                $pdo->beginTransaction();
+                try {
+                    // Obtener estado ANTES de la actualización para la notificación
+                    $stmt_old_status_check = $pdo->prepare("SELECT estado FROM productos WHERE id_producto = :id_producto");
+                    $stmt_old_status_check->execute([':id_producto' => $_POST['id_producto'] ?? 0]);
+                    $estado_anterior = $stmt_old_status_check->fetchColumn();
+        
+        
+                    $productId = $_POST['id_producto'] ?? 0;
+                    $userId = $_SESSION['id_usuario'] ?? null;
+        
+                    if (!$productId || !$userId) {
+                        throw new Exception('ID de producto o de usuario no válido.');
                     }
-                }
-            }
-            // --- FIN: MANEJO DE MÚLTIPLES ETIQUETAS ---
+        
+                    // --- Recolección y validación de datos ---
+                    $codigo_producto = trim($_POST['codigo_producto'] ?? '');
+                    $nombre_producto = trim($_POST['nombre_producto'] ?? '');
+                    $departamento_id = filter_var($_POST['departamento'] ?? 0, FILTER_VALIDATE_INT);
+                    $precio_compra = filter_var($_POST['precio_compra'] ?? 0.00, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
+                    $precio_venta = filter_var($_POST['precio_venta'] ?? 0.00, FILTER_VALIDATE_FLOAT);
+                    $precio_mayoreo = filter_var($_POST['precio_mayoreo'] ?? 0.00, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
+                    $tipo_de_venta_id = filter_var($_POST['tipo_de_venta'] ?? 0, FILTER_VALIDATE_INT);
+                    $estado_id = filter_var($_POST['estado'] ?? 0, FILTER_VALIDATE_INT); // Nuevo estado
+                    $proveedor_id = filter_var($_POST['proveedor'] ?? 0, FILTER_VALIDATE_INT);
+                    $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
+                    $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
+                    $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
+                    // $url_imagen = ...; // <-- ESTA LÍNEA SE ELIMINA
+        
+                    $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto', $productId);
+        
+                    // --- Actualización de la tabla 'productos' (SIN url_imagen) ---
+                    $sql_update = "UPDATE productos SET
+                    codigo_producto = :codigo, nombre_producto = :nombre, slug = :slug, departamento = :depto,
+                    precio_compra = :p_compra, precio_venta = :p_venta, precio_mayoreo = :p_mayoreo,
+                    stock_minimo = :stock_min,
+                    stock_maximo = :stock_max, tipo_de_venta = :tipo_venta, estado = :estado,
+                    proveedor = :prov, modificado_por_usuario_id = :user_id, id_marca = :id_marca
+                    WHERE id_producto = :id";
+                    $stmt_update = $pdo->prepare($sql_update);
+        
+                    $stmt_update->execute([
+                        ':codigo' => $codigo_producto, ':nombre' => $nombre_producto, ':slug' => $slug,
+                        ':depto' => $departamento_id, ':p_compra' => $precio_compra, ':p_venta' => $precio_venta,
+                        ':p_mayoreo' => $precio_mayoreo, ':stock_min' => $stock_minimo,
+                        ':stock_max' => $stock_maximo, ':tipo_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
+                        ':prov' => $proveedor_id, ':user_id' => $userId, ':id' => $productId, ':id_marca' => $id_marca
+                        // ':url' => $url_imagen, // <-- ESTA LÍNEA SE ELIMINA
+                    ]);
+        
+                    // --- INICIO: MANEJO DE MÚLTIPLES ETIQUETAS (Sin cambios) ---
+                    $stmt_delete_etiquetas = $pdo->prepare("DELETE FROM producto_etiquetas WHERE id_producto = :id_producto");
+                    $stmt_delete_etiquetas->execute([':id_producto' => $productId]);
+        
+                    $etiquetas_seleccionadas = $_POST['id_etiqueta'] ?? []; 
+                    if (!empty($etiquetas_seleccionadas) && is_array($etiquetas_seleccionadas)) {
+                        $stmt_insert_etiqueta = $pdo->prepare("INSERT INTO producto_etiquetas (id_producto, id_etiqueta) VALUES (:id_producto, :id_etiqueta)");
+                        foreach ($etiquetas_seleccionadas as $etiqueta_id) {
+                            if (filter_var($etiqueta_id, FILTER_VALIDATE_INT)) {
+                                $stmt_insert_etiqueta->execute([':id_producto' => $productId, ':id_etiqueta' => $etiqueta_id]);
+                            }
+                        }
+                    }
+                    // --- FIN: MANEJO DE MÚLTIPLES ETIQUETAS ---
 
-            logActivity($pdo, $userId, 'Producto Modificado', "Se actualizó el producto (formulario): '{$nombre_producto}' (Código: {$codigo_producto})"); // <-- Línea de referencia
-
-            $pdo->commit();
-
-            // --- INICIO: Lógica de Notificación por Cambio de Estado ---
-            try {
-                // IDs de estado relevantes: 1 = Activo, 4 = Agotado
-                $estado_activo = 1;
-                $estado_agotado = 4;
-
-                // Solo notificar si el estado ANTERIOR era diferente al NUEVO
-                // Y si el cambio fue entre Activo y Agotado
-                if ($estado_anterior !== false && $estado_anterior != $estado_id &&
-                    (($estado_anterior == $estado_activo && $estado_id == $estado_agotado) || ($estado_anterior == $estado_agotado && $estado_id == $estado_activo)) )
-                {
-
-                    $cambio_a_activo = ($estado_id == $estado_activo); // True si el nuevo estado es Activo
-                    $cambio_a_agotado = ($estado_id == $estado_agotado); // True si el nuevo estado es Agotado
-
-                    // Obtener el ID del departamento del producto actualizado (ya lo tienes en $departamento_id)
-                    if ($departamento_id) {
-                        // Encontrar clientes que tienen este departamento en sus preferencias
-                        $stmt_clientes = $pdo->prepare(
-                            "SELECT id_cliente FROM preferencias_cliente WHERE id_departamento = :id_departamento"
+                    // --- INICIO: MANEJO DE MÚLTIPLES IMÁGENES AL ACTUALIZAR ---
+                    
+                    // 1. Eliminar todas las imágenes existentes para este producto
+                    $stmt_delete_images = $pdo->prepare("DELETE FROM producto_imagenes WHERE id_producto = :id_producto");
+                    $stmt_delete_images->execute([':id_producto' => $productId]);
+        
+                    // 2. Insertar las nuevas imágenes enviadas desde el formulario
+                    $product_images = $_POST['product_images'] ?? []; // Este es el name="product_images[]"
+                    
+                    if (!empty($product_images) && is_array($product_images)) {
+                        $stmt_insert_image = $pdo->prepare(
+                            "INSERT INTO producto_imagenes (id_producto, url_imagen, orden) 
+                             VALUES (:id_producto, :url_imagen, :orden)"
                         );
-                        $stmt_clientes->execute([':id_departamento' => $departamento_id]);
-                        $clientes_a_notificar = $stmt_clientes->fetchAll(PDO::FETCH_COLUMN);
-
-                        // Crear el mensaje adecuado
-                        $mensaje = "";
-                        if ($cambio_a_activo) {
-                            $mensaje = "¡Buenas noticias! El producto '" . htmlspecialchars($nombre_producto) . "' vuelve a estar disponible.";
-                        } elseif ($cambio_a_agotado) {
-                            $mensaje = "El producto '" . htmlspecialchars($nombre_producto) . "' se ha agotado temporalmente.";
-                        }
-
-                        // Construir la URL del producto
-                        $product_url = "producto/" . $slug; // Usamos el slug que ya generaste
-
-                        // Enviar notificación a cada cliente interesado
-                        foreach ($clientes_a_notificar as $cliente_id) {
-                            // Llamamos a la función crearNotificacion (pull y push)
-                            crearNotificacion($pdo, (int)$cliente_id, 'stock', $mensaje, $product_url);
-                        }
-                        // Log opcional para saber a cuántos se notificó
-                        if (count($clientes_a_notificar) > 0) {
-                            logActivity($pdo, $userId, 'Notificación Stock', "Se notificó a " . count($clientes_a_notificar) . " clientes sobre cambio de stock del producto ID: {$productId}");
+                        $orden = 1;
+                        foreach ($product_images as $img_url) {
+                            // Solo guardar si la URL no está vacía
+                            if (!empty(trim($img_url))) {
+                                $stmt_insert_image->execute([
+                                    ':id_producto' => $productId,
+                                    ':url_imagen'  => $img_url,
+                                    ':orden'       => $orden
+                                ]);
+                                $orden++;
+                            }
                         }
                     }
+                    // --- FIN: MANEJO DE MÚLTIPLES IMÁGENES ---
+
+                    logActivity($pdo, $userId, 'Producto Modificado', "Se actualizó el producto (formulario): '{$nombre_producto}' (Código: {$codigo_producto})"); 
+        
+                    $pdo->commit();
+        
+                    // --- INICIO: Lógica de Notificación por Cambio de Estado (Sin cambios) ---
+                    try {
+                        $estado_activo = 1;
+                        $estado_agotado = 4;
+        
+                        if ($estado_anterior !== false && $estado_anterior != $estado_id &&
+                            (($estado_anterior == $estado_activo && $estado_id == $estado_agotado) || ($estado_anterior == $estado_agotado && $estado_id == $estado_activo)) )
+                        {
+                            $cambio_a_activo = ($estado_id == $estado_activo);
+                            $cambio_a_agotado = ($estado_id == $estado_agotado);
+        
+                            if ($departamento_id) {
+                                $stmt_clientes = $pdo->prepare(
+                                    "SELECT id_cliente FROM preferencias_cliente WHERE id_departamento = :id_departamento"
+                                );
+                                $stmt_clientes->execute([':id_departamento' => $departamento_id]);
+                                $clientes_a_notificar = $stmt_clientes->fetchAll(PDO::FETCH_COLUMN);
+        
+                                $mensaje = "";
+                                if ($cambio_a_activo) {
+                                    $mensaje = "¡Buenas noticias! El producto '" . htmlspecialchars($nombre_producto) . "' vuelve a estar disponible.";
+                                } elseif ($cambio_a_agotado) {
+                                    $mensaje = "El producto '" . htmlspecialchars($nombre_producto) . "' se ha agotado temporalmente.";
+                                }
+        
+                                $product_url = "producto/" . $slug;
+        
+                                foreach ($clientes_a_notificar as $cliente_id) {
+                                    crearNotificacion($pdo, (int)$cliente_id, 'stock', $mensaje, $product_url);
+                                }
+                                if (count($clientes_a_notificar) > 0) {
+                                    logActivity($pdo, $userId, 'Notificación Stock', "Se notificó a " . count($clientes_a_notificar) . " clientes sobre cambio de stock del producto ID: {$productId}");
+                                }
+                            }
+                        }
+                    } catch (Exception $notif_error) {
+                        error_log("Error al procesar notificaciones de stock para producto ID {$productId}: " . $notif_error->getMessage());
+                    }
+                    // --- FIN: Lógica de Notificación por Cambio de Estado ---
+        
+                    echo json_encode(['success' => true, 'message' => 'Producto actualizado correctamente.']);
+        
+        
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) { $pdo->rollBack(); }
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => "Error al actualizar producto: " . $e->getMessage()]);
                 }
-            } catch (Exception $notif_error) {
-                // Si falla el envío de notificaciones, no revertimos la transacción del producto,
-                // pero sí registramos el error para depuración.
-                error_log("Error al procesar notificaciones de stock para producto ID {$productId}: " . $notif_error->getMessage());
-                // Podrías añadir un mensaje adicional al 'message' del JSON de éxito si quieres informar al admin.
-                // $message .= " (Error al enviar notificaciones)";
-            }
-            // --- FIN: Lógica de Notificación por Cambio de Estado ---
-
-            echo json_encode(['success' => true, 'message' => 'Producto actualizado correctamente.']);
-
-
-        } catch (Exception $e) {
-            if ($pdo->inTransaction()) { $pdo->rollBack(); }
-            http_response_code(400); // Bad Request podría ser apropiado aquí
-            // Devuelve el mensaje de error específico
-            echo json_encode(['success' => false, 'error' => "Error al actualizar producto: " . $e->getMessage()]);
-        }
-        break;
-
-
+                break;
 
 // PEGA ESTE BLOQUE DENTRO DEL switch($resource) EN api/index.php
 
@@ -6520,68 +6572,61 @@ case 'admin/getProducts':
             $allowedSortCols = [
                 'p.codigo_producto', 'p.nombre_producto', 'd.departamento',
                 'm.nombre_marca', 'p.precio_venta', 'stock_actual',
-                'e.nombre_estado', 'p.url_imagen'
+                'e.nombre_estado'
             ];
             if (!in_array($sortBy, $allowedSortCols)) {
                 $sortBy = 'p.nombre_producto';
             }
             $order = ($order === 'DESC') ? 'DESC' : 'ASC';
 
-            // Lógica de Ordenación (ORDER BY) - Sin cambios respecto a tu código
-            $imagePriorityColumn = "CASE WHEN p.url_imagen IS NOT NULL AND p.url_imagen != '0' AND p.url_imagen != '' THEN 0 ELSE 1 END";
+            // --- MODIFICACIÓN: Lógica de prioridad de imagen RESTAURADA ---
+            // Comprueba si EXISTE al menos una imagen en la nueva tabla para este producto.
+            $imagePriorityColumn = "(EXISTS (SELECT 1 FROM producto_imagenes pi WHERE pi.id_producto = p.id_producto))";
+
             $orderByParts = [];
-            $orderByParts[] = $imagePriorityColumn . " ASC";
-            if ($sortBy !== 'p.url_imagen' && $sortBy !== 'random') {
-                $orderByParts[] = $sortBy . " " . $order;
-            } elseif ($sortBy === 'random') {
+            // Agregamos la prioridad. DESC pone los 1 (true) antes que los 0 (false).
+            $orderByParts[] = $imagePriorityColumn . " DESC";
+            // --- FIN DE LA MODIFICACIÓN ---
+
+            if ($sortBy === 'random') {
                 $orderByParts[] = "RAND()";
+            } else if (in_array($sortBy, $allowedSortCols)) {
+                $orderByParts[] = $sortBy . " " . $order;
             }
-            $orderByParts[] = "p.id_producto ASC";
+            $orderByParts[] = "p.id_producto ASC"; // Desempate final
             $orderByClause = "ORDER BY " . implode(", ", $orderByParts);
+
 
             $rol = $_SESSION['rol'] ?? 'empleado';
             $id_tienda_usuario = $_SESSION['id_tienda'] ?? null;
 
-            // --- INICIO: LÓGICA DE FILTRADO (WHERE) CORREGIDA ---
-            $where_clauses = []; // Array para todas las condiciones WHERE
-            $params = [];        // Array para todos los parámetros a bindear
+            // (El resto de tu lógica de WHERE, PARAMS y STOCK_SUBQUERY permanece igual)
+            // ...
+            $where_clauses = []; 
+            $params = [];       
 
-            // 1. Lógica de Búsqueda (SearchTerm)
             if (!empty($searchTerm)) {
-                // Verificar si son solo dígitos (6 a 12)
                 if (preg_match('/^\d{6,12}$/', $searchTerm)) {
-                    // Búsqueda específica por terminación de código
-                    $where_clauses[] = "p.codigo_producto LIKE :searchTermEnd"; // Añade a where_clauses
-                    $params[':searchTermEnd'] = '%' . $searchTerm;             // Añade a params
+                    $where_clauses[] = "p.codigo_producto LIKE :searchTermEnd"; 
+                    $params[':searchTermEnd'] = '%' . $searchTerm;             
                 } else {
-                    // Búsqueda general (código o nombre)
-                    $where_clauses[] = "(p.codigo_producto LIKE :searchTerm OR p.nombre_producto LIKE :searchTerm)"; // Añade a where_clauses
-                    $params[':searchTerm'] = '%' . $searchTerm . '%';                                             // Añade a params
+                    $where_clauses[] = "(p.codigo_producto LIKE :searchTerm OR p.nombre_producto LIKE :searchTerm)"; 
+                    $params[':searchTerm'] = '%' . $searchTerm . '%';                                               
                 }
             }
-
-            // 2. Filtro por Departamento (si aplica)
             if (!empty($departmentId)) {
-                $where_clauses[] = "p.departamento = :departmentId"; // Añade a where_clauses
-                $params[':departmentId'] = $departmentId;          // Añade a params
+                $where_clauses[] = "p.departamento = :departmentId"; 
+                $params[':departmentId'] = $departmentId;           
             }
-
-            // 3. Filtro por Tienda (dependiendo del rol)
             if ($rol === 'administrador_global' && !empty($storeId_filter) && is_numeric($storeId_filter)) {
-                // Admin Global filtrando por tienda específica
-                $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :storeId)"; // Añade a where_clauses
-                $params[':storeId'] = $storeId_filter;                                                                     // Añade a params
+                $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :storeId)"; 
+                $params[':storeId'] = $storeId_filter;                                                                         
             } else if ($rol !== 'administrador_global' && $id_tienda_usuario) {
-                // Otro rol con tienda asignada (filtro implícito)
-                $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :userStoreId)"; // Añade a where_clauses
-                $params[':userStoreId'] = $id_tienda_usuario;                                                                  // Añade a params
+                $where_clauses[] = "p.id_producto IN (SELECT id_producto FROM inventario_tienda WHERE id_tienda = :userStoreId)"; 
+                $params[':userStoreId'] = $id_tienda_usuario;                                                                       
             }
-            // --- FIN: LÓGICA DE FILTRADO (WHERE) CORREGIDA ---
-
-            // Construcción final de la cláusula WHERE
             $where_sql = count($where_clauses) > 0 ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
 
-            // Lógica de Stock (Subquery) - Sin cambios respecto a tu código
             $stock_subquery = "";
             if ($rol === 'administrador_global') {
                 if (!empty($storeId_filter) && is_numeric($storeId_filter)) {
@@ -6594,39 +6639,48 @@ case 'admin/getProducts':
             } else {
                 $stock_subquery = "0";
             }
+            // ...
 
-            // Consulta SQL principal - Se usa $where_sql y $orderByClause construidos
+            // Consulta SQL principal
             $sql = "SELECT p.*, d.departamento AS nombre_departamento, e.nombre_estado, m.nombre_marca,
                             GROUP_CONCAT(DISTINCT et.nombre_etiqueta SEPARATOR ', ') AS todas_las_etiquetas,
                             $stock_subquery AS stock_actual
-                    FROM productos p
-                    LEFT JOIN departamentos d ON p.departamento = d.id_departamento
-                    LEFT JOIN estados e ON p.estado = e.id_estado
-                    LEFT JOIN marcas m ON p.id_marca = m.id_marca
-                    LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
-                    LEFT JOIN etiquetas et ON pe.id_etiqueta = et.id_etiqueta"
-                    . $where_sql // Cláusula WHERE construida
-                    . " GROUP BY p.id_producto "
-                    . " " . $orderByClause . " LIMIT :limit OFFSET :offset"; // Cláusula ORDER BY y LIMIT/OFFSET
+                     FROM productos p
+                     LEFT JOIN departamentos d ON p.departamento = d.id_departamento
+                     LEFT JOIN estados e ON p.estado = e.id_estado
+                     LEFT JOIN marcas m ON p.id_marca = m.id_marca
+                     LEFT JOIN producto_etiquetas pe ON p.id_producto = pe.id_producto
+                     LEFT JOIN etiquetas et ON pe.id_etiqueta = et.id_etiqueta"
+                     . $where_sql // Cláusula WHERE construida
+                     . " GROUP BY p.id_producto "
+                     . " " . $orderByClause . " LIMIT :limit OFFSET :offset"; // Cláusula ORDER BY y LIMIT/OFFSET
 
             $stmt = $pdo->prepare($sql);
 
-            // Bindear parámetros (usando el array $params unificado)
+            // Bindear parámetros
             foreach ($params as $key => &$val) {
-                 // Determinar tipo de parámetro (INT o STR)
                  $paramType = PDO::PARAM_STR;
-                 // Asumiendo que los IDs terminan en 'Id' o son los específicos de tienda
                  if (str_ends_with($key, 'Id') || $key === ':storeId' || $key === ':userStoreId') {
                      $paramType = PDO::PARAM_INT;
                  }
                 $stmt->bindParam($key, $val, $paramType);
             }
-            // Bindear LIMIT y OFFSET (sin cambios)
             $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
 
             $stmt->execute();
             $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // --- ESTA PARTE SIGUE SIENDO VITAL ---
+            // Itera y adjunta las imágenes a cada producto
+            foreach ($products as $key => $product) {
+                // Llama a la función global (que ya ordena por antigüedad/orden)
+                $products[$key]['imagenes'] = obtenerImagenesProducto($product['id_producto'], $pdo);
+                
+                // Limpia la 'url_imagen' obsoleta de la tabla 'productos'
+                unset($products[$key]['url_imagen']);
+            }
+            // --- FIN DE LA PARTE VITAL ---
 
             echo json_encode(['success' => true, 'products' => $products]);
 
@@ -6642,6 +6696,9 @@ case 'admin/getProducts':
         echo json_encode(['success' => false, 'message' => 'Método no permitido. Se esperaba GET.']);
     }
     break;
+
+
+
 //Layout de los sliders de la web
             case 'admin/saveLayoutSettings':
     // require_admin();
@@ -6888,6 +6945,16 @@ case 'admin/getProducts':
         http_response_code($code);
         echo json_encode(['error' => $e->getMessage()]);
     }
+
+
+
+
+
+
+
+
+
+
     function createSlug($text, $pdo, $table, $id_column, $id = null) {
         $slug = preg_replace('~[^\pL\d]+~u', '-', $text);
         $slug = iconv('utf-8', 'us-ascii//TRANSLIT', $slug);

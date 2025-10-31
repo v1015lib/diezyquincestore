@@ -626,9 +626,6 @@ async function renderEditCustomerForm(customer) {
 
 
 
-
-
-
 async function fetchAndRenderProducts() {
     if (isLoading || currentFilters.page === -1) return;
     isLoading = true;
@@ -741,7 +738,13 @@ async function fetchAndRenderProducts() {
                 const stockMinimo = parseInt(product.stock_minimo, 10);
                 const stockActual = parseInt(product.stock_actual, 10);
                 const stockClass = (product.usa_inventario == 1 && !isNaN(stockMinimo) && stockMinimo > 0 && stockActual < stockMinimo) ? 'stock-low' : '';
-                const imageUrl = (product.url_imagen && product.url_imagen !== '0') ? product.url_imagen : 'img/favicon.png';
+                
+                // --- INICIO DE LA MODIFICACIÓN CRÍTICA ---
+                // Leemos del nuevo array 'imagenes'. Si existe y no está vacío, usamos la primera imagen.
+                const imageUrl = (product.imagenes && product.imagenes.length > 0) 
+                                 ? product.imagenes[0] 
+                                 : 'img/favicon.png'; // Imagen por defecto si no hay imágenes
+                // --- FIN DE LA MODIFICACIÓN CRÍTICA ---
 
                 if (isMobile) {
                     // --- RENDERIZADO PARA MÓVIL (DIVs) ---
@@ -854,6 +857,10 @@ async function fetchAndRenderProducts() {
         if(loadingIndicator) loadingIndicator.style.display = 'none'; // Oculta solo si existe
     }
 }
+
+
+
+
 async function populateSelectWithOptions(select, resource, dataKey, keyField, valueField, defaultOptionText) {
     try {
         const response = await fetch(`${API_BASE_URL}?resource=${resource}`);
@@ -1959,38 +1966,61 @@ function initializeAddProductForm() {
 
 
 
+function initializeProductSearchForEdit() {
+    const searchContainer = document.getElementById('product-search-container');
+    if (!searchContainer) return;
 
+    // Referencias a los nuevos elementos
+    const searchInput = document.getElementById('product-search-to-edit');
+    const searchButton = document.getElementById('product-search-btn'); // El botón de búsqueda
+    const feedbackDiv = document.getElementById('search-feedback');
 
+    // Función que se ejecutará al buscar
+    const performSearch = async () => {
+        const productCode = searchInput.value.trim();
+        if (!productCode) {
+            feedbackDiv.textContent = 'Por favor, ingresa un código.';
+            feedbackDiv.style.color = 'red';
+            return;
+        }
 
+        feedbackDiv.textContent = 'Buscando...';
+        feedbackDiv.style.color = 'inherit';
 
-    function initializeProductSearchForEdit() {
-        const searchForm = document.getElementById('product-search-form');
-        if (!searchForm) return;
-        const searchInput = document.getElementById('product-search-to-edit');
-        const feedbackDiv = document.getElementById('search-feedback');
-        searchForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const productCode = searchInput.value.trim();
-            if (!productCode) return;
-            feedbackDiv.textContent = 'Buscando...';
-            feedbackDiv.style.color = 'inherit';
-            try {
-                const response = await fetch(`${API_BASE_URL}?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
-                const result = await response.json();
-                if (result.success) {
-                    feedbackDiv.textContent = '';
-                    await renderEditForm(result.product);
-                } else {
-                    throw new Error(result.error || 'Producto no encontrado.');
-                }
-            } catch (error) {
-                feedbackDiv.textContent = error.message;
-                feedbackDiv.style.color = 'red';
+        try {
+            const response = await fetch(`${API_BASE_URL}?resource=admin/getProductDetails&id=${encodeURIComponent(productCode)}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                feedbackDiv.textContent = '';
+                await renderEditForm(result.product); // Carga el formulario de edición (esto ya funciona)
+            } else {
+                throw new Error(result.error || 'Producto no encontrado.');
+            }
+        } catch (error) {
+            feedbackDiv.textContent = error.message;
+            feedbackDiv.style.color = 'red';
+        }
+    };
+
+    // 1. Escuchar el clic en el botón "Buscar"
+    if (searchButton) {
+        searchButton.addEventListener('click', performSearch);
+    }
+
+    // 2. Escuchar la tecla "Enter" en el campo de texto
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Evita cualquier envío por defecto
+                performSearch();
             }
         });
     }
+}
 
         // REEMPLAZA ESTA FUNCIÓN COMPLETA EN admin/js/admin.js
+
 
 
 
@@ -2007,58 +2037,79 @@ async function renderEditForm(product) {
     container.classList.remove('hidden');
     barcodeContainer.innerHTML = '';
 
-    // Carga la estructura HTML del formulario de agregar_producto.php
+    // 1. Carga la estructura HTML del NUEVO agregar_producto.php (con los 4 slots)
     const formResponse = await fetch('actions/productos/agregar_producto.php');
     container.innerHTML = await formResponse.text();
 
-    // Selecciona el formulario recién cargado y le cambia el ID
+    // 2. Selecciona el formulario recién cargado y le cambia el ID
     const form = container.querySelector('#add-product-form');
     form.id = 'edit-product-form';
     form.querySelector('.form-submit-btn').textContent = 'Actualizar Producto';
 
-    // Añade el campo oculto con el ID del producto
+    // 3. Añade el campo oculto con el ID del producto
     const idInput = document.createElement('input');
     idInput.type = 'hidden';
     idInput.name = 'id_producto';
     idInput.value = product.id_producto;
     form.appendChild(idInput);
 
-    // Lista de campos a rellenar
+    // 4. Lista de campos a rellenar (sin 'url_imagen')
     const fields = [
         'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
-        'proveedor','id_marca', 'stock_minimo', 'stock_maximo', 'url_imagen'
-        // 'id_etiqueta' se maneja por separado
+        'proveedor','id_marca', 'stock_minimo', 'stock_maximo'
     ];
 
-    // Rellena los campos del formulario con los datos del producto
+    // 5. Rellena los campos del formulario con los datos del producto
     fields.forEach(field => {
-        const inputId = (field === 'url_imagen') ? 'selected-image-url' : field;
-        const formInput = form.querySelector(`#${inputId}`);
+        const formInput = form.querySelector(`#${field}`);
         if (formInput) {
             formInput.value = product[field] || '';
         }
     });
 
-    // Muestra la previsualización de la imagen si existe
-    if (product.url_imagen && product.url_imagen !== '0') {
-        const previewImg = form.querySelector('#image-preview');
-        const noImageText = form.querySelector('#no-image-text');
-        if (previewImg && noImageText) {
-            previewImg.src = product.url_imagen;
-            previewImg.classList.remove('hidden');
-            noImageText.classList.add('hidden');
-        }
-    }
+    // --- 6. INICIO: NUEVA LÓGICA PARA RELLENAR MÚLTIPLES IMÁGENES ---
+    if (product.imagenes && Array.isArray(product.imagenes) && product.imagenes.length > 0) {
+        
+        // Selecciona TODOS los slots de imagen que cargó el HTML
+        const imageSlots = form.querySelectorAll('.image-picker-slot');
 
-    // Lógica para deshabilitar campos de inventario si no se usa (ajusta si es necesario)
+        product.imagenes.forEach((imgUrl, index) => {
+            // Nos aseguramos de no intentar rellenar más slots de los que existen
+            if (index < imageSlots.length && imgUrl) {
+                const slot = imageSlots[index];
+                const previewImg = slot.querySelector('.image-preview');
+                const noImageText = slot.querySelector('.no-image-text');
+                const hiddenInput = slot.querySelector('.product-image-url');
+                const removeBtn = slot.querySelector('.remove-image-btn');
+                const chooseBtn = slot.querySelector('.open-gallery-multi-btn');
+
+                // Rellenar el slot
+                previewImg.src = imgUrl;
+                previewImg.classList.remove('hidden');
+                hiddenInput.value = imgUrl;
+                
+                // Ocultar/mostrar elementos
+                noImageText.classList.add('hidden');
+                removeBtn.classList.remove('hidden');
+                
+                // Cambiar texto del botón "Elegir" a "Cambiar"
+                if(chooseBtn) {
+                    chooseBtn.textContent = 'Cambiar';
+                }
+            }
+        });
+    }
+    // --- FIN: NUEVA LÓGICA PARA IMÁGENES ---
+
+    // 7. Lógica para deshabilitar campos de inventario
     const usaInventario = parseInt(product.usa_inventario, 10) === 1;
-    const stockInput = form.querySelector('#stock_actual'); // Asumiendo que existe un #stock_actual
-    const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox'); // Asumiendo que existe
+    const stockInput = form.querySelector('#stock_actual'); 
+    const usaInventarioCheckbox = form.querySelector('#usa_inventario_checkbox'); 
     if (stockInput) stockInput.disabled = usaInventario;
     if (usaInventarioCheckbox) usaInventarioCheckbox.disabled = usaInventario;
 
-    // Muestra el código de barras si es EAN-13 válido
+    // 8. Muestra el código de barras
     const productCode = product.codigo_producto.trim();
     if (/^[0-9]{13}$/.test(productCode)) {
         const downloadUrl = `../api/index.php?resource=admin/getBarcodeImage&code=${productCode}&download=true`;
@@ -2074,7 +2125,7 @@ async function renderEditForm(product) {
         `;
     }
 
-    // Carga y selecciona las etiquetas existentes del producto
+    // 9. Carga y selecciona las etiquetas existentes
     try {
         const tagsResponse = await fetch(`${API_BASE_URL}?resource=admin/getProductTags&productId=${product.id_producto}`);
         const tagsResult = await tagsResponse.json();
@@ -2092,15 +2143,18 @@ async function renderEditForm(product) {
         console.error("Error al cargar etiquetas del producto:", error);
     }
 
-    // Inicializa el input de etiquetas personalizado para este formulario
+    // 10. Inicializa el input de etiquetas
     initializeTagInput('#edit-product-form .tag-input-container');
 
-    // --- INICIO: CÓDIGO INTEGRADO PARA HABILITAR 'GENERAR' EN EDITAR ---
+    // --- 11. ⚠️ CORRECCIÓN CRÍTICA: Inicializar validación ANTES de configurar el botón ---
     const editCodeInput = form.querySelector('#codigo_producto');
-    const editGenerateBtn = form.querySelector('#generate-barcode-single'); // Busca el botón dentro del form
+    const editGenerateBtn = form.querySelector('#generate-barcode-single'); 
     const editFeedbackDiv = editCodeInput?.closest('.form-group')?.querySelector('.validation-feedback');
     const editSubmitButton = form.querySelector('.form-submit-btn');
 
+
+
+    // 12. Ahora sí, configurar el botón "Generar"
     if (editGenerateBtn && editCodeInput && editFeedbackDiv && editSubmitButton) {
         editGenerateBtn.addEventListener('click', async () => {
             editGenerateBtn.disabled = true;
@@ -2109,17 +2163,16 @@ async function renderEditForm(product) {
             editFeedbackDiv.style.color = 'inherit';
 
             try {
-                // Llama a la API para obtener un código único
                 const response = await fetch(`${API_BASE_URL}?resource=admin/generateEan13Codes&quantity=1`);
                 const result = await response.json();
 
                 if (result.success && result.codes && result.codes.length > 0) {
                     const uniqueCode = result.codes[0];
-                    editCodeInput.value = uniqueCode; // Actualiza el input del código
+                    editCodeInput.value = uniqueCode; 
                     editFeedbackDiv.textContent = 'Código generado y verificado como único.';
                     editFeedbackDiv.style.color = 'green';
-                    editSubmitButton.disabled = false; // Habilita guardar
-                    // Dispara 'keyup' para la validación en vivo
+                    editSubmitButton.disabled = false; 
+                    // Disparar validación manual
                     editCodeInput.dispatchEvent(new Event('keyup', { bubbles: true }));
                 } else {
                     throw new Error(result.error || 'No se pudo generar un código único.');
@@ -2127,21 +2180,20 @@ async function renderEditForm(product) {
             } catch (error) {
                 editFeedbackDiv.textContent = `Error: ${error.message}`;
                 editFeedbackDiv.style.color = 'red';
-                editSubmitButton.disabled = true; // Deshabilita guardar si hay error
+                editSubmitButton.disabled = true; 
             } finally {
                 editGenerateBtn.disabled = false;
-                editGenerateBtn.textContent = 'Generar'; // Restaura el texto
+                editGenerateBtn.textContent = 'Generar'; 
             }
         });
     } else {
-        console.error("No se pudieron encontrar todos los elementos necesarios para el botón 'Generar' en el formulario de edición.");
+        console.error("No se encontraron todos los elementos necesarios para el botón 'Generar' en el formulario de edición.");
     }
-    // --- FIN: CÓDIGO INTEGRADO ---
 
-    // Añade el listener para el envío del formulario de edición
+    // 13. Añade el listener para el envío del formulario
     initializeEditProductFormSubmit(form);
 
-    // --- NUEVA LÓGICA PARA CAPITALIZAR NOMBRE DE PRODUCTO (también en editar) ---
+    // 14. Capitalizar nombre de producto
     const editProductNameInput = form.querySelector('#nombre_producto');
     if (editProductNameInput) {
         editProductNameInput.addEventListener('input', () => {
@@ -2152,12 +2204,9 @@ async function renderEditForm(product) {
             editProductNameInput.value = value;
             editProductNameInput.setSelectionRange(start, end);
         });
-        // Aplicar capitalización inicial al cargar el valor
         editProductNameInput.dispatchEvent(new Event('input'));
     }
-    // --- FIN NUEVA LÓGICA ---
 }
-
 
 
 
@@ -2687,16 +2736,60 @@ if (event.target.closest('#find-replace-modal')) {
     }
 
     // --- ✅ INICIO DE LA CORRECCIÓN ---
-    if (target.id === 'open-gallery-btn') {
-        openImageGallery('selected-image-url'); // Especifica el target del formulario de productos
-        return;
-    }
+// Listener para el botón de galería obsoleto (si aún existe en algún lado)
+        if (target.id === 'open-gallery-btn') {
+            openImageGallery('selected-image-url');
+            return;
+        }
+    
+        // Listener para el botón de galería en el formulario de ANUNCIOS
+        if (target.id === 'open-gallery-for-ads-btn') {
+            openImageGallery('ads-url-imagen');
+            return;
+        }
 
-    // Listener para el botón de galería en el formulario de ANUNCIOS
-    if (target.id === 'open-gallery-for-ads-btn') {
-        openImageGallery('ads-url-imagen'); // Especifica el target del formulario de anuncios
-        return;
-    }
+        // --- INICIO DE LA NUEVA SOLUCIÓN ---
+
+        // Listener para CUALQUIER botón "Elegir" o "Cambiar" en el selector múltiple
+        if (event.target.classList.contains('open-gallery-multi-btn')) {
+            const slot = event.target.closest('.image-picker-slot');
+            if (slot) {
+                const input = slot.querySelector('.product-image-url');
+                const slotIndex = slot.dataset.slotIndex;
+                
+                // Asignar un ID único temporal al input de este slot
+                const tempInputId = `multi-image-input-${slotIndex}`;
+                input.id = tempInputId; // Asigna el ID al input
+                
+                // Abrir la galería apuntando a ese ID temporal
+                openImageGallery(tempInputId);
+            }
+            return;
+        }
+
+        // Listener para CUALQUIER botón "X" (Eliminar) en el selector múltiple
+        if (event.target.classList.contains('remove-image-btn')) {
+            const slot = event.target.closest('.image-picker-slot');
+            if (slot) {
+                // Limpiar visualmente el slot
+                const previewImg = slot.querySelector('.image-preview');
+                const noImageText = slot.querySelector('.no-image-text');
+                const hiddenInput = slot.querySelector('.product-image-url');
+                const removeBtn = event.target;
+                const chooseBtn = slot.querySelector('.open-gallery-multi-btn');
+
+                previewImg.src = '';
+                previewImg.classList.add('hidden');
+                hiddenInput.value = ''; // ¡Importante! Limpia el valor
+                
+                noImageText.classList.remove('hidden');
+                removeBtn.classList.add('hidden'); // Oculta el botón 'X'
+                if(chooseBtn) {
+                    chooseBtn.textContent = 'Elegir'; // Restaura el texto del botón
+                }
+            }
+            return;
+        }
 
         if (target.classList.contains('delete-btn') && target.closest('.bucket-item')) {
         event.stopPropagation(); // Evita que se disparen otros eventos
@@ -3225,21 +3318,27 @@ if (target.classList.contains('edit-product-btn')) {
              return; // Detiene si no encuentra ni card ni row
         }
 
-        // --- Código común (ahora se ejecuta solo si productCode tiene valor) ---
-        mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
-        mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
-        await loadActionContent('productos/modificar_producto'); // Carga la vista de modificar
-        const searchInput = document.getElementById('product-search-to-edit');
-        const searchForm = document.getElementById('product-search-form');
-        if (searchInput && searchForm) {
-            searchInput.value = productCode; // Pone el código en el buscador
-            searchForm.dispatchEvent(new Event('submit')); // Simula el envío para cargar el producto
-        } else {
-             console.error("No se encontró el input o formulario de búsqueda para editar.");
-             alert("Error al intentar cargar el formulario de edición.");
+// --- Código común (ahora se ejecuta solo si productCode tiene valor) ---
+            mainContent.querySelector('.action-ribbon .active')?.classList.remove('active');
+            mainContent.querySelector('[data-action="productos/modificar_producto"]')?.classList.add('active');
+            await loadActionContent('productos/modificar_producto'); // Carga la vista de modificar
+            
+            // --- INICIO DEL BLOQUE CORREGIDO ---
+            const searchInput = document.getElementById('product-search-to-edit');
+            // Buscamos el BOTÓN de búsqueda, no el formulario
+            const searchButton = document.getElementById('product-search-btn'); 
+            
+            if (searchInput && searchButton) { // Verificamos que existan el input Y el botón
+                searchInput.value = productCode; // Pone el código en el buscador
+                searchButton.click(); // Simula un CLIC en el botón "Buscar"
+            } else { 
+                 console.error("No se encontró el input ('product-search-to-edit') o el botón ('product-search-btn') para la búsqueda.");
+                 alert("Error al intentar cargar el formulario de edición.");
+            }
+            // --- FIN DEL BLOQUE CORREGIDO ---
+
+            return; // Detiene la ejecución para este evento de clic
         }
-        return; // Detiene la ejecución para este evento de clic
-    }
 });
 
 
@@ -3412,26 +3511,60 @@ mainContent.addEventListener('change', async (event) => {
                     }
                 }
             }
-            if (target.id === 'gallery-confirm-btn') {
+if (target.id === 'gallery-confirm-btn') {
                 const selectedImage = galleryModal.querySelector('.image-grid-item.selected');
-if (selectedImage && imageTargetInputId) { // Se verifica que la variable exista
-        const imageUrl = selectedImage.dataset.imageUrl;
-        const targetInput = document.getElementById(imageTargetInputId); // Se usa la variable para encontrar el input
-        
-        if (targetInput) {
-            targetInput.value = imageUrl; // Pone la URL en el input correcto
-
-            // Si es el formulario de productos, también actualiza la previsualización
-            if (imageTargetInputId === 'selected-image-url') {
-                const formImagePreview = document.querySelector('#image-preview');
-                const formImagePlaceholder = document.querySelector('#no-image-text');
-                if(formImagePreview && formImagePlaceholder) {
-                    formImagePreview.src = imageUrl;
-                    formImagePreview.classList.remove('hidden');
-                    formImagePlaceholder.classList.add('hidden');
-                }
-            }
-        }
+                
+                // Verifica que haya una imagen seleccionada Y que sepamos a qué input asignarla
+                if (selectedImage && imageTargetInputId) {
+                    const imageUrl = selectedImage.dataset.imageUrl;
+                    const targetInput = document.getElementById(imageTargetInputId); // Encuentra el input por su ID (temporal o fijo)
+                    
+                    if (targetInput) {
+                        // 1. Asigna el valor al input oculto
+                        targetInput.value = imageUrl; 
+    
+                        // --- INICIO DE LA LÓGICA MODIFICADA ---
+                        // 2. Ahora, busca los elementos de previsualización RELATIVOS al input
+                        
+                        let previewImg = null;
+                        let noImageText = null;
+    
+                        // Caso A: Es un slot del selector múltiple (ID temporal)
+                        if (imageTargetInputId.startsWith('multi-image-input-')) {
+                            const slot = targetInput.closest('.image-picker-slot');
+                            if (slot) {
+                                previewImg = slot.querySelector('.image-preview');
+                                noImageText = slot.querySelector('.no-image-text');
+                                
+                                // También actualiza los botones de ese slot
+                                slot.querySelector('.remove-image-btn').classList.remove('hidden');
+                                slot.querySelector('.open-gallery-multi-btn').textContent = 'Cambiar';
+                            }
+                        } 
+                        // Caso B: Es el input de la galería de anuncios (solo tiene input)
+                        else if (imageTargetInputId === 'ads-url-imagen') {
+                            // Este input no tiene previsualización, así que no hacemos nada extra.
+                        }
+                        // Caso C: Es el input de la galería antigua (si aún existe)
+                        else if (imageTargetInputId === 'selected-image-url') {
+                            previewImg = document.querySelector('#image-preview');
+                            noImageText = document.querySelector('#no-image-text');
+                        }
+    
+                        // 3. Actualiza la previsualización si se encontraron los elementos
+                        if(previewImg && noImageText) {
+                            previewImg.src = imageUrl;
+                            previewImg.classList.remove('hidden');
+                            noImageText.classList.add('hidden');
+                        }
+                        // --- FIN DE LA LÓGICA MODIFICADA ---
+                    }
+                    
+                    // 4. Limpia el ID temporal (buena práctica)
+                    if (targetInput && imageTargetInputId.startsWith('multi-image-input-')) {
+                        targetInput.id = ''; 
+                    }
+                    
                     closeImageGallery();
                 }
             }

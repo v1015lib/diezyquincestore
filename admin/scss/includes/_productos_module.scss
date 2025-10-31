@@ -1434,3 +1434,67 @@
 
 
 }
+
+
+/* Añade esto a tu SCSS, por ejemplo en admin/scss/includes/_agregar_producto.scss */
+
+.multi-image-picker-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    border-radius: 8px;
+
+    .image-picker-slot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+
+        .image-preview-container {
+            width: 100px;
+            height: 100px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            background-color: #f9f9f9;
+
+            img.image-preview {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                
+                &.hidden {
+                    display: none;
+                }
+            }
+
+            span.no-image-text {
+                font-size: 0.8rem;
+                color: #888;
+                padding: 0.5rem;
+            }
+        }
+
+        .image-slot-actions {
+            display: flex;
+            gap: 0.5rem;
+
+            .modal-btn {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+                line-height: 1;
+
+                &.remove-image-btn.hidden {
+                    display: none;
+                }
+            }
+        }
+    }
+}
