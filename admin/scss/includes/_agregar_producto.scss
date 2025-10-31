@@ -191,3 +191,98 @@
         }
     }
 }
+/* Estilos para el formulario de agregar/modificar producto */
+.form-container {
+
+    /* Estilos base para inputs, selects (los que ya tenías) */
+    input[type="text"],
+    input[type="number"],
+    input[type="datetime-local"],
+    select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: .8rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        background-color: #fff;
+
+        &:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+        }
+    }
+
+    /* Estilos del textarea (de la vez anterior) */
+    textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: .8rem;
+        background-color: #fff;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        resize: vertical;   /* Permite al usuario redimensionarlo solo verticalmente */
+        min-height: 120px;  /* Altura mínima en móvil */
+        line-height: 1.5;
+
+        &:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+        }
+    }
+
+    /* --- NUEVOS ESTILOS DE COLUMNA --- */
+    
+    // El wrapper que contendrá las columnas
+    .form-columns-wrapper {
+        display: block; // Comportamiento por defecto (móvil, una sola columna)
+    }
+
+    .form-column {
+        width: 100%; // Ocupa todo el ancho en móvil
+    }
+
+    // Estilos para la columna de descripción
+    .form-column-aside {
+        .form-group {
+            // Hacemos que el form-group ocupe toda la altura disponible
+            display: flex;
+            flex-direction: column;
+            height: 100%; 
+        }
+        textarea {
+            // Hacemos que el textarea crezca para llenar el espacio
+            flex-grow: 1;
+            // Una altura mínima más grande para la vista de escritorio
+            // que se aplicará cuando las columnas estén lado a lado.
+            min-height: 400px; 
+        }
+    }
+
+    // --- Media Query para Escritorio ( > 992px ) ---
+    @media (min-width: 992px) {
+        .form-columns-wrapper {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: .5rem; // Espacio entre columnas
+            align-items: flex-start; // Alinea la parte superior de las columnas
+        }
+
+        .form-column-main {
+            flex: 2; // Columna principal toma 2 partes del espacio (aprox 66%)
+            min-width: 0; // Previene desbordamiento de flexbox
+        }
+
+        .form-column-aside {
+            flex: 1; // Columna de descripción toma 1 parte (aprox 33%)
+            min-width: 0;
+            // Se estira para igualar la altura de la columna principal
+            align-self: stretch; 
+        }
+    }
+    /* --- FIN DE NUEVOS ESTILOS --- */
+}

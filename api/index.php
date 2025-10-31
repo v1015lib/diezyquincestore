@@ -6119,14 +6119,13 @@ try {
 
 
 
-// api/index.php
-
 case 'admin/createProduct':
         $pdo->beginTransaction();
         try {
             // --- Recolección y validación de datos ---
             $codigo_producto = trim($_POST['codigo_producto'] ?? '');
             $nombre_producto = trim($_POST['nombre_producto'] ?? '');
+            $descripcion = trim($_POST['descripcion'] ?? ''); // <-- LÍNEA AÑADIDA
             $departamento_id = filter_var($_POST['departamento'] ?? '', FILTER_VALIDATE_INT);
             $precio_compra_raw = $_POST['precio_compra'] ?? '';
             $precio_compra = ($precio_compra_raw === '' || $precio_compra_raw === null) ? 0.00 : filter_var($precio_compra_raw, FILTER_VALIDATE_FLOAT);
@@ -6139,7 +6138,6 @@ case 'admin/createProduct':
             $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
             $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
             $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
-            // $url_imagen = trim($_POST['url_imagen'] ?? ''); // <-- LÍNEA ELIMINADA
             $creado_por = $_SESSION['id_usuario'] ?? null;
 
             if (empty($codigo_producto) || empty($nombre_producto) || !$departamento_id || $precio_venta === false) {
@@ -6148,22 +6146,31 @@ case 'admin/createProduct':
 
             $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto');
 
-            // --- Inserción en tabla 'productos' (sin url_imagen) ---
+            // --- Inserción en tabla 'productos' (con descripcion) ---
             $sql_insert = "INSERT INTO productos
-            (codigo_producto, nombre_producto, slug, departamento, precio_compra, precio_venta, precio_mayoreo, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, id_marca)
+            (codigo_producto, nombre_producto, descripcion, slug, departamento, precio_compra, precio_venta, precio_mayoreo, stock_minimo, stock_maximo, tipo_de_venta, estado, usa_inventario, creado_por, proveedor, id_marca)
             VALUES
-            (:codigo_producto, :nombre_producto, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id, :id_marca)";
-            // El campo url_imagen se quitó de la consulta ^
+            (:codigo_producto, :nombre_producto, :descripcion, :slug, :departamento_id, :precio_compra, :precio_venta, :precio_mayoreo, :stock_minimo, :stock_maximo, :tipo_de_venta_id, :estado_id, 0, :creado_por, :proveedor_id, :id_marca)";
+            // El campo descripcion se añadió a la consulta ^
 
             $stmt_insert = $pdo->prepare($sql_insert);
 
             $stmt_insert->execute([
-                ':codigo_producto' => $codigo_producto, ':nombre_producto' => $nombre_producto, ':slug' => $slug,
-                ':departamento_id' => $departamento_id, ':precio_compra' => $precio_compra, ':precio_venta' => $precio_venta,
-                ':precio_mayoreo' => $precio_mayoreo, ':stock_minimo' => $stock_minimo,
-                ':stock_maximo' => $stock_maximo, ':tipo_de_venta_id' => $tipo_de_venta_id, ':estado_id' => $estado_id,
-                ':creado_por' => $creado_por, ':proveedor_id' => $proveedor_id,':id_marca' => $id_marca
-                // ':url_imagen' => $url_imagen, // <-- PARÁMETRO ELIMINADO
+                ':codigo_producto' => $codigo_producto, 
+                ':nombre_producto' => $nombre_producto, 
+                ':descripcion' => $descripcion ?: null, // <-- LÍNEA AÑADIDA
+                ':slug' => $slug,
+                ':departamento_id' => $departamento_id, 
+                ':precio_compra' => $precio_compra, 
+                ':precio_venta' => $precio_venta,
+                ':precio_mayoreo' => $precio_mayoreo, 
+                ':stock_minimo' => $stock_minimo,
+                ':stock_maximo' => $stock_maximo, 
+                ':tipo_de_venta_id' => $tipo_de_venta_id, 
+                ':estado_id' => $estado_id,
+                ':creado_por' => $creado_por, 
+                ':proveedor_id' => $proveedor_id,
+                ':id_marca' => $id_marca
             ]);
 
             $new_product_id = $pdo->lastInsertId();
@@ -6212,18 +6219,10 @@ case 'admin/createProduct':
             if ($e instanceof PDOException && $e->getCode() == 23000) {
                $error_message = "Error: El código de producto '" . htmlspecialchars($codigo_producto) . "' ya existe.";
            }
-           echo json_encode(['success' => false, 'error' => $error_message]);
+            echo json_encode(['success' => false, 'error' => $error_message]);
         }
         break;
-
-
-
-// api/index.php
-
-
-// api/index.php
-
-case 'admin/updateProduct':
+        case 'admin/updateProduct':
                 $pdo->beginTransaction();
                 try {
                     // Obtener estado ANTES de la actualización para la notificación
@@ -6242,6 +6241,7 @@ case 'admin/updateProduct':
                     // --- Recolección y validación de datos ---
                     $codigo_producto = trim($_POST['codigo_producto'] ?? '');
                     $nombre_producto = trim($_POST['nombre_producto'] ?? '');
+                    $descripcion = trim($_POST['descripcion'] ?? ''); // <-- LÍNEA AÑADIDA
                     $departamento_id = filter_var($_POST['departamento'] ?? 0, FILTER_VALIDATE_INT);
                     $precio_compra = filter_var($_POST['precio_compra'] ?? 0.00, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
                     $precio_venta = filter_var($_POST['precio_venta'] ?? 0.00, FILTER_VALIDATE_FLOAT);
@@ -6252,13 +6252,12 @@ case 'admin/updateProduct':
                     $id_marca = !empty($_POST['id_marca']) ? filter_var($_POST['id_marca'], FILTER_VALIDATE_INT) : null;
                     $stock_minimo = filter_var($_POST['stock_minimo'] ?? 0, FILTER_VALIDATE_INT);
                     $stock_maximo = filter_var($_POST['stock_maximo'] ?? 0, FILTER_VALIDATE_INT);
-                    // $url_imagen = ...; // <-- ESTA LÍNEA SE ELIMINA
         
                     $slug = createSlug($nombre_producto, $pdo, 'productos', 'id_producto', $productId);
         
-                    // --- Actualización de la tabla 'productos' (SIN url_imagen) ---
+                    // --- Actualización de la tabla 'productos' (CON descripcion) ---
                     $sql_update = "UPDATE productos SET
-                    codigo_producto = :codigo, nombre_producto = :nombre, slug = :slug, departamento = :depto,
+                    codigo_producto = :codigo, nombre_producto = :nombre, descripcion = :descripcion, slug = :slug, departamento = :depto,
                     precio_compra = :p_compra, precio_venta = :p_venta, precio_mayoreo = :p_mayoreo,
                     stock_minimo = :stock_min,
                     stock_maximo = :stock_max, tipo_de_venta = :tipo_venta, estado = :estado,
@@ -6267,12 +6266,22 @@ case 'admin/updateProduct':
                     $stmt_update = $pdo->prepare($sql_update);
         
                     $stmt_update->execute([
-                        ':codigo' => $codigo_producto, ':nombre' => $nombre_producto, ':slug' => $slug,
-                        ':depto' => $departamento_id, ':p_compra' => $precio_compra, ':p_venta' => $precio_venta,
-                        ':p_mayoreo' => $precio_mayoreo, ':stock_min' => $stock_minimo,
-                        ':stock_max' => $stock_maximo, ':tipo_venta' => $tipo_de_venta_id, ':estado' => $estado_id,
-                        ':prov' => $proveedor_id, ':user_id' => $userId, ':id' => $productId, ':id_marca' => $id_marca
-                        // ':url' => $url_imagen, // <-- ESTA LÍNEA SE ELIMINA
+                        ':codigo' => $codigo_producto, 
+                        ':nombre' => $nombre_producto, 
+                        ':descripcion' => $descripcion ?: null, // <-- LÍNEA AÑADIDA
+                        ':slug' => $slug,
+                        ':depto' => $departamento_id, 
+                        ':p_compra' => $precio_compra, 
+                        ':p_venta' => $precio_venta,
+                        ':p_mayoreo' => $precio_mayoreo, 
+                        ':stock_min' => $stock_minimo,
+                        ':stock_max' => $stock_maximo, 
+                        ':tipo_venta' => $tipo_de_venta_id, 
+                        ':estado' => $estado_id,
+                        ':prov' => $proveedor_id, 
+                        ':user_id' => $userId, 
+                        ':id' => $productId, 
+                        ':id_marca' => $id_marca
                     ]);
         
                     // --- INICIO: MANEJO DE MÚLTIPLES ETIQUETAS (Sin cambios) ---
@@ -6372,6 +6381,7 @@ case 'admin/updateProduct':
                     echo json_encode(['success' => false, 'error' => "Error al actualizar producto: " . $e->getMessage()]);
                 }
                 break;
+
 
 // PEGA ESTE BLOQUE DENTRO DEL switch($resource) EN api/index.php
 

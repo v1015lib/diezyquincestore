@@ -2025,7 +2025,7 @@ function initializeProductSearchForEdit() {
 
 
 
-// REEMPLAZA esta función completa en admin/js/admin.js
+
 async function renderEditForm(product) {
     const container = document.getElementById('edit-product-container');
     const searchContainer = document.getElementById('product-search-container');
@@ -2055,7 +2055,7 @@ async function renderEditForm(product) {
 
     // 4. Lista de campos a rellenar (sin 'url_imagen')
     const fields = [
-        'codigo_producto', 'nombre_producto', 'departamento', 'precio_compra',
+        'codigo_producto', 'nombre_producto', 'descripcion', 'departamento', 'precio_compra', // <-- 'descripcion' AÑADIDO AQUÍ
         'precio_venta', 'precio_mayoreo', 'tipo_de_venta', 'estado',
         'proveedor','id_marca', 'stock_minimo', 'stock_maximo'
     ];
@@ -7395,6 +7395,7 @@ function closeFindReplaceModal() {
 
 
 
+
 function initializeTagInput(containerSelector = '.tag-input-container') {
     const container = document.querySelector(containerSelector);
     if (!container) return;
@@ -7416,7 +7417,7 @@ function initializeTagInput(containerSelector = '.tag-input-container') {
     let highlightedIndex = -1;
 
     // Función para mostrar las píldoras de las etiquetas seleccionadas
-    function renderSelectedTags() {
+    function renderSelectedTags(shouldFocus = true) { // <-- Definición actualizada
         selectedTagsArea.innerHTML = ''; // Limpia el área
         Array.from(originalSelect.selectedOptions).forEach(option => {
             const pill = document.createElement('span');
@@ -7432,15 +7433,18 @@ function initializeTagInput(containerSelector = '.tag-input-container') {
                 e.stopPropagation(); // Evita que el contenedor reciba el clic
                 // Deselecciona en el select original y re-renderiza
                 option.selected = false;
-                renderSelectedTags();
+                renderSelectedTags(); // Esta llamada SÍ mantendrá el foco
                 updateSuggestions(); // Actualiza sugerencias por si vuelve a estar disponible
             });
 
             pill.appendChild(removeBtn);
             selectedTagsArea.appendChild(pill);
         });
+        
         // Ajustar el foco al input después de renderizar
-        searchInput.focus();
+        if (shouldFocus) { // <-- Condicional actualizado
+            searchInput.focus();
+        }
     }
 
     // Función para mostrar/actualizar la lista de sugerencias
@@ -7479,7 +7483,7 @@ function initializeTagInput(containerSelector = '.tag-input-container') {
         if (optionToSelect) {
             optionToSelect.selected = true; // Marca como seleccionada en el select original
             searchInput.value = ''; // Limpia el input de búsqueda
-            renderSelectedTags(); // Actualiza las píldoras visuales
+            renderSelectedTags(); // Actualiza las píldoras visuales (y pone el foco)
             updateSuggestions(); // Oculta/actualiza las sugerencias
             suggestionsList.style.display = 'none'; // Asegura que se oculte
         }
@@ -7522,7 +7526,7 @@ function initializeTagInput(containerSelector = '.tag-input-container') {
                 const optionToDeselect = originalSelect.querySelector(`option[value="${lastValue}"]`);
                 if (optionToDeselect) {
                     optionToDeselect.selected = false;
-                    renderSelectedTags();
+                    renderSelectedTags(); // Pone el foco
                     updateSuggestions();
                 }
             }
@@ -7546,10 +7550,9 @@ function initializeTagInput(containerSelector = '.tag-input-container') {
     });
 
     // Renderizar las etiquetas iniciales (importante para editar)
-    renderSelectedTags();
+    renderSelectedTags(false); // <-- AQUÍ ESTÁ EL CAMBIO IMPORTANTE
     console.log("Tag Input Vanilla JS inicializado.");
 }
-
 // --- LÓGICA DEL ESCÁNER DE CÓDIGOS DE BARRAS (PARA ADMIN) ---
     let adminHtml5QrCode = null;
     let adminAudioCtx = null; // Para el sonido del beep
