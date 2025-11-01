@@ -114,6 +114,10 @@ $base_url = "{$protocol}://{$host}{$path}/";
                     <div id="pagination-controls" class="pagination"></div>
                 </div>    
             
+
+
+
+
                 <?php include 'includes/footer.php'; ?>
                 <?php include 'includes/cookie_banner.php'; ?>
 
@@ -165,6 +169,14 @@ $base_url = "{$protocol}://{$host}{$path}/";
             </div>
         </div>
     </div>
+
+    <div id="product-detail-modal" class="modal-overlay">
+    <div class="modal-dialog product-detail-dialog">
+        <button class="close-modal-btn" aria-label="Cerrar">&times;</button>
+        <div id="product-detail-content">
+            </div>
+    </div>
+</div>
 
     <div id="image-preview-modal" class="modal-overlay">
         <div class="modal-content image-preview-content">

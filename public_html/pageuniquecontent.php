@@ -136,6 +136,16 @@ $base_url = "{$protocol}://{$host}{$path}/";
             </div>
         </div>
     </div>
+
+    <div id="product-detail-modal" class="modal-overlay">
+    <div class="modal-dialog product-detail-dialog">
+        <button class="close-modal-btn" aria-label="Cerrar">&times;</button>
+        <div id="product-detail-content">
+            </div>
+    </div>
+</div>
+
+
 <div id="share-modal" class="modal-overlay">
         <div class="modal-content share-modal-content">
             <div class="modal-header">

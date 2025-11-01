@@ -208,7 +208,7 @@ export function createProductCardHTML(product, cartQuantity = 0, isFavorite = fa
     const cardClass = isOutOfStock ? 'product-card out-of-stock-card' : 'product-card';
 
     return `
-        <article class="${cardClass}" data-product-id="${product.id_producto}" data-product-slug="${product.slug}">
+        <article class="${cardClass}" data-product-id="${product.id_producto}" data-product-slug="${product.slug}" data-product-json='${JSON.stringify(product).replace(/'/g, '&#39;')}'>
             
             <script type="application/ld+json">
 ${JSON.stringify(schema, null, 2)}
@@ -227,9 +227,13 @@ ${JSON.stringify(schema, null, 2)}
             <div class="product-info">
                 <h3>${product.nombre_producto}</h3>
                 ${departmentHtml}
-                <div class="price-container">
+
+               <div class="price-container">
+        
                     ${priceContainerContent}
                 </div>
+                 <button class="btn-details">Ver detalles</button>
+
                 ${quantitySelectorHtml}
             </div>
         </article>

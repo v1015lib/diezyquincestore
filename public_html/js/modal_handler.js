@@ -4,6 +4,7 @@
 const loginPromptModal = document.getElementById('login-prompt-modal');
 const imagePreviewModal = document.getElementById('image-preview-modal');
 const imagePreviewDisplay = document.getElementById('image-preview-display');
+const productDetailModal = document.getElementById('product-detail-modal');
 
 // --- Variables para el estado de la galería del modal ---
 let currentGalleryImages = [];
@@ -11,8 +12,16 @@ let currentGalleryIndex = 0;
 
 // --- Función para mostrar el modal de Login ---
 export function showLoginPrompt() {
+    
+    // 1. Cerramos el modal de detalles de producto, si está abierto.
+    closeProductDetailModal();
+    
+    // 2. Mostramos el modal de login.
     if (loginPromptModal) {
-        loginPromptModal.classList.add('visible');
+        // Usamos un pequeño retardo para que la transición sea más suave
+        setTimeout(() => {
+            loginPromptModal.classList.add('visible');
+        }, 50); 
     }
 }
 
@@ -55,6 +64,23 @@ function closeImagePreview() {
     }
 }
 
+// --- INICIO DE LA CORRECCIÓN ---
+// --- Hacemos "exportable" esta función ---
+export function closeProductDetailModal() {
+    if (productDetailModal) {
+        productDetailModal.classList.remove('visible');
+        // Opcional: Limpiar el contenido después de cerrar para aligerar el DOM
+        const modalContent = document.getElementById('product-detail-content');
+        if (modalContent) {
+            setTimeout(() => {
+                modalContent.innerHTML = '';
+            }, 300); // Espera a que la animación de salida termine
+        }
+    }
+}
+// --- FIN DE LA CORRECCIÓN ---
+
+
 // --- MODIFICADA: Función ÚNICA para inicializar TODOS los modales ---
 export function initializeModals() {
     
@@ -80,12 +106,9 @@ export function initializeModals() {
     // Listener para abrir, cerrar y NAVEGAR en el modal de imagen
     document.body.addEventListener('click', (event) => {
         
-        // --- ¡¡ARREGLO AÑADIDO!! ---
-        // Si el clic fue en un dot, ignora el resto de la función.
         if (event.target.classList.contains('product-slider-dot')) {
             return;
         }
-        // --- FIN DEL ARREGLO ---
 
         const imageTrigger = event.target.closest('.product-image-preview-trigger');
         
@@ -93,24 +116,20 @@ export function initializeModals() {
         if (imageTrigger) {
             event.preventDefault();
             
-            // 1. Encontrar la tarjeta padre
             const card = event.target.closest('.product-card');
             if (!card) return;
 
-            // 2. Obtener TODAS las imágenes de ese slider
             const imagesInSlider = Array.from(card.querySelectorAll('.product-image-slider-track img'));
             const imageUrls = imagesInSlider.map(img => img.src);
 
-            if (imageUrls.length === 0) return; // No hacer nada si no hay imágenes
+            if (imageUrls.length === 0) return; 
 
-            // 3. Encontrar el índice ACTIVO
             const activeDot = card.querySelector('.product-slider-dot.active');
             let activeIndex = 0;
             if (activeDot) {
                 activeIndex = parseInt(activeDot.dataset.slideIndex, 10) || 0;
             }
 
-            // 4. Abrir el modal con la galería y el índice correcto
             openImagePreview(imageUrls, activeIndex);
         }
 
@@ -125,6 +144,13 @@ export function initializeModals() {
         // Cerrar modal de imagen (al hacer clic en fondo o 'X')
         if (event.target === imagePreviewModal || event.target.closest('#image-preview-modal .close-btn')) {
             closeImagePreview();
+        }
+    });
+
+    // Listener para cerrar el modal de DETALLES DE PRODUCTO
+    document.body.addEventListener('click', (event) => {
+        if (event.target === productDetailModal || event.target.closest('#product-detail-modal .close-modal-btn')) {
+            closeProductDetailModal();
         }
     });
 }

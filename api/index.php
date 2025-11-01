@@ -7834,7 +7834,7 @@ function handleProductsRequest(PDO $pdo) {
 
     // --- Campos a seleccionar (SIN p.url_imagen) ---
     // p.url_imagen se ha quitado de esta lista
-    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.departamento, p.precio_venta,
+    $select_fields = "p.id_producto, p.codigo_producto, p.nombre_producto, p.slug, p.descripcion, p.departamento, p.precio_venta,
     p.oferta_exclusiva, p.oferta_caducidad, p.oferta_tipo_cliente_id,
     CASE
     WHEN p.oferta_caducidad IS NOT NULL AND p.oferta_caducidad < NOW() THEN 0 -- Oferta caducada

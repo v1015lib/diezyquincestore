@@ -1,5 +1,9 @@
-// scss/_modal.scss
+// scss/_modal.scss - ARCHIVO COMPLETO CON TODOS LOS MODALES
 @import 'vars';
+
+/* ==============================================
+   ESTILOS BASE PARA TODOS LOS MODALES
+   ============================================== */
 
 .modal-overlay {
     position: fixed;
@@ -8,7 +12,8 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.6);
-    z-index: 2999;
+    // 1. CORRECCIÓN: Bajamos la base para que no haya conflictos
+    z-index: 2900; // Base para modales normales 
     display: flex;
     align-items: center;
     justify-content: center;
@@ -24,13 +29,43 @@
         opacity: 1;
         visibility: visible;
     }
+
     &>*{
         @media screen and (max-width: 425px) and (min-width: 320px) {
-
             font-size: $font-mobile;
             font-weight: bold;
-
         } 
+    }
+
+    // Optimización para móviles
+    @media (max-width: 768px) {
+        align-items: flex-end; // Alinear al fondo (estilo bottom sheet)
+        background-color: rgba(0, 0, 0, 0.75);
+        padding: 0; // Sin padding en móvil
+    }
+}
+
+// Z-INDEX HIERARCHY (JERARQUÍA CORREGIDA)
+#product-detail-modal {
+    z-index: 1000; // Modal de producto (base)
+}
+
+#share-modal {
+    z-index: 3100; // Modal de compartir (sobre producto)
+}
+
+#image-preview-modal {
+    z-index: 3200; // Modal de imagen (sobre compartir)
+}
+
+#login-prompt-modal {
+    z-index: 1; // Modal de login (MÁXIMA PRIORIDAD - por encima de TODO)
+    background-color: rgba(0, 0, 0, 0.85); // Fondo más oscuro para destacar
+    
+    // Asegurar que el contenido también tenga z-index alto
+    .modal-content {
+        position: relative;
+        z-index: 10000;
     }
 }
 
@@ -54,10 +89,8 @@
         margin-bottom: 1rem;
         font-size: 1.5rem;
         @media screen and (max-width: 425px) and (min-width: 320px) {
-
-            font-size: calc($font-mobile + .2rem) ;
+            font-size: calc($font-mobile + .2rem);
             font-weight: bold;
-
         } 
     }
 
@@ -68,11 +101,57 @@
     }
 }
 
+// Estilos específicos para el modal de login (para que destaque más)
+#login-prompt-modal {
+    .modal-content {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        border: 2px solid rgba(212, 160, 23, 0.3);
+        animation: pulse-border 2s ease-in-out infinite;
+
+        h3 {
+            color: #2c3e50;
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        p {
+            color: #555;
+            font-size: 1rem;
+        }
+    }
+
+    &.visible .modal-content {
+        animation: modal-bounce 0.5s ease-out;
+    }
+}
+
+@keyframes modal-bounce {
+    0% {
+        transform: scale(0.7) translateY(-30px);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse-border {
+    0%, 100% {
+        border-color: rgba(212, 160, 23, 0.3);
+    }
+    50% {
+        border-color: rgba(212, 160, 23, 0.6);
+    }
+}
+
 .modal-actions {
     display: flex;
     gap: 1rem;
     justify-content: center;
-
 
     .btn-secondary, .btn-primary {
         padding: 0.75rem 1.5rem;
@@ -83,7 +162,6 @@
         cursor: pointer;
         text-decoration: none;
         transition: all 0.2s ease;
-
     }
 
     .btn-secondary {
@@ -99,33 +177,53 @@
     .btn-primary {
         background-color: $primary-color;
         color: white;
+        box-shadow: 0 2px 8px rgba($primary-color, 0.3);
 
         &:hover {
             background-color: darken($primary-color, 10%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba($primary-color, 0.4);
         }
 
+        &:active {
+            transform: translateY(0);
+        }
+    }
+
+    // Mejora para móviles
+    @media (max-width: 768px) {
+        flex-direction: column;
+        gap: 0.75rem;
+
+        .btn-secondary, .btn-primary {
+            width: 100%;
+            padding: 1rem 1.5rem;
+        }
     }
 }
 
+/* ==============================================
+   MODAL DE COMPARTIR (SHARE MODAL)
+   ============================================== */
 
-
-// public_html/scss/_modal.scss
-// ... (tus estilos de modal existentes)
-
-/* --- ESTILOS PARA EL MODAL DE COMPARTIR --- */
 .share-modal-content {
     max-width: 400px;
     padding: 1.5rem;
     position: relative;
-    .modal-header {
+    
+    // 2. CORRECCIÓN: Aseguramos que el contenido del modal de compartir
+    //    esté por encima de su propio overlay.
+    z-index: 3101;
 
+
+    .modal-header {
         border-bottom: 1px solid #eee;
         padding-bottom: 1rem;
-        margin-bottom: 1rem; // Aumenté el margen inferior para más espacio
+        margin-bottom: 1rem;
+
         button{
             all: unset;
             padding: .5rem;
-
             color: $primary-color;
             position: absolute;
             top: 0;
@@ -133,6 +231,11 @@
             margin: .2rem;
             font-weight: 900;
             border-radius: .5rem;
+            cursor: pointer;
+
+            &:hover {
+                background-color: rgba($primary-color, 0.1);
+            }
         }
     }
 
@@ -147,7 +250,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center; // Centrar el contenido verticalmente
+        justify-content: center;
         gap: 0.5rem;
         padding: 1rem;
         border-radius: 8px;
@@ -156,7 +259,7 @@
         background-color: #f8f9fa;
         border: 1px solid #e9ecef;
         transition: all 0.2s ease;
-        font-size: 0.9rem; // Aumenté un poco el tamaño de la fuente
+        font-size: 0.9rem;
         font-weight: 500;
         cursor: pointer;
 
@@ -164,14 +267,14 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            margin-bottom: 0.2rem; // Un poco de espacio entre la imagen y el texto
+            margin-bottom: 0.2rem;
         }
 
         svg {
             width: 30px;
             height: 30px;
             margin-bottom: 0.2rem;
-            fill: currentColor; // Permite que el color se herede del color del texto
+            fill: currentColor;
         }
 
         &:hover {
@@ -181,7 +284,7 @@
         }
 
         &.copy-link svg {
-            fill: #D4A017; // Color específico para el ícono de copiar
+            fill: #D4A017;
         }
 
         &.whatsapp {
@@ -219,11 +322,10 @@
     }
 }
 
+/* ==============================================
+   MODAL DE PREVISUALIZACIÓN DE IMAGEN
+   ============================================== */
 
-
-// EN: public_html/scss/_modal.scss
-
-/* --- ESTILOS PARA EL MODAL DE PREVISUALIZACIÓN DE IMAGEN --- */
 #image-preview-modal {
     display: flex;
     align-items: center;
@@ -240,7 +342,10 @@
         position: relative;
         box-shadow: 0 5px 20px rgba(0,0,0,0.4);
         border-radius: 8px;
-        overflow: hidden; // Importante para los bordes redondeados de la imagen
+        overflow: hidden;
+        // 3. CORRECCIÓN: Aseguramos que el contenido del preview
+        //    esté por encima de su propio overlay.
+        z-index: 3201;
     }
     
     #image-preview-display {
@@ -275,13 +380,8 @@
         }
     }
 }
-// AÑADE ESTO al final de public_html/scss/_modal.scss
 
-/* Estilos para la navegación de la galería en el modal */
-.modal-content {
-    position: relative; // Necesario para posicionar los botones
-}
-
+/* Navegación de galería en el modal de imagen */
 .modal-image-nav {
     position: absolute;
     top: 50%;
@@ -295,8 +395,8 @@
     border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    z-index: 100; // Asegura que esté sobre la imagen
-    display: none; // Ocultos por defecto
+    z-index: 100;
+    display: none;
 
     &:hover {
         background-color: rgba(0, 0, 0, 0.7);
@@ -309,4 +409,671 @@
     &.next {
         right: 10px;
     }
+}
+
+/* ==============================================
+   MODAL DE DETALLES DEL PRODUCTO (MEJORADO)
+   ============================================== */
+
+.product-detail-dialog {
+    max-width: 1000px;
+    width: 92%;
+    max-height: 92vh;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    position: relative;
+    transform: scale(0.95);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    
+    // 4. CORRECCIÓN: Le damos al contenido del modal de producto
+    //    un z-index explícito para que esté sobre su overlay.
+    z-index: 3000;
+
+
+    .visible & {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    .close-modal-btn {
+        position: absolute;
+        top:.5rem;
+        right:.5rem;
+        z-index: 20;
+        font-size: 1.5rem;
+        line-height: 1;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(8px);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 1.5rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 300;
+        
+        &:hover {
+            background: rgba(0, 0, 0, 0.8);
+            transform: rotate(90deg);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        &:active {
+            transform: rotate(90deg) scale(0.95);
+        }
+    }
+
+    // Optimización para móviles
+    @media (max-width: 768px) {
+        width: 100%;
+        max-width: 100%;
+        max-height: 95vh;
+        border-radius: 12px 12px 0 0;
+        margin-top: auto; // Empujar hacia abajo
+        
+        .close-modal-btn {
+            top: 8px;
+            right: 8px;
+            width: 40px;
+            height: 40px;
+            font-size: 26px;
+            background: rgba(0, 0, 0, 0.6);
+            
+            &:active {
+                transform: scale(0.9);
+                background: rgba(0, 0, 0, 0.8);
+            }
+        }
+    }
+}
+
+.product-detail-modal-layout {
+    display: flex;
+    flex-direction: row;
+    min-height: 500px;
+    background: #fff;
+    overflow-y: auto;
+    max-height: 92vh;
+
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+
+        &:hover {
+            background: #a1a1a1;
+        }
+    }
+
+    .product-modal-image-col {
+        flex: 0 0 55%;
+        position: relative;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+
+        .product-image-slider-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-image-slider-track {
+            display: flex;
+            width: 100%;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+            img {
+                width: 100%;
+                height: 100%;
+                min-height: 450px;
+                object-fit: contain;
+                flex-shrink: 0;
+                padding: 2rem;
+            }
+        }
+
+        .product-slider-dots {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            z-index: 10;
+
+            .product-slider-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.5);
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+
+                &:hover {
+                    background: rgba(255, 255, 255, 0.8);
+                    transform: scale(1.2);
+                }
+
+                &.active {
+                    background: #fff;
+                    width: 24px;
+                    border-radius: 4px;
+                }
+            }
+        }
+
+        .out-of-stock-badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #ff4757 0%, #e84118 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+        }
+    }
+
+    .product-modal-info-col {
+        flex: 0 0 45%;
+        padding: 2.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        position: relative;
+        background: #fff;
+
+        .product-modal-actions {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+
+            .favorite-btn,
+            .share-btn {
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+                border: 2px solid #e9ecef;
+                background: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-size: 18px;
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    border-color: #D4A017;
+                }
+
+                svg {
+                    width: 20px;
+                    height: 20px;
+                }
+            }
+
+            .favorite-btn {
+                color: #ff4757;
+
+                &.is-favorite {
+                    background: linear-gradient(135deg, #ff4757 0%, #e84118 100%);
+                    color: white;
+                    border-color: #ff4757;
+                }
+            }
+
+            .share-btn {
+                color: #666;
+
+                &:hover {
+                    color: #D4A017;
+                }
+            }
+        }
+
+        h3 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin: 0 60px 0 0;
+            color: #2c3e50;
+        }
+
+        .department {
+            font-size: 0.95rem;
+            color: #7f8c8d;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: -0.5rem 0 0 0;
+        }
+
+        .price-container {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 1.2rem 0;
+            border-top: 2px solid #f1f3f5;
+            border-bottom: 2px solid #f1f3f5;
+
+            .price,
+            .price-offer {
+                font-size: 2.4rem;
+                font-weight: 800;
+                color: #27ae60;
+                margin: 0;
+                line-height: 1;
+            }
+
+            .price-offer {
+                color: #e74c3c;
+            }
+
+            .price-older {
+                font-size: 1.4rem;
+                color: #95a5a6;
+                text-decoration: line-through;
+                font-weight: 500;
+                margin: 0;
+            }
+
+            .code {
+                font-size: 0.9rem;
+                color: #95a5a6;
+                font-family: 'Courier New', monospace;
+                background: #f8f9fa;
+                padding: 4px 12px;
+                border-radius: 6px;
+                margin: 0;
+                flex-basis: 100%;
+            }
+
+            .login-prompt-message {
+                font-size: 1rem;
+                color: #e74c3c;
+                font-weight: 600;
+                background: #ffe5e5;
+                padding: 12px 16px;
+                border-radius: 8px;
+                border-left: 4px solid #e74c3c;
+                margin: 0;
+                width: 100%;
+            }
+        }
+
+        .description-container {
+            flex: 1;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #555;
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 8px;
+
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            &::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+
+            &::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
+
+                &:hover {
+                    background: #a1a1a1;
+                }
+            }
+
+            p {
+                margin: 0;
+            }
+        }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            max-width: 180px;
+            align-self: center;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 8px;
+            border: 2px solid #e9ecef;
+            margin-top: auto;
+
+            &.disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .quantity-btn {
+                width: 40px;
+                height: 40px;
+                border: none;
+                background: #fff;
+                color: #2c3e50;
+                font-size: 1.4rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                &:hover:not(:disabled) {
+                    background: #D4A017;
+                    color: #fff;
+                    transform: scale(1.1);
+                }
+
+                &:active:not(:disabled) {
+                    transform: scale(0.95);
+                }
+
+                &:disabled {
+                    cursor: not-allowed;
+                    opacity: 0.3;
+                }
+            }
+
+            .quantity-input {
+                width: 60px;
+                height: 40px;
+                text-align: center;
+                border: none;
+                background: transparent;
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: #2c3e50;
+                -moz-appearance: textfield;
+
+                &::-webkit-outer-spin-button,
+                &::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+
+                &:focus {
+                    outline: none;
+                }
+
+                &:disabled {
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        min-height: auto;
+        max-height: 95vh;
+        border-radius: 12px 12px 0 0; // Solo redondear arriba
+
+        .product-modal-image-col {
+            flex: none;
+            min-height: 300px;
+            max-height: 45vh; // Limitar altura de imagen
+            background: #fff; // Fondo blanco en móvil
+
+            .product-image-slider-container {
+                height: 100%;
+            }
+
+            .product-image-slider-track {
+                height: 100%;
+
+                img {
+                    min-height: 300px;
+                    max-height: 45vh;
+                    padding: 1rem;
+                    object-fit: contain;
+                }
+            }
+
+            .product-slider-dots {
+                bottom: 12px;
+                padding: 6px 12px;
+                
+                .product-slider-dot {
+                    width: 6px;
+                    height: 6px;
+
+                    &.active {
+                        width: 18px;
+                    }
+                }
+            }
+
+            .out-of-stock-badge {
+                top: 12px;
+                left: 12px;
+                padding: 6px 14px;
+                font-size: 0.8rem;
+            }
+        }
+
+        .product-modal-info-col {
+            flex: none;
+            padding: 1.25rem;
+            gap: 1rem;
+            max-height: 50vh; // Limitar altura de info
+            overflow-y: auto; // Hacer scroll solo en la info
+
+            // Scrollbar suave
+            &::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            &::-webkit-scrollbar-thumb {
+                background: #d1d1d1;
+                border-radius: 2px;
+            }
+
+            .product-modal-actions {
+                top: 1rem;
+                right: 1rem;
+                gap: 8px;
+
+                .favorite-btn,
+                .share-btn {
+                    width: 36px;
+                    height: 36px;
+                    font-size: 16px;
+                    border-width: 1.5px;
+
+                    svg {
+                        width: 16px;
+                        height: 16px;
+                    }
+                }
+            }
+
+            h3 {
+                font-size: 1.4rem;
+                margin-right: 45px;
+                line-height: 1.3;
+            }
+
+            .department {
+                font-size: 0.85rem;
+                margin-top: -0.5rem;
+            }
+
+            .price-container {
+                padding: 0.8rem 0;
+                gap: 8px;
+                border-top: 1.5px solid #f1f3f5;
+                border-bottom: 1.5px solid #f1f3f5;
+
+                .price,
+                .price-offer {
+                    font-size: 1.8rem;
+                }
+
+                .price-older {
+                    font-size: 1.1rem;
+                }
+
+                .code {
+                    font-size: 0.8rem;
+                    padding: 3px 10px;
+                    margin-top: 0.5rem;
+                }
+
+                .login-prompt-message {
+                    font-size: 0.9rem;
+                    padding: 10px 14px;
+                }
+            }
+
+            .description-container {
+                max-height: 100px; // Reducir altura máxima
+                font-size: 0.9rem;
+                line-height: 1.6;
+                padding-right: 4px;
+
+                &::-webkit-scrollbar {
+                    width: 4px;
+                }
+            }
+
+            .quantity-selector {
+                max-width: 160px;
+                padding: 6px;
+                border-radius: 10px;
+                margin-top: 0.5rem;
+                margin-bottom: 0.5rem; // Espacio al final
+
+                .quantity-btn {
+                    width: 36px;
+                    height: 36px;
+                    font-size: 1.2rem;
+                    border-radius: 6px;
+                }
+
+                .quantity-input {
+                    width: 50px;
+                    height: 36px;
+                    font-size: 1.1rem;
+                }
+            }
+        }
+    }
+
+    // Para pantallas muy pequeñas
+    @media (max-width: 400px) {
+        .product-modal-info-col {
+            padding: 1rem;
+
+            h3 {
+                font-size: 1.25rem;
+            }
+
+            .price-container {
+                .price,
+                .price-offer {
+                    font-size: 1.6rem;
+                }
+
+                .price-older {
+                    font-size: 1rem;
+                }
+            }
+
+            .description-container {
+                max-height: 80px;
+                font-size: 0.85rem;
+            }
+        }
+    }
+}
+
+/* ==============================================
+   SKELETON LOADER
+   ============================================== */
+
+.skeleton-pulse {
+    background: linear-gradient(
+        90deg,
+        #e9ecef 0%,
+        #f8f9fa 50%,
+        #e9ecef 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.8s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+/* ... (casi al final del archivo) ... */
+
+/* ==============================================
+   MODAL DE DETALLES DEL PRODUCTO (MEJORADO)
+   ============================================== */
+
+.product-detail-dialog {
+    max-width: 1000px;
+    width: 92%;
+    /* ... (otros estilos) ... */
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    
+    // 4. CORRECCIÓN: Le damos al contenido del modal de producto
+    //    un z-index explícito para que esté sobre su overlay.
+    z-index: 3001; // <--- CAMBIA 3000 POR 3001 (o un número mayor que 3000)
+
+
+    .visible & {
+        transform: scale(1);
+        opacity: 1;
+    }
+/* ... (resto de la clase) ... */
 }
